@@ -11,6 +11,7 @@ import { IdentityCoreManager } from '../identity/identity-core.js';
 import { ExtractionPipeline } from '../extraction/pipeline.js';
 import { Extractor } from '../extraction/extractor.js';
 import { SleepJob } from '../sleep/sleep-job.js';
+import { ReviewQueue } from '../review/review-queue.js';
 import { uuid, nowUtc } from '../types/common.js';
 
 export class MemoryService {
@@ -23,6 +24,7 @@ export class MemoryService {
   private identityCore: IdentityCoreManager;
   private extractionPipeline: ExtractionPipeline;
   private sleepJob: SleepJob;
+  private reviewQueue: ReviewQueue;
 
   constructor(config: StorageConfig) {
     this.storage = new Storage(config);
@@ -36,6 +38,7 @@ export class MemoryService {
       this.storage, this.ingest, this.gate, this.resolver, this.profileCompiler
     );
     this.sleepJob = new SleepJob(this.storage, this.profileCompiler);
+    this.reviewQueue = new ReviewQueue(this.storage);
 
     // Seed slot registry with common slots (synchronous)
     this.seedSlots();
@@ -230,6 +233,15 @@ export class MemoryService {
 
   getSleepJobStatus() {
     return this.sleepJob.isRunning();
+  }
+
+  // Review queue
+  reviewQueueList(limit?: number, offset?: number, itemType?: string) {
+    return this.reviewQueue.list(limit, offset, itemType);
+  }
+
+  async resolveReviewItem(itemId: string, decision: string, chosenMemoryId?: string, editedValueText?: string) {
+    return this.reviewQueue.resolve(itemId, decision, chosenMemoryId, editedValueText);
   }
 
   // Storage access for tests

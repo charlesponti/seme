@@ -118,6 +118,24 @@ app.get('/health-metrics', (c) => {
   return c.json({ counts_by_status: countsByStatus, quarantine_count: quarantine, total_memories: total });
 });
 
+// Review queue
+app.get('/review-queue', (c) => {
+  const limit = parseInt(c.req.query('limit') || '50');
+  const offset = parseInt(c.req.query('offset') || '0');
+  const itemType = c.req.query('item_type') || undefined;
+  return c.json(service.reviewQueueList(limit, offset, itemType));
+});
+
+app.post('/review-queue/:itemId/resolve', async (c) => {
+  const itemId = c.req.param('itemId');
+  const body = await c.req.json();
+  try {
+    const result = service.resolveReviewItem(itemId, body.decision, body.chosen_memory_id, body.edited_value_text);
+    return c.json(result);
+  } catch (e: any) {
+    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'resolve_review_item' } }, 400);
+  }
+});
 // Identity core
 app.get('/identity', (c) => {
   const result = service.getIdentityCore();
