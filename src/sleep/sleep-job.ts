@@ -5,6 +5,7 @@ import { ProfileCompiler } from '../profile/profile-compiler.js';
 import { uuid, nowUtc } from '../types/common.js';
 import { effectiveConfidence } from '../confidence/confidence.js';
 import * as fs from 'node:fs';
+import { GraphStore } from '../graph/graph-store.js';
 
 export interface SleepJobResult {
   job_id: string;
@@ -16,12 +17,14 @@ export interface SleepJobResult {
 export class SleepJob {
   private storage: Storage;
   private profileCompiler: ProfileCompiler;
+  private graphStore: GraphStore;
   private running: boolean = false;
   private logPath: string | null = null;
 
-  constructor(storage: Storage, profileCompiler: ProfileCompiler, logPath?: string) {
+  constructor(storage: Storage, profileCompiler: ProfileCompiler, logPath?: string, graphStore?: GraphStore) {
     this.storage = storage;
     this.profileCompiler = profileCompiler;
+    this.graphStore = graphStore || new GraphStore(storage);
     this.logPath = logPath || null;
   }
 
@@ -81,6 +84,24 @@ export class SleepJob {
       const profileStart = Date.now();
       steps['profile_recompile'] = await this.recompileProfile();
       this.logStep({ event: 'step_complete', step: 'profile_recompile', duration_ms: Date.now() - profileStart, result: steps['profile_recompile'] });
+
+      // Step 5: Graph dedup sweep — merge entities with same canonical name + type
+      this.logStep({ event: 'step_start', step: 'graph_dedup', detail: 'Starting graph dedup sweep...' });
+      const graphDedupStart = Date.now();
+      steps['graph_dedup'] = await this.graphDedupSweep();
+      this.logStep({ event: 'step_complete', step: 'graph_dedup', duration_ms: Date.now() - graphDedupStart, result: steps['graph_dedup'] });
+
+      // Step 6: Graph contradiction sweep — flag conflicting relationships
+      this.logStep({ event: 'step_start', step: 'graph_contradiction', detail: 'Starting graph contradiction sweep...' });
+      const graphContraStart = Date.now();
+      steps['graph_contradiction'] = await this.graphContradictionSweep();
+      this.logStep({ event: 'step_complete', step: 'graph_contradiction', duration_ms: Date.now() - graphContraStart, result: steps['graph_contradiction'] });
+
+      // Step 7: Graph decay sweep — decay entities/relationships, archive low-confidence
+      this.logStep({ event: 'step_start', step: 'graph_decay', detail: 'Starting graph decay sweep...' });
+      const graphDecayStart = Date.now();
+      steps['graph_decay'] = await this.graphDecaySweep();
+      this.logStep({ event: 'step_complete', step: 'graph_decay', duration_ms: Date.now() - graphDecayStart, result: steps['graph_decay'] });
 
       // Step 8: Health metrics
       const metrics = this.computeHealthMetrics();
@@ -369,6 +390,263 @@ export class SleepJob {
       session: 1,
     };
     return halfLives[decayClass] ?? 30;
+  }
+
+  private async graphDedupSweep(): Promise<{ status: string; detail: string }> {
+    let merged = 0;
+    const now = nowUtc();
+
+    // Merge entities with same canonical name + type
+    const duplicates = this.storage.read((db: any) => {
+      return db.prepare(`
+        SELECT name, type, COUNT(*) as cnt
+        FROM entities
+        GROUP BY LOWER(name), type
+        HAVING COUNT(*) > 1
+      `).all() as any[];
+    });
+
+    for (const dup of duplicates) {
+      const group = this.storage.read((db: any) => {
+        return db.prepare(`
+          SELECT * FROM entities WHERE LOWER(name) = LOWER(?) AND type = ?
+          ORDER BY mention_count DESC, confidence DESC
+        `).all(dup.name, dup.type) as any[];
+      });
+
+      if (group.length < 2) continue;
+
+      // Keep the first (highest mention_count), merge the rest
+      const survivor = group[0];
+      for (let i = 1; i < group.length; i++) {
+        const candidate = group[i];
+        await this.storage.write((db: any) => {
+          // Merge aliases
+          const existingAliases = survivor.aliases ? JSON.parse(survivor.aliases) : [];
+          const candidateAliases = candidate.aliases ? JSON.parse(candidate.aliases) : [];
+          const mergedAliases = [...new Set([...existingAliases, ...candidateAliases])];
+
+          // Update survivor
+          db.prepare(`
+            UPDATE entities SET
+              aliases = ?,
+              mention_count = mention_count + ?,
+              confidence = MAX(confidence, ?),
+              last_seen_at = ?
+            WHERE id = ?
+          `).run(JSON.stringify(mergedAliases), candidate.mention_count, candidate.confidence, now, survivor.id);
+
+          // Update entity_memory_links to point to survivor
+          db.prepare('UPDATE entity_memory_links SET entity_id = ? WHERE entity_id = ?').run(survivor.id, candidate.id);
+          // Update entity_turn_links to point to survivor
+          db.prepare('UPDATE entity_turn_links SET entity_id = ? WHERE entity_id = ?').run(survivor.id, candidate.id);
+
+          // Merge relationships: update source_id/target_id references
+          db.prepare('UPDATE relationships SET source_id = ? WHERE source_id = ?').run(survivor.id, candidate.id);
+          db.prepare('UPDATE relationships SET target_id = ? WHERE target_id = ?').run(survivor.id, candidate.id);
+
+          // Delete candidate entity
+          db.prepare('DELETE FROM entities WHERE id = ?').run(candidate.id);
+
+          // Log
+          db.prepare(`
+            INSERT INTO healing_log (id, ts, job, action, memory_ids, before_json, after_json, rationale, reversible)
+            VALUES (?, ?, ?, 'merge', ?, ?, ?, ?, 1)
+          `).run(
+            uuid(), now, 'sleep_job',
+            JSON.stringify([survivor.id, candidate.id]),
+            JSON.stringify({ id: candidate.id, status: 'active' }),
+            JSON.stringify({ id: candidate.id, status: 'merged' }),
+            'Graph dedup: merged entity into survivor'
+          );
+        });
+        merged++;
+      }
+    }
+
+    // Merge relationships with same source+target+type
+    const relDuplicates = this.storage.read((db: any) => {
+      return db.prepare(`
+        SELECT source_id, target_id, relation_type, COUNT(*) as cnt
+        FROM relationships
+        GROUP BY source_id, target_id, relation_type
+        HAVING COUNT(*) > 1
+      `).all() as any[];
+    });
+
+    for (const dup of relDuplicates) {
+      const group = this.storage.read((db: any) => {
+        return db.prepare(`
+          SELECT * FROM relationships WHERE source_id = ? AND target_id = ? AND relation_type = ?
+          ORDER BY mention_count DESC, confidence DESC
+        `).all(dup.source_id, dup.target_id, dup.relation_type) as any[];
+      });
+
+      if (group.length < 2) continue;
+      const survivor = group[0];
+      for (let i = 1; i < group.length; i++) {
+        const candidate = group[i];
+        await this.storage.write((db: any) => {
+          db.prepare(`
+            UPDATE relationships SET
+              mention_count = mention_count + ?,
+              weight = 1.0 - (1.0 / (mention_count + ?)),
+              confidence = MAX(confidence, ?),
+              last_seen_at = ?
+            WHERE id = ?
+          `).run(candidate.mention_count, candidate.mention_count, candidate.confidence, now, survivor.id);
+
+          db.prepare('DELETE FROM relationships WHERE id = ?').run(candidate.id);
+
+          db.prepare(`
+            INSERT INTO healing_log (id, ts, job, action, memory_ids, before_json, after_json, rationale, reversible)
+            VALUES (?, ?, ?, 'merge', ?, ?, ?, ?, 1)
+          `).run(
+            uuid(), now, 'sleep_job',
+            JSON.stringify([survivor.id, candidate.id]),
+            JSON.stringify({ id: candidate.id, status: 'active' }),
+            JSON.stringify({ id: candidate.id, status: 'merged' }),
+            'Graph dedup: merged relationship into survivor'
+          );
+        });
+        merged++;
+      }
+    }
+
+    return { status: 'done', detail: `Merged ${merged} graph duplicates` };
+  }
+
+  private async graphContradictionSweep(): Promise<{ status: string; detail: string }> {
+    let flagged = 0;
+    const now = nowUtc();
+
+    // Find entities with conflicting relationships (same relation_type to different targets)
+    const conflicts = this.storage.read((db: any) => {
+      return db.prepare(`
+        SELECT source_id, relation_type, COUNT(DISTINCT target_id) as target_count
+        FROM relationships
+        WHERE valid_to IS NULL
+        GROUP BY source_id, relation_type
+        HAVING COUNT(DISTINCT target_id) > 1
+      `).all() as any[];
+    });
+
+    for (const conflict of conflicts) {
+      // Only flag single-valued relationship types (lives_in, works_at, etc.)
+      const singleValuedTypes = ['lives_in', 'works_at', 'married_to', 'located_in'];
+      if (!singleValuedTypes.includes(conflict.relation_type)) continue;
+
+      const memories = this.storage.read((db: any) => {
+        return db.prepare(`
+          SELECT r.*, e.name as entity_name
+          FROM relationships r
+          JOIN entities e ON e.id = r.source_id
+          WHERE r.source_id = ? AND r.relation_type = ? AND r.valid_to IS NULL
+          ORDER BY r.last_seen_at DESC
+        `).all(conflict.source_id, conflict.relation_type) as any[];
+      });
+
+      await this.storage.write((db: any) => {
+        db.prepare(`
+          INSERT INTO review_items (id, kind, payload_json, memory_ids, status, created_at)
+          VALUES (?, 'contradiction', ?, ?, 'pending', ?)
+        `).run(
+          uuid(),
+          JSON.stringify({ entity_id: conflict.source_id, relation_type: conflict.relation_type, target_count: conflict.target_count }),
+          JSON.stringify(memories.map((m: any) => m.id)),
+          now
+        );
+      });
+      flagged++;
+    }
+
+    // Find entities with conflicting types
+    const typeConflicts = this.storage.read((db: any) => {
+      return db.prepare(`
+        SELECT name, COUNT(DISTINCT type) as type_count
+        FROM entities
+        GROUP BY LOWER(name)
+        HAVING COUNT(DISTINCT type) > 1
+      `).all() as any[];
+    });
+
+    for (const conflict of typeConflicts) {
+      await this.storage.write((db: any) => {
+        db.prepare(`
+          INSERT INTO review_items (id, kind, payload_json, memory_ids, status, created_at)
+          VALUES (?, 'contradiction', ?, '[]', 'pending', ?)
+        `).run(
+          uuid(),
+          JSON.stringify({ entity_name: conflict.name, type_count: conflict.type_count }),
+          now
+        );
+      });
+      flagged++;
+    }
+
+    return { status: 'done', detail: `Flagged ${flagged} graph contradictions` };
+  }
+
+  private async graphDecaySweep(): Promise<{ status: string; detail: string }> {
+    let archived = 0;
+    const now = nowUtc();
+    const nowDate = new Date(now);
+
+    // Decay entities: reduce confidence for entities not mentioned recently
+    const entities = this.storage.read((db: any) => {
+      return db.prepare('SELECT * FROM entities WHERE pinned = 0').all() as any[];
+    });
+
+    for (const entity of entities) {
+      const anchor = entity.last_seen_at;
+      const anchorTime = new Date(anchor).getTime();
+      const elapsedMs = Math.max(0, nowDate.getTime() - anchorTime);
+      const elapsedDays = elapsedMs / (1000 * 60 * 60 * 24);
+
+      // Entity decay: 90-day half-life
+      const decayFactor = Math.pow(0.5, elapsedDays / 90);
+      const effConf = entity.confidence * decayFactor;
+
+      // Archive if confidence < 0.3 and mention_count < 2
+      if (effConf < 0.3 && entity.mention_count < 2) {
+        await this.storage.write((db: any) => {
+          // Delete links first
+          db.prepare('DELETE FROM entity_memory_links WHERE entity_id = ?').run(entity.id);
+          db.prepare('DELETE FROM entity_turn_links WHERE entity_id = ?').run(entity.id);
+          // Delete relationships involving this entity
+          db.prepare('DELETE FROM relationships WHERE source_id = ? OR target_id = ?').run(entity.id, entity.id);
+          // Delete entity
+          db.prepare('DELETE FROM entities WHERE id = ?').run(entity.id);
+        });
+        archived++;
+      }
+    }
+
+    // Decay relationships: reduce weight for relationships not mentioned recently
+    const relationships = this.storage.read((db: any) => {
+      return db.prepare('SELECT * FROM relationships').all() as any[];
+    });
+
+    for (const rel of relationships) {
+      const anchor = rel.last_seen_at;
+      const anchorTime = new Date(anchor).getTime();
+      const elapsedMs = Math.max(0, nowDate.getTime() - anchorTime);
+      const elapsedDays = elapsedMs / (1000 * 60 * 60 * 24);
+
+      // Relationship decay: 60-day half-life
+      const decayFactor = Math.pow(0.5, elapsedDays / 60);
+      const effConf = rel.confidence * decayFactor;
+
+      // Archive if confidence < 0.2
+      if (effConf < 0.2) {
+        await this.storage.write((db: any) => {
+          db.prepare('DELETE FROM relationships WHERE id = ?').run(rel.id);
+        });
+        archived++;
+      }
+    }
+
+    return { status: 'done', detail: `Archived ${archived} graph entities/relationships` };
   }
 
   isRunning(): boolean {
