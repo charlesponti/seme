@@ -49,10 +49,10 @@ export class Extractor {
   private apiKey: string;
   private version: string;
 
-  constructor(storage: Storage, model: string = 'google/gemini-3.8-flash', apiKey?: string) {
+  constructor(storage: Storage, model?: string, apiKey?: string) {
     this.storage = storage;
-    this.model = model;
-    this.version = `extractor-${model}-v1`;
+    this.model = model || process.env.SEME_EXTRACTOR_MODEL || 'anthropic/claude-haiku-5.5';
+    this.version = `extractor-${this.model}-v1`;
     this.apiKey = apiKey || this.loadApiKey();
   }
 
@@ -116,7 +116,7 @@ export class Extractor {
 
 RULES:
 1. User utterances only. source_turn_id must cite a turn with role = user.
-2. Assistant suggestions are not user preferences. If the assistant proposed something and the user didn't adopt it, don't emit a candidate. If the user explicitly adopted it, cite the user's adoption turn.
+2. CRITICAL — Assistant suggestions are NOT user preferences. If the assistant proposed a preference, value, plan, or tool, and the user did NOT explicitly adopt it (e.g., "yes", "let's do that", "I'll try it", "that one"), you MUST NOT emit a memory candidate for it. The user saying "Interesting, tell me more" or "Sounds good" or asking questions does NOT count as adoption. Only an explicit, unambiguous adoption statement counts. If the user never adopted it, emit ZERO candidates for that suggestion. Do NOT extract the assistant's suggestion as if the user stated it.
 3. Atomicity: one candidate = one claim. Three preferences = three candidates.
 4. Evidence is verbatim: evidence_quote must be copied character-for-character from the cited turn's content.
 5. Every candidate cites this episode: source_episode_id = the input episode_id.
