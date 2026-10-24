@@ -136,6 +136,34 @@ app.post('/review-queue/:itemId/resolve', async (c) => {
     return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'resolve_review_item' } }, 400);
   }
 });
+// Export data
+app.get('/export', async (c) => {
+  try {
+    const result = await service.exportData();
+    return c.json(result);
+  } catch (e: any) {
+    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'export_data' } }, 400);
+  }
+});
+
+// Pause learning
+app.post('/learning/pause', async (c) => {
+  const result = await service.pauseLearning();
+  return c.json(result);
+});
+
+// Resume learning
+app.post('/learning/resume', async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const result = await service.resumeLearning(body.process_paused_episodes);
+  return c.json(result);
+});
+
+// Learning state
+app.get('/learning/state', (c) => {
+  return c.json({ learning_state: service.getLearningState() });
+});
+
 // Identity core
 app.get('/identity', (c) => {
   const result = service.getIdentityCore();

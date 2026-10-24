@@ -12,6 +12,7 @@ import { ExtractionPipeline } from '../extraction/pipeline.js';
 import { Extractor } from '../extraction/extractor.js';
 import { SleepJob } from '../sleep/sleep-job.js';
 import { ReviewQueue } from '../review/review-queue.js';
+import { DeletionManager } from '../deletion/deletion.js';
 import { uuid, nowUtc } from '../types/common.js';
 
 export class MemoryService {
@@ -25,6 +26,7 @@ export class MemoryService {
   private extractionPipeline: ExtractionPipeline;
   private sleepJob: SleepJob;
   private reviewQueue: ReviewQueue;
+  private deletionManager: DeletionManager;
 
   constructor(config: StorageConfig) {
     this.storage = new Storage(config);
@@ -39,6 +41,7 @@ export class MemoryService {
     );
     this.sleepJob = new SleepJob(this.storage, this.profileCompiler);
     this.reviewQueue = new ReviewQueue(this.storage);
+    this.deletionManager = new DeletionManager(this.storage, this.profileCompiler);
 
     // Seed slot registry with common slots (synchronous)
     this.seedSlots();
@@ -89,6 +92,9 @@ export class MemoryService {
 
   // 4. remember_command
   async rememberCommand(sessionId: string, content: string, sourceTurnId?: string, kindHint?: string) {
+    if (this.deletionManager.getLearningState() === 'paused') {
+      throw new Error('ERR_PAUSED: Learning is paused');
+    }
     // Find or create a turn for this content
     let turnId = sourceTurnId;
     if (!turnId) {
@@ -130,37 +136,47 @@ export class MemoryService {
     return { memory_id: memoryId, status: 'active' as const, slot: null };
   }
 
-  // 5. forget_command
+  // Deletion & privacy
   async forgetCommand(scope: string, memoryId?: string, slot?: string, topic?: string, episodeId?: string, confirmedIrreversible?: boolean) {
     if (scope === 'memory' && memoryId) {
-      // Cascade delete
-      await this.storage.write((db) => {
-        // Delete from FTS and vec
-        db.prepare('DELETE FROM memories_fts WHERE memory_id = ?').run(memoryId);
-        db.prepare('DELETE FROM memories_vec WHERE memory_id = ?').run(memoryId);
-        // Set to deleted with empty content
-        db.prepare(`
-          UPDATE memories SET status = 'deleted', value_text = '', value_json = NULL, evidence_quote = ''
-          WHERE id = ?
-        `).run(memoryId);
-        // Write healing_log
-        db.prepare(`
-          INSERT INTO healing_log (id, ts, job, action, memory_ids, before_json, after_json, rationale, reversible)
-          VALUES (?, ?, ?, 'delete', ?, ?, NULL, ?, 0)
-        `).run(uuid(), nowUtc(), 'forget_command', JSON.stringify([memoryId]), JSON.stringify({ id: memoryId }), 'User forget request');
-      });
-
-      // Recompile profile
-      await this.profileCompiler.compile('forget_command', [memoryId]);
-
-      return { completed_at: nowUtc(), profile_recompiled: true };
+      return this.deletionManager.forgetMemory(memoryId);
     }
-
+    if (scope === 'slot' && slot) {
+      return this.deletionManager.forgetSlot(slot);
+    }
+    if (scope === 'topic' && topic) {
+      return this.deletionManager.forgetTopic(topic);
+    }
+    if (scope === 'episode' && episodeId) {
+      return this.deletionManager.forgetEpisode(episodeId, confirmedIrreversible || false);
+    }
+    if (scope === 'all') {
+      return this.deletionManager.forgetAll(confirmedIrreversible || false);
+    }
     throw new Error('ERR_VALIDATION: Unsupported scope or missing required field');
+  }
+
+  async exportData() {
+    return this.deletionManager.exportData();
+  }
+
+  getLearningState() {
+    return this.deletionManager.getLearningState();
+  }
+
+  async pauseLearning() {
+    return this.deletionManager.pauseLearning();
+  }
+
+  async resumeLearning(processPausedEpisodes?: boolean) {
+    return this.deletionManager.resumeLearning(processPausedEpisodes);
   }
 
   // 6. boundary_command
   async boundaryCommand(sessionId: string, content: string, sourceTurnId?: string) {
+    if (this.deletionManager.getLearningState() === 'paused') {
+      throw new Error('ERR_PAUSED: Learning is paused');
+    }
     let turnId = sourceTurnId;
     if (!turnId) {
       const result = await this.ingest.recordTurn(sessionId, 'user', content);
