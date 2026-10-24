@@ -1,0 +1,18 @@
+meta {
+  name: Boundary Command
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/memory/boundary
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "session_id": "s1",
+    "content": "Never call me Chuck."
+  }
+}

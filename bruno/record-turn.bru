@@ -1,0 +1,22 @@
+meta {
+  name: Record Turn
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/sessions/{{sessionId}}/turns
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "role": "user",
+    "content": "My name is Charles and I live in London."
+  }
+}
+
+vars:pre-request {
+  sessionId: s1
+}

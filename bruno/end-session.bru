@@ -1,0 +1,21 @@
+meta {
+  name: End Session
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/sessions/{{sessionId}}/end
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "ended_at": "2026-10-24T20:00:00Z"
+  }
+}
+
+vars:pre-request {
+  sessionId: s1
+}

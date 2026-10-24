@@ -1,0 +1,19 @@
+meta {
+  name: Remember Command
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/memory/remember
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "session_id": "s1",
+    "content": "Charles",
+    "kind_hint": "fact"
+  }
+}

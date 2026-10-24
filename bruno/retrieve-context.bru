@@ -1,0 +1,21 @@
+meta {
+  name: Retrieve Context
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/sessions/{{sessionId}}/retrieve
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "user_message": "What is my name?"
+  }
+}
+
+vars:pre-request {
+  sessionId: s1
+}

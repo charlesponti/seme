@@ -4,14 +4,19 @@
   "description": "Self-healing memory system for AI companions. Local-first, single-user, SQLite-backed.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "demo": "node dist/index.js",
+    "dev": "npm run build && npm run start"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@hono/node-server": "^2.1.5",
     "better-sqlite3": "^13.0.3",
+    "hono": "^4.13.13",
     "sqlite-vec": "^0.1.9",
     "uuid": "^14.0.3"
   },
