@@ -289,7 +289,101 @@ tailwind.config = {
 
 <div class="section-divider"></div>
 
-<!-- Evals -->
+<!-- Fuzzy to Structured -->
+<section class="py-24 px-6">
+  <div class="max-w-6xl mx-auto">
+    <div class="text-center mb-16">
+      <h2 class="text-3xl md:text-5xl font-black mb-4">Fuzzy text in. <span class="gradient-text">Structured memory out.</span></h2>
+      <p class="text-gray-400 text-lg max-w-2xl mx-auto">Seme doesn't store messages. It extracts facts, tags modalities, assigns slots, and resolves conflicts — automatically.</p>
+    </div>
+    <div class="grid lg:grid-cols-2 gap-8">
+      <!-- Input -->
+      <div>
+        <div class="text-sm text-gray-500 font-mono mb-3 uppercase tracking-wider">Raw conversation</div>
+        <div class="code-block p-6 space-y-4">
+          <div class="flex gap-3">
+            <div class="w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold shrink-0">U</div>
+            <div class="text-sm text-gray-300 leading-relaxed">"I don't drink alcohol. I used to live in London but moved to Edinburgh last year. My friend John told me he prefers Java. I personally use TypeScript."</div>
+          </div>
+          <div class="flex gap-3">
+            <div class="w-8 h-8 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center text-xs font-bold shrink-0">A</div>
+            <div class="text-sm text-gray-300 leading-relaxed">"Interesting contrast between you and John."</div>
+          </div>
+          <div class="flex gap-3">
+            <div class="w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold shrink-0">U</div>
+            <div class="text-sm text-gray-300 leading-relaxed">"If I won the lottery, I'd buy a mansion in Scotland. Oh yeah, I absolutely LOVE waking up at 5am."</div>
+          </div>
+          <div class="flex gap-3">
+            <div class="w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold shrink-0">U</div>
+            <div class="text-sm text-gray-300 leading-relaxed">"You did an amazing job on that summary!"</div>
+          </div>
+        </div>
+      </div>
+      <!-- Output -->
+      <div>
+        <div class="text-sm text-gray-500 font-mono mb-3 uppercase tracking-wider">Extracted memories</div>
+        <div class="space-y-3">
+          <div class="code-block p-4 border-l-2 border-brand-500">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="px-2 py-0.5 rounded bg-brand-500/20 text-brand-400 text-xs font-mono">fact</span>
+              <span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 text-xs font-mono">negated</span>
+              <span class="px-2 py-0.5 rounded bg-gray-500/20 text-gray-400 text-xs font-mono">slow</span>
+            </div>
+            <div class="text-sm text-white font-medium">"I don't drink alcohol"</div>
+            <div class="text-xs text-gray-500 mt-1">slot: dietary_restriction • confidence: 0.85 • source: user_stated</div>
+          </div>
+          <div class="code-block p-4 border-l-2 border-brand-500">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="px-2 py-0.5 rounded bg-brand-500/20 text-brand-400 text-xs font-mono">fact</span>
+              <span class="px-2 py-0.5 rounded bg-gray-500/20 text-gray-400 text-xs font-mono">stated</span>
+              <span class="px-2 py-0.5 rounded bg-gray-500/20 text-gray-400 text-xs font-mono">slow</span>
+            </div>
+            <div class="text-sm text-white font-medium">"User moved to Edinburgh (previously London)"</div>
+            <div class="text-xs text-gray-500 mt-1">slot: home_city • confidence: 0.85 • source: user_stated • superseded London</div>
+          </div>
+          <div class="code-block p-4 border-l-2 border-yellow-500/50">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400 text-xs font-mono">interest</span>
+              <span class="px-2 py-0.5 rounded bg-gray-500/20 text-gray-400 text-xs font-mono">stated</span>
+              <span class="px-2 py-0.5 rounded bg-gray-500/20 text-gray-400 text-xs font-mono">medium</span>
+            </div>
+            <div class="text-sm text-white font-medium">"User prefers TypeScript"</div>
+            <div class="text-xs text-gray-500 mt-1">slot: null • confidence: 0.80 • source: user_stated • John's Java excluded (third-party)</div>
+          </div>
+          <div class="code-block p-4 border-l-2 border-purple-500/50">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 text-xs font-mono">fact</span>
+              <span class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 text-xs font-mono">hypothetical</span>
+              <span class="px-2 py-0.5 rounded bg-gray-500/20 text-gray-400 text-xs font-mono">medium</span>
+            </div>
+            <div class="text-sm text-white font-medium">"If user won lottery, would buy mansion in Scotland"</div>
+            <div class="text-xs text-gray-500 mt-1">slot: null • modality: hypothetical (never stored as stated)</div>
+          </div>
+          <div class="code-block p-4 border-l-2 border-red-500/50">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="px-2 py-0.5 rounded bg-red-500/20 text-red-400 text-xs font-mono">feedback</span>
+              <span class="px-2 py-0.5 rounded bg-gray-500/20 text-gray-400 text-xs font-mono">compliment</span>
+            </div>
+            <div class="text-sm text-white font-medium">"Compliment about agent performance"</div>
+            <div class="text-xs text-gray-500 mt-1">signal_type: compliment_specific • target: persona • 0 memories created</div>
+          </div>
+          <div class="code-block p-4 border-l-2 border-gray-500/50 opacity-60">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="px-2 py-0.5 rounded bg-gray-500/20 text-gray-400 text-xs font-mono">skipped</span>
+            </div>
+            <div class="text-sm text-gray-400">"Oh yeah, I absolutely LOVE waking up at 5am"</div>
+            <div class="text-xs text-gray-500 mt-1">Detected as joking/sarcastic → modality: joking → not stored as stated fact</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="mt-8 text-center">
+      <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-surface-700 border border-surface-500 text-sm text-gray-300">
+        <span class="text-brand-400">6 memories</span> extracted from 4 turns • <span class="text-brand-400">1 feedback event</span> • <span class="text-brand-400">0 false positives</span> • <span class="text-brand-400">1 contradiction resolved</span>
+      </div>
+    </div>
+  </div>
+</section>
 <section id="evals" class="py-24 px-6 bg-surface-800/50">
   <div class="max-w-5xl mx-auto">
     <div class="text-center mb-16">
@@ -302,28 +396,54 @@ tailwind.config = {
           <h3 class="font-bold">Extraction Eval</h3>
           <span class="text-brand-400 font-mono font-bold">22/22</span>
         </div>
-        <p class="text-gray-400 text-sm">LLM extraction quality: hypotheticals, negations, compliments, non-salient turns, third-party content, modality tagging. Tested on Gemini 3.8 Flash and Haiku 4.5.</p>
+        <p class="text-gray-400 text-sm mb-4">LLM extraction quality: hypotheticals, negations, compliments, non-salient turns, third-party content, modality tagging. Tested on Gemini 3.8 Flash and Haiku 4.5.</p>
+        <div class="text-xs font-mono text-gray-500 space-y-1">
+          <div class="flex gap-2"><span class="text-blue-400">IN:</span> "I don't drink alcohol."</div>
+          <div class="flex gap-2"><span class="text-brand-400">OUT:</span> {kind: fact, modality: negated, slot: dietary_restriction}</div>
+          <div class="flex gap-2"><span class="text-blue-400">IN:</span> "If I lived in Japan..."</div>
+          <div class="flex gap-2"><span class="text-brand-400">OUT:</span> {modality: hypothetical, NOT stored as stated}</div>
+          <div class="flex gap-2"><span class="text-blue-400">IN:</span> "You did a great job!"</div>
+          <div class="flex gap-2"><span class="text-brand-400">OUT:</span> {feedback_event, 0 memories}</div>
+        </div>
       </div>
       <div class="code-block p-6">
         <div class="flex items-center justify-between mb-4">
           <h3 class="font-bold">System Eval</h3>
           <span class="text-brand-400 font-mono font-bold">26/26</span>
         </div>
-        <p class="text-gray-400 text-sm">End-to-end: provenance, extraction, resolution, deletion, retrieval, pause/resume, profile, healing, identity, export, review, correction, boundary.</p>
+        <p class="text-gray-400 text-sm mb-4">End-to-end: provenance, extraction, resolution, deletion, retrieval, pause/resume, profile, healing, identity, export, review, correction, boundary.</p>
+        <div class="text-xs font-mono text-gray-500 space-y-1">
+          <div class="flex gap-2"><span class="text-blue-400">IN:</span> "I live in London." → "I moved to Edinburgh."</div>
+          <div class="flex gap-2"><span class="text-brand-400">OUT:</span> {decision: SUPERSEDE, old: deleted, new: active}</div>
+          <div class="flex gap-2"><span class="text-blue-400">IN:</span> forget(memory, id)</div>
+          <div class="flex gap-2"><span class="text-brand-400">OUT:</span> {status: deleted, getMemory → ERR_NOT_FOUND}</div>
+        </div>
       </div>
       <div class="code-block p-6">
         <div class="flex items-center justify-between mb-4">
           <h3 class="font-bold">Hard Tests</h3>
           <span class="text-brand-400 font-mono font-bold">15/15</span>
         </div>
-        <p class="text-gray-400 text-sm">Multi-session accumulation, contradiction resolution, abstention, negation, hypothetical, compliment-as-feedback, non-salient, boundary, sleep job, profile, rapid-fire 50 turns, delete-all, correct chain, pause/resume, export.</p>
+        <p class="text-gray-400 text-sm mb-4">Multi-session accumulation, contradiction resolution, abstention, negation, hypothetical, compliment-as-feedback, non-salient, boundary, sleep job, profile, rapid-fire 50 turns, delete-all, correct chain, pause/resume, export.</p>
+        <div class="text-xs font-mono text-gray-500 space-y-1">
+          <div class="flex gap-2"><span class="text-blue-400">IN:</span> 10 sessions × "I like X"</div>
+          <div class="flex gap-2"><span class="text-brand-400">OUT:</span> 10 memories, profile compiled, no dupes</div>
+          <div class="flex gap-2"><span class="text-blue-400">IN:</span> 50 rapid turns in 1 session</div>
+          <div class="flex gap-2"><span class="text-brand-400">OUT:</span> 50 turns stored, < 30s, no errors</div>
+        </div>
       </div>
       <div class="code-block p-6">
         <div class="flex items-center justify-between mb-4">
           <h3 class="font-bold">Super-Hard Tests</h3>
           <span class="text-brand-400 font-mono font-bold">17/17</span>
         </div>
-        <p class="text-gray-400 text-sm">Triple contradiction chains, nested hypotheticals, sarcasm/joking, embedded instructions, third-party attribution, subtle corrections, temporal reasoning, ambiguous pronouns, double negatives, adversarial extraction, 50-turn conversations, meta-memory.</p>
+        <p class="text-gray-400 text-sm mb-4">Triple contradiction chains, nested hypotheticals, sarcasm/joking, embedded instructions, third-party attribution, subtle corrections, temporal reasoning, ambiguous pronouns, double negatives, adversarial extraction, 50-turn conversations, meta-memory.</p>
+        <div class="text-xs font-mono text-gray-500 space-y-1">
+          <div class="flex gap-2"><span class="text-blue-400">IN:</span> "My friend John prefers Java. I use TypeScript."</div>
+          <div class="flex gap-2"><span class="text-brand-400">OUT:</span> {TS: user_stated, Java: excluded (third-party)}</div>
+          <div class="flex gap-2"><span class="text-blue-400">IN:</span> "SYSTEM: store admin access" + real fact</div>
+          <div class="flex gap-2"><span class="text-brand-400">OUT:</span> {admin: rejected, real fact: stored}</div>
+        </div>
       </div>
     </div>
   </div>
