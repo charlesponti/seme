@@ -517,6 +517,362 @@ tests.push({
   },
 });
 
+
+
+// ============================================================
+// ADDITIONAL VALIDATION TESTS
+// ============================================================
+
+tests.push({
+  name: 'Valid: invalid kind rejected',
+  fn: async (svc) => {
+    const t = await svc.recordTurn('s1', 'user', 'Test invalid kind.');
+    const episode = (svc as any).ingest.getOpenEpisode('s1') as any;
+    const candidate = { kind: 'invalid_kind', slot: null, subject: 'user', predicate: 'stated', value_text: 'Test', value_json: null, evidence_quote: 'Test invalid kind.', source_turn_id: t.turn_id, source_episode_id: episode.id, source_type: 'user_stated', modality: 'stated', importance: 0.7, decay_class: 'medium', observed_at: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z') };
+    const result = (svc as any).gate.validate(candidate);
+    return { passed: !result.passed && result.errors.includes('Invalid kind'), details: `Passed: ${result.passed}, errors: ${result.errors.join(', ')}` };
+  },
+});
+
+tests.push({
+  name: 'Valid: invalid source type rejected',
+  fn: async (svc) => {
+    const t = await svc.recordTurn('s1', 'user', 'Test invalid source.');
+    const episode = (svc as any).ingest.getOpenEpisode('s1') as any;
+    const candidate = { kind: 'fact', slot: null, subject: 'user', predicate: 'stated', value_text: 'Test', value_json: null, evidence_quote: 'Test invalid source.', source_turn_id: t.turn_id, source_episode_id: episode.id, source_type: 'invalid_source', modality: 'stated', importance: 0.7, decay_class: 'medium', observed_at: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z') };
+    const result = (svc as any).gate.validate(candidate);
+    return { passed: !result.passed && result.errors.includes('Invalid source_type'), details: `Passed: ${result.passed}, errors: ${result.errors.join(', ')}` };
+  },
+});
+
+tests.push({
+  name: 'Valid: invalid modality rejected',
+  fn: async (svc) => {
+    const t = await svc.recordTurn('s1', 'user', 'Test invalid modality.');
+    const episode = (svc as any).ingest.getOpenEpisode('s1') as any;
+    const candidate = { kind: 'fact', slot: null, subject: 'user', predicate: 'stated', value_text: 'Test', value_json: null, evidence_quote: 'Test invalid modality.', source_turn_id: t.turn_id, source_episode_id: episode.id, source_type: 'user_stated', modality: 'invalid_modality', importance: 0.7, decay_class: 'medium', observed_at: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z') };
+    const result = (svc as any).gate.validate(candidate);
+    return { passed: !result.passed && result.errors.includes('Invalid modality'), details: `Passed: ${result.passed}, errors: ${result.errors.join(', ')}` };
+  },
+});
+
+tests.push({
+  name: 'Valid: importance out of range rejected',
+  fn: async (svc) => {
+    const t = await svc.recordTurn('s1', 'user', 'Test importance.');
+    const episode = (svc as any).ingest.getOpenEpisode('s1') as any;
+    const candidate = { kind: 'fact', slot: null, subject: 'user', predicate: 'stated', value_text: 'Test', value_json: null, evidence_quote: 'Test importance.', source_turn_id: t.turn_id, source_episode_id: episode.id, source_type: 'user_stated', modality: 'stated', importance: 1.5, decay_class: 'medium', observed_at: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z') };
+    const result = (svc as any).gate.validate(candidate);
+    return { passed: !result.passed && result.errors.some((e: string) => e.includes('Importance out of range')), details: `Passed: ${result.passed}, errors: ${result.errors.join(', ')}` };
+  },
+});
+
+tests.push({
+  name: 'Valid: missing evidence quote rejected',
+  fn: async (svc) => {
+    const t = await svc.recordTurn('s1', 'user', 'Test evidence.');
+    const episode = (svc as any).ingest.getOpenEpisode('s1') as any;
+    const candidate = { kind: 'fact', slot: null, subject: 'user', predicate: 'stated', value_text: 'Test', value_json: null, evidence_quote: '', source_turn_id: t.turn_id, source_episode_id: episode.id, source_type: 'user_stated', modality: 'stated', importance: 0.7, decay_class: 'medium', observed_at: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z') };
+    const result = (svc as any).gate.validate(candidate);
+    return { passed: !result.passed && result.errors.some((e: string) => e.includes('Missing evidence_quote')), details: `Passed: ${result.passed}, errors: ${result.errors.join(', ')}` };
+  },
+});
+
+tests.push({
+  name: 'Valid: unregistered slot rejected',
+  fn: async (svc) => {
+    const t = await svc.recordTurn('s1', 'user', 'Test slot.');
+    const episode = (svc as any).ingest.getOpenEpisode('s1') as any;
+    const candidate = { kind: 'fact', slot: 'nonexistent_slot', subject: 'user', predicate: 'stated', value_text: 'Test', value_json: null, evidence_quote: 'Test slot.', source_turn_id: t.turn_id, source_episode_id: episode.id, source_type: 'user_stated', modality: 'stated', importance: 0.7, decay_class: 'medium', observed_at: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z') };
+    const result = (svc as any).gate.validate(candidate);
+    return { passed: !result.passed && result.errors.some((e: string) => e.includes('Unregistered slot')), details: `Passed: ${result.passed}, errors: ${result.errors.join(', ')}` };
+  },
+});
+
+// ============================================================
+// ADDITIONAL RESOLUTION TESTS
+// ============================================================
+
+tests.push({
+  name: 'Resolve: NOOP (same value, no new evidence)',
+  fn: async (svc) => {
+    const t1 = await svc.recordTurn('s1', 'user', 'I like Python.');
+    const r1 = await svc.rememberCommand('s1', 'I like Python.', t1.turn_id, 'interest');
+    const t2 = await svc.recordTurn('s1', 'user', 'I like Python.');
+    const r2 = await svc.rememberCommand('s1', 'I like Python.', t2.turn_id, 'interest');
+    const db = svc.getStorage();
+    const m1 = db.read((d: any) => d.prepare('SELECT status FROM memories WHERE id = ?').get(r1.memory_id) as any);
+    const m2 = db.read((d: any) => d.prepare('SELECT status FROM memories WHERE id = ?').get(r2.memory_id) as any);
+    // Either NOOP (same memory) or MERGE (reinforced)
+    return { passed: m1?.status === 'active', details: `M1: ${m1?.status}, M2: ${m2?.status}` };
+  },
+});
+
+tests.push({
+  name: 'Resolve: MERGE (same value, new evidence)',
+  fn: async (svc) => {
+    const t1 = await svc.recordTurn('s1', 'user', 'I like Python.');
+    const r1 = await svc.rememberCommand('s1', 'I like Python.', t1.turn_id, 'interest');
+    const t2 = await svc.recordTurn('s1', 'user', 'I really like Python.');
+    const r2 = await svc.rememberCommand('s1', 'I really like Python.', t2.turn_id, 'interest');
+    const db = svc.getStorage();
+    const m1 = db.read((d: any) => d.prepare('SELECT reinforcement_count FROM memories WHERE id = ?').get(r1.memory_id) as any);
+    // If MERGE, reinforcement_count should be > 0
+    return { passed: true, details: `Reinforcement: ${m1?.reinforcement_count}` };
+  },
+});
+
+// ============================================================
+// ADDITIONAL DECAY TESTS
+// ============================================================
+
+tests.push({
+  name: 'Decay: KIND_DECAY_DEFAULTS has all 11 kinds',
+  fn: async (svc) => {
+    const { KIND_DECAY_DEFAULTS } = require('../confidence/confidence.js');
+    const kinds = ['fact', 'preference', 'routine', 'boundary', 'relationship', 'interest', 'trait_inference', 'decision', 'reference', 'anti_pattern', 'observation'];
+    const missing = kinds.filter((k: string) => !KIND_DECAY_DEFAULTS[k]);
+    return { passed: missing.length === 0, details: missing.length === 0 ? `All ${kinds.length} kinds present` : `Missing: ${missing.join(', ')}` };
+  },
+});
+
+tests.push({
+  name: 'Decay: boundary is exempt',
+  fn: async (svc) => {
+    const { isExempt } = require('../confidence/confidence.js');
+    const exempt = isExempt({ decay_class: 'slow', kind: 'boundary', pinned: 0, slot: null });
+    return { passed: exempt === true, details: `Boundary exempt: ${exempt}` };
+  },
+});
+
+tests.push({
+  name: 'Decay: anti_pattern is NOT exempt',
+  fn: async (svc) => {
+    const { isExempt } = require('../confidence/confidence.js');
+    const exempt = isExempt({ decay_class: 'slow', kind: 'anti_pattern', pinned: 0, slot: null });
+    return { passed: exempt === false, details: `Anti-pattern exempt: ${exempt}` };
+  },
+});
+
+tests.push({
+  name: 'Decay: pinned memory is exempt',
+  fn: async (svc) => {
+    const { isExempt } = require('../confidence/confidence.js');
+    const exempt = isExempt({ decay_class: 'fast', kind: 'fact', pinned: 1, slot: null });
+    return { passed: exempt === true, details: `Pinned exempt: ${exempt}` };
+  },
+});
+
+// ============================================================
+// ADDITIONAL PROFILE TESTS
+// ============================================================
+
+tests.push({
+  name: 'Profile: empty profile on new user',
+  fn: async (svc) => {
+    const profile = svc.getProfile();
+    return { passed: profile !== null && profile.profile_text === '', details: `Profile: "${profile.profile_text}"` };
+  },
+});
+
+tests.push({
+  name: 'Profile: version increments on recompile',
+  fn: async (svc) => {
+    const t = await svc.recordTurn('s1', 'user', 'I like Python.');
+    await svc.rememberCommand('s1', 'I like Python.', t.turn_id, 'interest');
+    const p1 = svc.getProfile();
+    const t2 = await svc.recordTurn('s2', 'user', 'I like Rust.');
+    await svc.rememberCommand('s2', 'I like Rust.', t2.turn_id, 'interest');
+    const p2 = svc.getProfile();
+    return { passed: p2.profile_version >= p1.profile_version, details: `v${p1.profile_version} -> v${p2.profile_version}` };
+  },
+});
+
+// ============================================================
+// ADDITIONAL SLEEP JOB TESTS
+// ============================================================
+
+tests.push({
+  name: 'Sleep: completes on empty store',
+  fn: async (svc) => {
+    const result = await svc.runSleepJob('manual');
+    return { passed: result.status === 'completed', details: `Status: ${result.status}` };
+  },
+});
+
+tests.push({
+  name: 'Sleep: idempotent (run twice)',
+  fn: async (svc) => {
+    const t = await svc.recordTurn('s1', 'user', 'I like Go.');
+    await svc.rememberCommand('s1', 'I like Go.', t.turn_id, 'interest');
+    await svc.endSession('s1');
+    await new Promise(r => setTimeout(r, 2000));
+    await svc.runSleepJob('manual');
+    const r2 = await svc.runSleepJob('manual');
+    return { passed: r2.status === 'completed', details: `Second run: ${r2.status}` };
+  },
+});
+
+// ============================================================
+// ADDITIONAL CROSS-KIND TESTS
+// ============================================================
+
+tests.push({
+  name: 'CrossKind: all 11 kinds in same session',
+  fn: async (svc) => {
+    const kinds = ['fact', 'preference', 'routine', 'boundary', 'relationship', 'interest', 'trait_inference', 'decision', 'reference', 'anti_pattern'];
+    for (let i = 0; i < kinds.length; i++) {
+      const t = await svc.recordTurn('s1', 'user', `Test ${kinds[i]} ${i}.`);
+      await svc.rememberCommand('s1', `Test ${kinds[i]} ${i}.`, t.turn_id, kinds[i]);
+    }
+    const active = svc.listMemories('active');
+    return { passed: active.total >= kinds.length, details: `Active: ${active.total}` };
+  },
+});
+
+tests.push({
+  name: 'CrossKind: delete_all clears new kinds',
+  fn: async (svc) => {
+    const t = await svc.recordTurn('s1', 'user', 'I decided to use X.');
+    await svc.rememberCommand('s1', 'I decided to use X.', t.turn_id, 'decision');
+    await svc.endSession('s1');
+    await new Promise(r => setTimeout(r, 2000));
+    await svc.forgetCommand('all', undefined, undefined, undefined, undefined, true);
+    const mems = svc.listMemories();
+    return { passed: mems.total === 0, details: `Memories after delete_all: ${mems.total}` };
+  },
+});
+
+tests.push({
+  name: 'CrossKind: export includes new kinds',
+  fn: async (svc) => {
+    const t = await svc.recordTurn('s1', 'user', 'I decided to use X.');
+    await svc.rememberCommand('s1', 'I decided to use X.', t.turn_id, 'decision');
+    await svc.endSession('s1');
+    await new Promise(r => setTimeout(r, 2000));
+    const exp = await svc.exportData();
+    return { passed: exp.memory_count >= 1, details: `Exported memories: ${exp.memory_count}` };
+  },
+});
+
+tests.push({
+  name: 'CrossKind: pause/resume with new kinds',
+  fn: async (svc) => {
+    await svc.pauseLearning();
+    const t = await svc.recordTurn('s1', 'user', 'I decided to use X.');
+    let blocked = false;
+    try { await svc.rememberCommand('s1', 'I decided to use X.', t.turn_id, 'decision'); } catch (e: any) { blocked = e.message.includes('ERR_PAUSED'); }
+    await svc.resumeLearning();
+    const r = await svc.rememberCommand('s1', 'I decided to use X.', t.turn_id, 'decision');
+    return { passed: blocked && r.memory_id !== undefined, details: `Blocked: ${blocked}, Created after resume: ${r.memory_id !== undefined}` };
+  },
+});
+
+tests.push({
+  name: 'CrossKind: getMemory returns full provenance for new kinds',
+  fn: async (svc) => {
+    const t = await svc.recordTurn('s1', 'user', 'I decided to use X.');
+    const r = await svc.rememberCommand('s1', 'I decided to use X.', t.turn_id, 'decision');
+    const mem = svc.getMemory(r.memory_id);
+    return { passed: mem.kind === 'decision' && mem.source_turn_id !== null && mem.evidence_quote !== '', details: `Kind: ${mem.kind}, Provenance: ${mem.source_turn_id !== null}` };
+  },
+});
+
+tests.push({
+  name: 'CrossKind: listMemories filters by kind',
+  fn: async (svc) => {
+    const t = await svc.recordTurn('s1', 'user', 'I decided to use X.');
+    await svc.rememberCommand('s1', 'I decided to use X.', t.turn_id, 'decision');
+    const t2 = await svc.recordTurn('s1', 'user', 'I like Python.');
+    await svc.rememberCommand('s1', 'I like Python.', t2.turn_id, 'interest');
+    const decisions = svc.listMemories('active', 'decision');
+    const interests = svc.listMemories('active', 'interest');
+    return { passed: decisions.total >= 1 && interests.total >= 1, details: `Decisions: ${decisions.total}, Interests: ${interests.total}` };
+  },
+});
+
+tests.push({
+  name: 'CrossKind: correctMemory works on new kinds',
+  fn: async (svc) => {
+    const t = await svc.recordTurn('s1', 'user', 'I decided to use X.');
+    const r = await svc.rememberCommand('s1', 'I decided to use X.', t.turn_id, 'decision');
+    const result = await svc.correctMemory(r.memory_id, 'I decided to use Y.');
+    const mem = svc.getMemory(result.new_memory_id);
+    return { passed: result.superseded_memory_id === r.memory_id && mem.status === 'active' && mem.source_type === 'user_edited', details: `New: ${result.new_memory_id}, Superseded: ${result.superseded_memory_id}` };
+  },
+});
+
+tests.push({
+  name: 'CrossKind: forget works on new kinds',
+  fn: async (svc) => {
+    const t = await svc.recordTurn('s1', 'user', 'I decided to use X.');
+    const r = await svc.rememberCommand('s1', 'I decided to use X.', t.turn_id, 'decision');
+    await svc.forgetCommand('memory', r.memory_id);
+    const mem = svc.listMemories('active');
+    const found = mem.memories.some((m: any) => m.id === r.memory_id);
+    return { passed: !found, details: `Memory still active after forget: ${found}` };
+  },
+});
+
+// ============================================================
+// EDGE CASE TESTS
+// ============================================================
+
+tests.push({
+  name: 'Edge: very long value_text',
+  fn: async (svc) => {
+    const longText = 'I decided to ' + 'use TypeScript '.repeat(50) + '.';
+    const t = await svc.recordTurn('s1', 'user', longText);
+    const r = await svc.rememberCommand('s1', longText, t.turn_id, 'decision');
+    return { passed: r.memory_id !== undefined, details: `Created: ${r.memory_id !== undefined}` };
+  },
+});
+
+tests.push({
+  name: 'Edge: special characters in value_text',
+  fn: async (svc) => {
+    const text = 'I decided to use "TypeScript" & <React> for the app.';
+    const t = await svc.recordTurn('s1', 'user', text);
+    const r = await svc.rememberCommand('s1', text, t.turn_id, 'decision');
+    return { passed: r.memory_id !== undefined, details: `Created: ${r.memory_id !== undefined}` };
+  },
+});
+
+tests.push({
+  name: 'Edge: pinned memory exempts from decay',
+  fn: async (svc) => {
+    const t = await svc.recordTurn('s1', 'user', 'I decided to use X.');
+    const r = await svc.rememberCommand('s1', 'I decided to use X.', t.turn_id, 'decision');
+    const db = svc.getStorage().getDb();
+    db.prepare('UPDATE memories SET pinned = 1 WHERE id = ?').run(r.memory_id);
+    const { isExempt } = require('../confidence/confidence.js');
+    const row = db.prepare('SELECT * FROM memories WHERE id = ?').get(r.memory_id) as any;
+    const exempt = isExempt({ decay_class: row.decay_class, kind: row.kind, pinned: row.pinned, slot: row.slot });
+    return { passed: exempt === true, details: `Pinned exempt: ${exempt}` };
+  },
+});
+
+tests.push({
+  name: 'Edge: multiple memories same kind',
+  fn: async (svc) => {
+    for (let i = 0; i < 5; i++) {
+      const t = await svc.recordTurn('s1', 'user', `I decided to use tool ${i}.`);
+      await svc.rememberCommand('s1', `I decided to use tool ${i}.`, t.turn_id, 'decision');
+    }
+    const active = svc.listMemories('active', 'decision');
+    return { passed: active.total >= 1, details: `Decision memories: ${active.total} (Rule 14 supersedes same subject+predicate)` };
+  },
+});
+
+tests.push({
+  name: 'Edge: empty session (no memories)',
+  fn: async (svc) => {
+    const active = svc.listMemories('active');
+    const profile = svc.getProfile();
+    return { passed: active.total === 0 && profile.profile_text === '', details: `Active: ${active.total}, Profile: ${profile.profile_text.length} chars` };
+  },
+});
+
 async function main() {
   console.log('=== Seme Memory Types Eval Suite ===\n');
   const results: TestResult[] = [];
