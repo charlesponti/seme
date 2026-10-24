@@ -218,7 +218,7 @@ export class Resolver {
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           newId, candidate.kind, candidate.slot, candidate.subject, candidate.predicate,
-          candidate.value_text, candidate.value_json, candidate.evidence_quote,
+          candidate.value_text, (typeof candidate.value_json === 'string' ? candidate.value_json : (candidate.value_json ? JSON.stringify(candidate.value_json) : null)), candidate.evidence_quote,
           candidate.source_turn_id, candidate.source_episode_id, candidate.source_type,
           candidate.modality, initialConfidence(candidate.source_type as any), candidate.importance,
           0, candidate.valid_from || null, null, candidate.observed_at || now, now,
@@ -234,20 +234,12 @@ export class Resolver {
         // db.prepare('INSERT INTO memories_vec (memory_id, embedding) VALUES (?, ?)').run(newId, embedding);
 
       } else if (decision === 'SUPERSEDE' && targetId) {
-        // Supersede: update incumbent, insert new
+        // Supersede: insert new first, then update incumbent (FK order)
         const incumbent = db.prepare('SELECT * FROM memories WHERE id = ?').get(targetId) as any;
         if (incumbent) {
           const validTo = candidate.valid_from || candidate.observed_at || now;
-          db.prepare(`
-            UPDATE memories SET valid_to = ?, status = 'superseded', superseded_at = ?, superseded_by_id = ?
-            WHERE id = ?
-          `).run(validTo, now, newId, targetId);
 
-          // Remove from FTS and vec for incumbent
-          db.prepare('DELETE FROM memories_fts WHERE memory_id = ?').run(targetId);
-          db.prepare('DELETE FROM memories_vec WHERE memory_id = ?').run(targetId);
-
-          // Insert new memory
+          // Insert new memory first (supersedes_id references existing targetId)
           db.prepare(`
             INSERT INTO memories (id, kind, slot, subject, predicate, value_text, value_json, evidence_quote,
               source_turn_id, source_episode_id, source_type, modality, confidence, importance, pinned,
@@ -256,17 +248,27 @@ export class Resolver {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `).run(
             newId, candidate.kind, candidate.slot, candidate.subject, candidate.predicate,
-            candidate.value_text, candidate.value_json, candidate.evidence_quote,
+            candidate.value_text, (typeof candidate.value_json === 'string' ? candidate.value_json : (candidate.value_json ? JSON.stringify(candidate.value_json) : null)), candidate.evidence_quote,
             candidate.source_turn_id, candidate.source_episode_id, candidate.source_type,
             candidate.modality, initialConfidence(candidate.source_type as any), candidate.importance,
             0, candidate.valid_from || null, null, candidate.observed_at || now, now,
             targetId, 0, 0, 'active', candidate.extractor_version || 'v1', candidate.decay_class
           );
 
-          // Update FTS
+          // Update FTS for new memory
           db.prepare('INSERT INTO memories_fts (memory_id, value_text, subject, predicate) VALUES (?, ?, ?, ?)').run(
             newId, candidate.value_text, candidate.subject, candidate.predicate
           );
+
+          // Now update incumbent (superseded_by_id references newId, which now exists)
+          db.prepare(`
+            UPDATE memories SET valid_to = ?, status = 'superseded', superseded_at = ?, superseded_by_id = ?
+            WHERE id = ?
+          `).run(validTo, now, newId, targetId);
+
+          // Remove incumbent from FTS and vec
+          db.prepare('DELETE FROM memories_fts WHERE memory_id = ?').run(targetId);
+          db.prepare('DELETE FROM memories_vec WHERE memory_id = ?').run(targetId);
         }
       } else if (decision === 'MERGE' && targetId) {
         // Merge: reinforce incumbent

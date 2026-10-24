@@ -8,6 +8,8 @@ import { Resolver } from '../resolver/resolver.js';
 import { ProfileCompiler } from '../profile/profile-compiler.js';
 import { RetrievalEngine } from '../retrieval/retrieval.js';
 import { IdentityCoreManager } from '../identity/identity-core.js';
+import { ExtractionPipeline } from '../extraction/pipeline.js';
+import { Extractor } from '../extraction/extractor.js';
 import { uuid, nowUtc } from '../types/common.js';
 
 export class MemoryService {
@@ -18,6 +20,7 @@ export class MemoryService {
   private profileCompiler: ProfileCompiler;
   private retrieval: RetrievalEngine;
   private identityCore: IdentityCoreManager;
+  private extractionPipeline: ExtractionPipeline;
 
   constructor(config: StorageConfig) {
     this.storage = new Storage(config);
@@ -27,6 +30,31 @@ export class MemoryService {
     this.profileCompiler = new ProfileCompiler(this.storage);
     this.retrieval = new RetrievalEngine(this.storage);
     this.identityCore = new IdentityCoreManager(this.storage);
+    this.extractionPipeline = new ExtractionPipeline(
+      this.storage, this.ingest, this.gate, this.resolver, this.profileCompiler
+    );
+
+    // Seed slot registry with common slots (synchronous)
+    this.seedSlots();
+  }
+
+  private seedSlots(): void {
+    const slots = [
+      { slot: 'name', kind: 'fact', cardinality: 'single', decay_class: 'exempt', profile_included: 1 },
+      { slot: 'home_city', kind: 'fact', cardinality: 'single', decay_class: 'slow', profile_included: 1 },
+      { slot: 'dietary_restriction', kind: 'fact', cardinality: 'single', decay_class: 'slow', profile_included: 1 },
+      { slot: 'interest', kind: 'interest', cardinality: 'multi', decay_class: 'medium', profile_included: 1 },
+      { slot: 'preference', kind: 'preference', cardinality: 'multi', decay_class: 'medium', profile_included: 1 },
+      { slot: 'routine', kind: 'routine', cardinality: 'multi', decay_class: 'medium', profile_included: 1 },
+      { slot: 'relationship', kind: 'relationship', cardinality: 'multi', decay_class: 'slow', profile_included: 1 },
+    ];
+    const db = this.storage.getDb();
+    for (const s of slots) {
+      db.prepare(`
+        INSERT OR IGNORE INTO slot_registry (slot, kind, cardinality, decay_class, profile_included)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(s.slot, s.kind, s.cardinality, s.decay_class, s.profile_included);
+    }
   }
 
   // 1. record_turn
@@ -36,7 +64,16 @@ export class MemoryService {
 
   // 2. end_session
   async endSession(sessionId: string, endedAt?: string) {
-    return this.ingest.endSession(sessionId, endedAt);
+    const result = await this.ingest.endSession(sessionId, endedAt);
+
+    // Trigger extraction asynchronously (don't await)
+    this.extractionPipeline.run(result.episode_id).then((r) => {
+      console.log(`Extraction complete for ${result.episode_id}: ${r.memories_created} memories, ${r.feedback_events_created} feedback events`);
+    }).catch((e) => {
+      console.error(`Extraction failed for ${result.episode_id}:`, e.message);
+    });
+
+    return result;
   }
 
   // 3. retrieve_context

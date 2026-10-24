@@ -2,89 +2,75 @@
 
 import { MemoryService } from './api/service.js';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 
-const STORAGE_DIR = '/tmp/scratchpad/shm-test';
-const EMBEDDING_DIM = 4; // small for testing
+const STORAGE_DIR = '/tmp/scratchpad/seme-test';
+const EMBEDDING_DIM = 4;
 
-// Clean previous test
 if (fs.existsSync(STORAGE_DIR)) {
   fs.rmSync(STORAGE_DIR, { recursive: true });
 }
 fs.mkdirSync(STORAGE_DIR, { recursive: true });
 
 async function main() {
-  console.log('=== Self-Healing Memory System — V1-tonight Demo ===\n');
+  console.log('=== Seme — Extraction Pipeline Demo ===\n');
 
   const service = new MemoryService({ storageDir: STORAGE_DIR, embeddingDim: EMBEDDING_DIM });
 
-  // Seed identity core
   await service.seedIdentityCore(
     { name: 'Charles', pronouns: 'he/him' },
     'The user is Charles. Pronouns: he/him.'
   );
-  console.log('1. Identity core seeded');
+  console.log('1. Identity core seeded\n');
 
-  // Session 1: state preferences
-  const session1 = await service.recordTurn('session-1', 'user', 'ignored', now()).then(() => 'session-1');
-  // Actually, let's use the proper flow
-  console.log('\n--- Session 1 ---');
+  // Session 1: rich conversation
+  console.log('--- Session 1: Recording conversation ---');
+  await service.recordTurn('session-1', 'user', 'Hi! My name is Charles and I live in London.');
+  await service.recordTurn('session-1', 'assistant', 'Nice to meet you, Charles! London is a great city.');
+  await service.recordTurn('session-1', 'user', 'I love TypeScript and I am really interested in memory systems.');
+  await service.recordTurn('session-1', 'assistant', 'TypeScript is excellent for building robust systems.');
+  await service.recordTurn('session-1', 'user', 'Never call me Chuck. Also I prefer dark mode in all my apps.');
+  await service.recordTurn('session-1', 'assistant', 'Got it, no Chuck. Dark mode noted.');
+  await service.recordTurn('session-1', 'user', 'You did a great job with that answer!');
+  console.log('  7 turns recorded\n');
 
-  // Record turns
-  const t1 = await service.recordTurn('session-1', 'user', 'My name is Charles and I live in London.');
-  console.log('  Recorded turn:', t1.turn_id);
-
-  const t2 = await service.recordTurn('session-1', 'user', 'I love TypeScript and I am interested in memory systems.');
-  console.log('  Recorded turn:', t2.turn_id);
-
-  const t3 = await service.recordTurn('session-1', 'user', 'Never call me Chuck.');
-  console.log('  Recorded turn:', t3.turn_id);
-
-  // Remember commands
-  const r1 = await service.rememberCommand('session-1', 'Charles', t1.turn_id, 'fact');
-  console.log('  Remembered:', r1);
-
-  const r2 = await service.rememberCommand('session-1', 'London', t1.turn_id, 'fact');
-  console.log('  Remembered:', r2);
-
-  const r3 = await service.rememberCommand('session-1', 'TypeScript', t2.turn_id, 'interest');
-  console.log('  Remembered:', r3);
-
-  const r4 = await service.boundaryCommand('session-1', 'Never call me Chuck.', t3.turn_id);
-  console.log('  Boundary:', r4);
-
-  // End session
+  // End session — triggers extraction
+  console.log('--- Ending session (triggers extraction) ---');
   const end1 = await service.endSession('session-1');
-  console.log('  Session ended:', end1);
+  console.log('  Session ended:', end1.episode_id);
 
-  // Get profile
+  // Wait for async extraction
+  console.log('  Waiting for extraction...');
+  await new Promise(resolve => setTimeout(resolve, 15000));
+
+  // Check profile
   const profile1 = service.getProfile();
-  console.log('\n  Profile v1:', profile1?.profile_text?.slice(0, 200));
+  console.log('\n  Profile after extraction:');
+  console.log(profile1?.profile_text || '(empty)');
 
   // Retrieve context
   const ctx1 = service.retrieveContext('session-1', 'What do you know about me?');
-  console.log('  Retrieved memories:', ctx1.memories.length);
+  console.log('\n  Retrieved memories:', ctx1.memories.length);
+  for (const m of ctx1.memories) {
+    console.log(`    - ${m.kind}: ${m.value_text} (${m.source_type}, conf=${m.confidence})`);
+  }
   console.log('  Abstain:', ctx1.abstain);
 
   // Session 2: different city
-  console.log('\n--- Session 2 ---');
-  const t4 = await service.recordTurn('session-2', 'user', 'Actually, I moved to Edinburgh.');
-  console.log('  Recorded turn:', t4.turn_id);
-
-  const r5 = await service.rememberCommand('session-2', 'Edinburgh', t4.turn_id, 'fact');
-  console.log('  Remembered:', r5);
+  console.log('\n--- Session 2: New city ---');
+  await service.recordTurn('session-2', 'user', 'Actually, I moved to Edinburgh last week.');
+  await service.recordTurn('session-2', 'assistant', 'Edinburgh is beautiful! How are you settling in?');
+  await service.recordTurn('session-2', 'user', 'It is great. The weather is different from London though.');
+  console.log('  3 turns recorded');
 
   const end2 = await service.endSession('session-2');
-  console.log('  Session ended:', end2);
+  console.log('  Session ended:', end2.episode_id);
 
-  // Forget the interest
-  console.log('\n--- Forget interest ---');
-  const forgetResult = await service.forgetCommand('memory', r3.memory_id);
-  console.log('  Forget result:', forgetResult);
+  console.log('  Waiting for extraction...');
+  await new Promise(resolve => setTimeout(resolve, 15000));
 
-  // Check profile after forget
   const profile2 = service.getProfile();
-  console.log('  Profile after forget:', profile2?.profile_text?.slice(0, 200));
+  console.log('\n  Profile after session 2:');
+  console.log(profile2?.profile_text || '(empty)');
 
   // Health check
   const db = service.getStorage();
@@ -93,10 +79,6 @@ async function main() {
 
   service.close();
   console.log('\n=== Demo complete ===');
-}
-
-function now(): string {
-  return new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
 }
 
 main().catch(console.error);
