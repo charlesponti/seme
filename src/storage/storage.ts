@@ -9,6 +9,7 @@ import { createHash } from 'node:crypto';
 export interface StorageConfig {
   storageDir: string;
   embeddingDim: number;
+  sleepLogPath?: string;
 }
 
 export class Storage {

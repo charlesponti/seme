@@ -41,7 +41,7 @@ export class MemoryService {
     this.extractionPipeline = new ExtractionPipeline(
       this.storage, this.ingest, this.gate, this.resolver, this.profileCompiler
     );
-    this.sleepJob = new SleepJob(this.storage, this.profileCompiler);
+    this.sleepJob = new SleepJob(this.storage, this.profileCompiler, config.sleepLogPath);
     this.reviewQueue = new ReviewQueue(this.storage);
     this.deletionManager = new DeletionManager(this.storage, this.profileCompiler);
     this.adaptationStore = new AdaptationStore(this.storage, this.reviewQueue);

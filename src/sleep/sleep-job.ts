@@ -4,6 +4,7 @@ import { Storage } from '../storage/storage.js';
 import { ProfileCompiler } from '../profile/profile-compiler.js';
 import { uuid, nowUtc } from '../types/common.js';
 import { effectiveConfidence } from '../confidence/confidence.js';
+import * as fs from 'node:fs';
 
 export interface SleepJobResult {
   job_id: string;
@@ -16,10 +17,18 @@ export class SleepJob {
   private storage: Storage;
   private profileCompiler: ProfileCompiler;
   private running: boolean = false;
+  private logPath: string | null = null;
 
-  constructor(storage: Storage, profileCompiler: ProfileCompiler) {
+  constructor(storage: Storage, profileCompiler: ProfileCompiler, logPath?: string) {
     this.storage = storage;
     this.profileCompiler = profileCompiler;
+    this.logPath = logPath || null;
+  }
+
+  private logStep(entry: Record<string, any>) {
+    if (!this.logPath) return;
+    const line = JSON.stringify({ ts: nowUtc(), ...entry }) + '\n';
+    fs.appendFileSync(this.logPath, line);
   }
 
   async run(trigger: 'scheduled' | 'idle' | 'session_count' | 'manual' = 'manual'): Promise<SleepJobResult> {
@@ -33,6 +42,13 @@ export class SleepJob {
     const startedAt = nowUtc();
     const steps: Record<string, { status: string; detail: string }> = {};
 
+    // Clear log file for this run
+    if (this.logPath) {
+      fs.writeFileSync(this.logPath, '');
+    }
+
+    this.logStep({ event: 'job_start', job_id: jobId, trigger, started_at: startedAt });
+
     try {
       // Create job run record
       await this.storage.write((db: any) => {
@@ -42,20 +58,33 @@ export class SleepJob {
         `).run(jobId, trigger, startedAt);
       });
 
-      // Step 1: Dedup sweep — merge exact duplicates
+      // Step 1: Dedup sweep
+      this.logStep({ event: 'step_start', step: 'dedup', detail: 'Starting dedup sweep...' });
+      const dedupStart = Date.now();
       steps['dedup'] = await this.dedupSweep();
+      this.logStep({ event: 'step_complete', step: 'dedup', duration_ms: Date.now() - dedupStart, result: steps['dedup'] });
 
-      // Step 2: Contradiction sweep — flag conflicts for review
+      // Step 2: Contradiction sweep
+      this.logStep({ event: 'step_start', step: 'contradiction', detail: 'Starting contradiction sweep...' });
+      const contraStart = Date.now();
       steps['contradiction'] = await this.contradictionSweep();
+      this.logStep({ event: 'step_complete', step: 'contradiction', duration_ms: Date.now() - contraStart, result: steps['contradiction'] });
 
-      // Step 3: Decay sweep — archive memories below threshold
+      // Step 3: Decay sweep
+      this.logStep({ event: 'step_start', step: 'decay', detail: 'Starting decay sweep...' });
+      const decayStart = Date.now();
       steps['decay'] = await this.decaySweep();
+      this.logStep({ event: 'step_complete', step: 'decay', duration_ms: Date.now() - decayStart, result: steps['decay'] });
 
       // Step 4: Profile recompilation
+      this.logStep({ event: 'step_start', step: 'profile_recompile', detail: 'Starting profile recompilation...' });
+      const profileStart = Date.now();
       steps['profile_recompile'] = await this.recompileProfile();
+      this.logStep({ event: 'step_complete', step: 'profile_recompile', duration_ms: Date.now() - profileStart, result: steps['profile_recompile'] });
 
       // Step 8: Health metrics
       const metrics = this.computeHealthMetrics();
+      this.logStep({ event: 'metrics', metrics });
 
       // Update job run record
       await this.storage.write((db: any) => {
@@ -65,6 +94,8 @@ export class SleepJob {
         `).run(nowUtc(), JSON.stringify(steps), JSON.stringify(metrics), jobId);
       });
 
+      this.logStep({ event: 'job_complete', job_id: jobId, status: 'completed', steps, metrics });
+
       return { job_id: jobId, status: 'completed', steps, metrics };
     } catch (e: any) {
       await this.storage.write((db: any) => {
@@ -73,6 +104,7 @@ export class SleepJob {
           WHERE id = ?
         `).run(nowUtc(), JSON.stringify(steps), jobId);
       });
+      this.logStep({ event: 'job_failed', job_id: jobId, error: e.message, steps });
       throw e;
     } finally {
       this.running = false;
@@ -137,7 +169,6 @@ export class SleepJob {
             JSON.stringify({ id: candidate.id, status: 'active' }),
             JSON.stringify({ id: candidate.id, status: 'superseded' }),
             'Dedup sweep: merged duplicate into survivor',
-            1
           );
         });
         merged++;
@@ -183,7 +214,6 @@ export class SleepJob {
             JSON.stringify({ id: candidate.id, status: 'active' }),
             JSON.stringify({ id: candidate.id, status: 'superseded' }),
             'Dedup sweep: merged slotless duplicate',
-            1
           );
         });
         merged++;
@@ -292,7 +322,6 @@ export class SleepJob {
             JSON.stringify({ id: mem.id, status: mem.status, confidence: mem.confidence }),
             JSON.stringify({ id: mem.id, status: 'archived' }),
             `Decay sweep: effective confidence ${effConf.toFixed(3)} below 0.15 threshold`,
-            1
           );
         });
         archived++;
