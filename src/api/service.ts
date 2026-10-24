@@ -13,6 +13,7 @@ import { Extractor } from '../extraction/extractor.js';
 import { SleepJob } from '../sleep/sleep-job.js';
 import { ReviewQueue } from '../review/review-queue.js';
 import { DeletionManager } from '../deletion/deletion.js';
+import { AdaptationStore } from '../adaptation/adaptation-store.js';
 import { uuid, nowUtc } from '../types/common.js';
 
 export class MemoryService {
@@ -27,6 +28,7 @@ export class MemoryService {
   private sleepJob: SleepJob;
   private reviewQueue: ReviewQueue;
   private deletionManager: DeletionManager;
+  private adaptationStore: AdaptationStore;
 
   constructor(config: StorageConfig) {
     this.storage = new Storage(config);
@@ -42,6 +44,7 @@ export class MemoryService {
     this.sleepJob = new SleepJob(this.storage, this.profileCompiler);
     this.reviewQueue = new ReviewQueue(this.storage);
     this.deletionManager = new DeletionManager(this.storage, this.profileCompiler);
+    this.adaptationStore = new AdaptationStore(this.storage, this.reviewQueue);
 
     // Seed slot registry with common slots (synchronous)
     this.seedSlots();
@@ -428,6 +431,39 @@ export class MemoryService {
         last_sleep_job_result: lastSleepJob?.status || null,
       };
     });
+  }
+
+  // Adaptation store (Phase 2)
+  async ingestFeedback(signal: { signal_type: string; target: string; detail_json: string; episode_id: string | null }) {
+    return this.adaptationStore.ingestFeedback(signal);
+  }
+
+  getAdaptationState(dimension: string) {
+    return this.adaptationStore.getState(dimension);
+  }
+
+  getAllAdaptationStates() {
+    return this.adaptationStore.getAllStates();
+  }
+
+  async proposeAdaptation(proposal: { dimension: string; proposed_value: string; reason: string; feedback_event_ids: string[]; strength: number }) {
+    return this.adaptationStore.proposeAdaptation(proposal);
+  }
+
+  async applyAdaptation(dimension: string) {
+    return this.adaptationStore.applyAdaptation(dimension);
+  }
+
+  async revertAdaptation(dimension: string) {
+    return this.adaptationStore.revertAdaptation(dimension);
+  }
+
+  async lockAdaptationDimension(dimension: string, locked: boolean) {
+    return this.adaptationStore.lockDimension(dimension, locked);
+  }
+
+  async aggregateAdaptations(minSignals?: number, minSessions?: number) {
+    return this.adaptationStore.aggregateAndPropose(minSignals, minSessions);
   }
 
   // Storage access for tests

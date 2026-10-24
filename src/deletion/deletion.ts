@@ -114,6 +114,9 @@ export class DeletionManager {
       db.prepare('DELETE FROM profile').run();
       db.prepare('DELETE FROM profile_versions').run();
       db.prepare('DELETE FROM procedural_rules').run();
+      db.prepare('DELETE FROM feedback_events').run();
+      db.prepare('DELETE FROM adaptation_state').run();
+      db.prepare('DELETE FROM adaptation_versions').run();
     });
 
     // VACUUM
