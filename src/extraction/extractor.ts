@@ -208,7 +208,8 @@ Extract memory candidates and feedback event candidates from this episode.`;
     if (!Array.isArray(parsed.memory_candidates)) throw new Error('invalid_output');
     if (!Array.isArray(parsed.feedback_event_candidates)) throw new Error('invalid_output');
 
-    const validKinds = ['fact', 'preference', 'routine', 'boundary', 'relationship', 'interest', 'trait_inference'];
+    const validKinds = ['fact', 'preference', 'routine', 'boundary', 'relationship', 'interest', 'trait_inference',
+      'decision', 'reference', 'anti_pattern', 'observation'];
     const validSourceTypes = ['user_stated', 'agent_inferred'];
     const validModalities = ['stated', 'hypothetical', 'negated', 'joking', 'quoted'];
     const validDecayClasses = ['exempt', 'slow', 'medium', 'fast', 'session'];

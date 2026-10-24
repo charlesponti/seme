@@ -15,6 +15,7 @@ import { ReviewQueue } from '../review/review-queue.js';
 import { DeletionManager } from '../deletion/deletion.js';
 import { AdaptationStore } from '../adaptation/adaptation-store.js';
 import { uuid, nowUtc } from '../types/common.js';
+import { getDecayClass } from '../confidence/confidence.js';
 
 export class MemoryService {
   private storage: Storage;
@@ -129,7 +130,7 @@ export class MemoryService {
       source_type: 'user_stated' as const,
       modality: 'stated' as const,
       importance: 0.7,
-      decay_class: 'medium',
+      decay_class: getDecayClass({ kind: (kindHint || 'fact') as any, slot: null, pinned: 0 }),
       observed_at: nowUtc(),
     };
 
