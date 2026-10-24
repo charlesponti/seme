@@ -176,6 +176,129 @@ app.put('/identity', async (c) => {
   return c.json(result);
 });
 
+// === Knowledge Graph Endpoints ===
+
+// Entities
+app.get('/entities', (c) => {
+  const type = c.req.query('type') || undefined;
+  const search = c.req.query('search') || undefined;
+  const limit = parseInt(c.req.query('limit') || '50');
+  const offset = parseInt(c.req.query('offset') || '0');
+  return c.json(service.listEntities(type, search, limit, offset));
+});
+
+app.get('/entities/name/:name', (c) => {
+  const name = c.req.param('name');
+  const result = service.getEntityByName(name);
+  if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Entity not found', operation: 'get_entity' } }, 404);
+  return c.json(result);
+});
+
+app.get('/entities/:id', (c) => {
+  const id = c.req.param('id');
+  const result = service.getEntity(id);
+  if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Entity not found', operation: 'get_entity' } }, 404);
+  return c.json(result);
+});
+
+app.post('/entities', async (c) => {
+  const body = await c.req.json();
+  try {
+    const result = service.createEntity(body.name, body.type, body.aliases, body.description, body.source_type, body.confidence);
+    return c.json({ id: result }, 201);
+  } catch (e: any) {
+    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'create_entity' } }, 400);
+  }
+});
+
+app.put('/entities/:id', async (c) => {
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  try {
+    service.updateEntity(id, body);
+    return c.json({ updated: true });
+  } catch (e: any) {
+    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'update_entity' } }, 400);
+  }
+});
+
+app.delete('/entities/:id', async (c) => {
+  const id = c.req.param('id');
+  try {
+    service.deleteEntity(id);
+    return c.json({ deleted: true });
+  } catch (e: any) {
+    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'delete_entity' } }, 400);
+  }
+});
+
+// Relationships
+app.get('/relationships', (c) => {
+  const sourceId = c.req.query('source_id') || undefined;
+  const targetId = c.req.query('target_id') || undefined;
+  const relationType = c.req.query('relation_type') || undefined;
+  const limit = parseInt(c.req.query('limit') || '50');
+  const offset = parseInt(c.req.query('offset') || '0');
+  return c.json(service.listRelationships(sourceId, targetId, relationType, limit, offset));
+});
+
+app.get('/relationships/:id', (c) => {
+  const id = c.req.param('id');
+  const result = service.getRelationship(id);
+  if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Relationship not found', operation: 'get_relationship' } }, 404);
+  return c.json(result);
+});
+
+app.post('/relationships', async (c) => {
+  const body = await c.req.json();
+  try {
+    const result = service.createRelationship(body.source_id, body.target_id, body.relation_type, body.description, body.source_turn_id, body.source_episode_id, body.source_type, body.confidence);
+    return c.json({ id: result }, 201);
+  } catch (e: any) {
+    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'create_relationship' } }, 400);
+  }
+});
+
+app.delete('/relationships/:id', async (c) => {
+  const id = c.req.param('id');
+  try {
+    service.deleteRelationship(id);
+    return c.json({ deleted: true });
+  } catch (e: any) {
+    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'delete_relationship' } }, 400);
+  }
+});
+
+// Graph traversal
+app.get('/graph/neighborhood/:entityId', (c) => {
+  const entityId = c.req.param('entityId');
+  const depth = parseInt(c.req.query('depth') || '2');
+  return c.json(service.getNeighborhood(entityId, depth));
+});
+
+app.get('/graph/path/:from/:to', (c) => {
+  const fromId = c.req.param('from');
+  const toId = c.req.param('to');
+  const result = service.findPath(fromId, toId);
+  if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'No path found', operation: 'find_path' } }, 404);
+  return c.json(result);
+});
+
+app.get('/graph/snapshot', (c) => {
+  return c.json(service.getGraphSnapshot());
+});
+
+// Graph-aware search
+app.post('/graph/search', async (c) => {
+  const body = await c.req.json();
+  try {
+    const result = service.retrieveContext(body.session_id || 'default', body.user_message || '', body.time_range_hint);
+    return c.json(result);
+  } catch (e: any) {
+    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'graph_search' } }, 400);
+  }
+});
+
 function parseErrorCode(msg: string): string {
   if (msg.includes('ERR_VALIDATION')) return 'ERR_VALIDATION';
   if (msg.includes('ERR_NOT_FOUND')) return 'ERR_NOT_FOUND';
