@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seme — Self-Healing Memory for AI Agents</title>
+<meta name="description" content="Seme is a self-healing memory system for AI companions. Local-first, SQLite-backed, with extraction, resolution, profile compilation, decay, and 80 passing eval scenarios.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        brand: { 50:'#f0fdf4',100:'#dcfce7',200:'#bbf7d0',300:'#86efac',400:'#4ade80',500:'#22c55e',600:'#16a34a',700:'#15803d',800:'#166534',900:'#14532d' },
+        surface: { 900:'#0a0a0f',800:'#12121a',700:'#1a1a26',600:'#22222e',500:'#2a2a38' }
+      },
+      fontFamily: { sans: ['Inter','system-ui','sans-serif'], mono: ['JetBrains Mono','Fira Code','monospace'] }
+    }
+  }
+}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  html { scroll-behavior: smooth; }
+  body { background: #0a0a0f; color: #e2e8f0; }
+  .gradient-text { background: linear-gradient(135deg, #4ade80 0%, #22c55e 50%, #16a34a 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .glow { box-shadow: 0 0 40px rgba(34,197,94,0.15), 0 0 80px rgba(34,197,94,0.05); }
+  .card-hover { transition: all 0.3s ease; }
+  .card-hover:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(0,0,0,0.3), 0 0 20px rgba(34,197,94,0.1); }
+  .pulse-dot { animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+  .grid-bg { background-image: radial-gradient(circle at 1px 1px, rgba(34,197,94,0.08) 1px, transparent 0); background-size: 40px 40px; }
+  .section-divider { background: linear-gradient(90deg, transparent, rgba(34,197,94,0.3), transparent); height: 1px; }
+  .stat-number { font-variant-numeric: tabular-nums; }
+  .code-block { background: #12121a; border: 1px solid #2a2a38; border-radius: 12px; }
+  .feature-icon { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 12px; background: linear-gradient(135deg, rgba(34,197,94,0.15), rgba(34,197,94,0.05)); border: 1px solid rgba(34,197,94,0.2); }
+</style>
+</head>
+<body class="font-sans antialiased">
+
+<!-- Nav -->
+<nav class="fixed top-0 w-full z-50 backdrop-blur-xl bg-surface-900/80 border-b border-surface-600/50">
+  <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <span class="text-2xl">🧠</span>
+      <span class="text-xl font-bold tracking-tight">Seme</span>
+      <span class="text-xs px-2 py-0.5 rounded-full bg-brand-500/20 text-brand-400 border border-brand-500/30 font-medium">v1.0</span>
+    </div>
+    <div class="hidden md:flex items-center gap-8 text-sm text-gray-400">
+      <a href="#features" class="hover:text-white transition">Features</a>
+      <a href="#architecture" class="hover:text-white transition">Architecture</a>
+      <a href="#performance" class="hover:text-white transition">Performance</a>
+      <a href="#evals" class="hover:text-white transition">Evals</a>
+      <a href="#api" class="hover:text-white transition">API</a>
+      <a href="https://github.com/charlesponti/seme" class="hover:text-white transition">GitHub</a>
+    </div>
+    <a href="https://github.com/charlesponti/seme" class="px-4 py-2 rounded-lg bg-brand-500 text-black font-semibold text-sm hover:bg-brand-400 transition">Get Started</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="relative pt-32 pb-20 px-6 grid-bg overflow-hidden">
+  <div class="absolute inset-0 bg-gradient-to-b from-brand-500/5 via-transparent to-transparent pointer-events-none"></div>
+  <div class="max-w-5xl mx-auto text-center relative">
+    <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-surface-700 border border-surface-500 text-sm text-gray-300 mb-8">
+      <span class="w-2 h-2 rounded-full bg-brand-400 pulse-dot"></span>
+      Self-healing memory for AI agents
+    </div>
+    <h1 class="text-5xl md:text-7xl font-black tracking-tight leading-[1.1] mb-6">
+      Your AI deserves a<br>
+      <span class="gradient-text">real memory.</span>
+    </h1>
+    <p class="text-lg md:text-xl text-gray-400 max-w-3xl mx-auto mb-10 leading-relaxed">
+      Seme is a local-first, SQLite-backed memory system that extracts facts from conversations, resolves contradictions, compiles user profiles, and self-heals over time. Not a filing cabinet — a brain.
+    </p>
+    <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
+      <a href="https://github.com/charlesponti/seme" class="px-8 py-3.5 rounded-xl bg-brand-500 text-black font-bold text-lg hover:bg-brand-400 transition glow">
+        View on GitHub →
+      </a>
+      <a href="#quickstart" class="px-8 py-3.5 rounded-xl bg-surface-700 border border-surface-500 text-white font-semibold text-lg hover:bg-surface-600 transition">
+        Quick Start
+      </a>
+    </div>
+    <!-- Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-3xl mx-auto">
+      <div class="text-center">
+        <div class="text-3xl md:text-4xl font-black text-white stat-number">80</div>
+        <div class="text-sm text-gray-500 mt-1">Eval scenarios</div>
+      </div>
+      <div class="text-center">
+        <div class="text-3xl md:text-4xl font-black text-brand-400 stat-number">100%</div>
+        <div class="text-sm text-gray-500 mt-1">Pass rate</div>
+      </div>
+      <div class="text-center">
+        <div class="text-3xl md:text-4xl font-black text-white stat-number">0.24ms</div>
+        <div class="text-sm text-gray-500 mt-1">p99 record_turn</div>
+      </div>
+      <div class="text-center">
+        <div class="text-3xl md:text-4xl font-black text-white stat-number">2.09ms</div>
+        <div class="text-sm text-gray-500 mt-1">p99 remember</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- Features -->
+<section id="features" class="py-24 px-6">
+  <div class="max-w-7xl mx-auto">
+    <div class="text-center mb-16">
+      <h2 class="text-3xl md:text-5xl font-black mb-4">Everything your AI needs to <span class="gradient-text">remember</span></h2>
+      <p class="text-gray-400 text-lg max-w-2xl mx-auto">Not a filing cabinet with a search box. A complete memory pipeline — extraction, resolution, profile compilation, decay, and self-healing.</p>
+    </div>
+    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- Feature cards -->
+      <div class="card-hover p-6 rounded-2xl bg-surface-800 border border-surface-600">
+        <div class="feature-icon mb-4">🔍</div>
+        <h3 class="text-lg font-bold mb-2">Fact Extraction</h3>
+        <p class="text-gray-400 text-sm leading-relaxed">LLM-powered extraction from conversations. Hypotheticals, jokes, and pasted content are tagged — never stored as stated facts. 22/22 extraction eval.</p>
+      </div>
+      <div class="card-hover p-6 rounded-2xl bg-surface-800 border border-surface-600">
+        <div class="feature-icon mb-4">⚖️</div>
+        <h3 class="text-lg font-bold mb-2">Conflict Resolution</h3>
+        <p class="text-gray-400 text-sm leading-relaxed">ADD, MERGE, SUPERSEDE, NOOP decisions. Single-valued slots auto-supersede. Model-second path for ambiguous cases. Corroboration-based promotion.</p>
+      </div>
+      <div class="card-hover p-6 rounded-2xl bg-surface-800 border border-surface-600">
+        <div class="feature-icon mb-4">👤</div>
+        <h3 class="text-lg font-bold mb-2">Profile Compilation</h3>
+        <p class="text-gray-400 text-sm leading-relaxed">Auto-compiled user profile from active memories. Held if >20% change. 3 consecutive holds auto-publish. Version tracking.</p>
+      </div>
+      <div class="card-hover p-6 rounded-2xl bg-surface-800 border border-surface-600">
+        <div class="feature-icon mb-4">🧹</div>
+        <h3 class="text-lg font-bold mb-2">Decay & Compaction</h3>
+        <p class="text-gray-400 text-sm leading-relaxed">6 decay classes (exempt → session). Sleep job compacts stale memories. Confidence decays over time. Corroboration extends life.</p>
+      </div>
+      <div class="card-hover p-6 rounded-2xl bg-surface-800 border border-surface-600">
+        <div class="feature-icon mb-4">🛡️</div>
+        <h3 class="text-lg font-bold mb-2">Validation Gate</h3>
+        <p class="text-gray-400 text-sm leading-relaxed">Evidence must be verbatim substring of source turn. Provenance mandatory. Non-string IDs rejected. 15 validation rules.</p>
+      </div>
+      <div class="card-hover p-6 rounded-2xl bg-surface-800 border border-surface-600">
+        <div class="feature-icon mb-4">🔄</div>
+        <h3 class="text-lg font-bold mb-2">Self-Healing</h3>
+        <p class="text-gray-400 text-sm leading-relaxed">Sleep job detects contradictions, compacts duplicates, recompiles profile. Healing log tracks all actions. Reversible where possible.</p>
+      </div>
+      <div class="card-hover p-6 rounded-2xl bg-surface-800 border border-surface-600">
+        <div class="feature-icon mb-4">🎯</div>
+        <h3 class="text-lg font-bold mb-2">Abstention Logic</h3>
+        <p class="text-gray-400 text-sm leading-relaxed">Explicit abstain flag when no relevant memories. Single-word fallback only. Never hallucinates memories that don't exist.</p>
+      </div>
+      <div class="card-hover p-6 rounded-2xl bg-surface-800 border border-surface-600">
+        <div class="feature-icon mb-4">⏸️</div>
+        <h3 class="text-lg font-bold mb-2">Pause & Resume</h3>
+        <p class="text-gray-400 text-sm leading-relaxed">Pause learning (blocks remember/boundary). Retrieval and recording still work. Resume anytime. Learning state persisted.</p>
+      </div>
+      <div class="card-hover p-6 rounded-2xl bg-surface-800 border border-surface-600">
+        <div class="feature-icon mb-4">🗑️</div>
+        <h3 class="text-lg font-bold mb-2">Deletion & Privacy</h3>
+        <p class="text-gray-400 text-sm leading-relaxed">Forget by memory, slot, topic, episode. Delete all with confirmation. Export bundle with full provenance. GDPR-compliant.</p>
+      </div>
+      <div class="card-hover p-6 rounded-2xl bg-surface-800 border border-surface-600">
+        <div class="feature-icon mb-4">📋</div>
+        <h3 class="text-lg font-bold mb-2">Review Queue</h3>
+        <p class="text-gray-400 text-sm leading-relaxed">Human-in-the-loop for contradictions, adaptations, and deletions. Confirm, reject, or edit. Full audit trail.</p>
+      </div>
+      <div class="card-hover p-6 rounded-2xl bg-surface-800 border border-surface-600">
+        <div class="feature-icon mb-4">🧠</div>
+        <h3 class="text-lg font-bold mb-2">Adaptation Store</h3>
+        <p class="text-gray-400 text-sm leading-relaxed">Feedback aggregation (≥5 signals, ≥3 sessions). Proposals via review queue. User lock on dimensions. Revert support.</p>
+      </div>
+      <div class="card-hover p-6 rounded-2xl bg-surface-800 border border-surface-600">
+        <div class="feature-icon mb-4">🧬</div>
+        <h3 class="text-lg font-bold mb-2">Identity Core</h3>
+        <p class="text-gray-400 text-sm leading-relaxed">Separate immutable identity layer. Name, preferences, traits. Never auto-modified by extraction. Explicit seed only.</p>
+      </div>
+      <div class="card-hover p-6 rounded-2xl bg-surface-800 border border-surface-600">
+        <div class="feature-icon mb-4">🚫</div>
+        <h3 class="text-lg font-bold mb-2">Boundary Rules</h3>
+        <p class="text-gray-400 text-sm leading-relaxed">User directives become procedural rules. Priority-ordered. Always included in retrieval. Never auto-deprecated.</p>
+      </div>
+      <div class="card-hover p-6 rounded-2xl bg-surface-800 border border-surface-600">
+        <div class="feature-icon mb-4">📊</div>
+        <h3 class="text-lg font-bold mb-2">Health Metrics</h3>
+        <p class="text-gray-400 text-sm leading-relaxed">Counts by status, quarantine age, contradiction depth, provenance completeness, profile token estimate, learning state.</p>
+      </div>
+      <div class="card-hover p-6 rounded-2xl bg-surface-800 border border-surface-600">
+        <div class="feature-icon mb-4">⚡</div>
+        <h3 class="text-lg font-bold mb-2">Sub-millisecond</h3>
+        <p class="text-gray-400 text-sm leading-relaxed">record_turn: 0.14ms mean. retrieve_context: 0.29ms mean. get_profile: 0.02ms mean. p99 all under 3ms.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- Architecture -->
+<section id="architecture" class="py-24 px-6 bg-surface-800/50">
+  <div class="max-w-6xl mx-auto">
+    <div class="text-center mb-16">
+      <h2 class="text-3xl md:text-5xl font-black mb-4">How it <span class="gradient-text">works</span></h2>
+      <p class="text-gray-400 text-lg max-w-2xl mx-auto">A complete pipeline from conversation to memory to retrieval. Every step is validated, resolved, and tracked.</p>
+    </div>
+    <div class="grid md:grid-cols-2 gap-8">
+      <div class="code-block p-6">
+        <h3 class="text-brand-400 font-bold mb-4 text-sm uppercase tracking-wider">Ingestion</h3>
+        <div class="space-y-3 text-sm font-mono text-gray-300">
+          <div class="flex items-center gap-3"><span class="text-brand-500">1.</span> record_turn → turns table (provenance)</div>
+          <div class="flex items-center gap-3"><span class="text-brand-500">2.</span> end_session → episode created</div>
+          <div class="flex items-center gap-3"><span class="text-brand-500">3.</span> Extraction pipeline (LLM) → candidates</div>
+          <div class="flex items-center gap-3"><span class="text-brand-500">4.</span> Validation gate → provenance check</div>
+          <div class="flex items-center gap-3"><span class="text-brand-500">5.</span> Resolver → ADD/MERGE/SUPERSEDE/NOOP</div>
+          <div class="flex items-center gap-3"><span class="text-brand-500">6.</span> Profile compiler → recompile</div>
+        </div>
+      </div>
+      <div class="code-block p-6">
+        <h3 class="text-brand-400 font-bold mb-4 text-sm uppercase tracking-wider">Retrieval</h3>
+        <div class="space-y-3 text-sm font-mono text-gray-300">
+          <div class="flex items-center gap-3"><span class="text-brand-500">1.</span> FTS5 + vector similarity search</div>
+          <div class="flex items-center gap-3"><span class="text-brand-500">2.</span> Confidence-weighted ranking</div>
+          <div class="flex items-center gap-3"><span class="text-brand-500">3.</span> Decay penalty applied</div>
+          <div class="flex items-center gap-3"><span class="text-brand-500">4.</span> Top-K + procedural rules</div>
+          <div class="flex items-center gap-3"><span class="text-brand-500">5.</span> Abstention if no match</div>
+          <div class="flex items-center gap-3"><span class="text-brand-500">6.</span> LLM-ready context bundle</div>
+        </div>
+      </div>
+      <div class="code-block p-6">
+        <h3 class="text-brand-400 font-bold mb-4 text-sm uppercase tracking-wider">Sleep Job</h3>
+        <div class="space-y-3 text-sm font-mono text-gray-300">
+          <div class="flex items-center gap-3"><span class="text-brand-500">1.</span> Decay confidence (time-based)</div>
+          <div class="flex items-center gap-3"><span class="text-brand-500">2.</span> Compact duplicates (MERGE)</div>
+          <div class="flex items-center gap-3"><span class="text-brand-500">3.</span> Detect contradictions</div>
+          <div class="flex items-center gap-3"><span class="text-brand-500">4.</span> Recompile profile</div>
+          <div class="flex items-center gap-3"><span class="text-brand-500">5.</span> Log healing actions</div>
+        </div>
+      </div>
+      <div class="code-block p-6">
+        <h3 class="text-brand-400 font-bold mb-4 text-sm uppercase tracking-wider">Storage</h3>
+        <div class="space-y-3 text-sm font-mono text-gray-300">
+          <div class="flex items-center gap-3"><span class="text-brand-500">•</span> SQLite (better-sqlite3)</div>
+          <div class="flex items-center gap-3"><span class="text-brand-500">•</span> sqlite-vec (vector search)</div>
+          <div class="flex items-center gap-3"><span class="text-brand-500">•</span> FTS5 (full-text search)</div>
+          <div class="flex items-center gap-3"><span class="text-brand-500">•</span> WAL mode (concurrent reads)</div>
+          <div class="flex items-center gap-3"><span class="text-brand-500">•</span> Local-first, no cloud required</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- Performance -->
+<section id="performance" class="py-24 px-6">
+  <div class="max-w-5xl mx-auto">
+    <div class="text-center mb-16">
+      <h2 class="text-3xl md:text-5xl font-black mb-4">Sub-millisecond <span class="gradient-text">performance</span></h2>
+      <p class="text-gray-400 text-lg">Measured on M1 Max. N=100 per operation. p99 under 3ms for all operations.</p>
+    </div>
+    <div class="code-block overflow-hidden">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-surface-600">
+            <th class="text-left p-4 text-gray-400 font-medium">Operation</th>
+            <th class="text-right p-4 text-gray-400 font-medium">Mean</th>
+            <th class="text-right p-4 text-gray-400 font-medium">p50</th>
+            <th class="text-right p-4 text-gray-400 font-medium">p95</th>
+            <th class="text-right p-4 text-gray-400 font-medium">p99</th>
+            <th class="text-right p-4 text-gray-400 font-medium">Max</th>
+          </tr>
+        </thead>
+        <tbody class="font-mono">
+          <tr class="border-b border-surface-600/50"><td class="p-4 text-white">record_turn</td><td class="p-4 text-right text-gray-300">0.14ms</td><td class="p-4 text-right text-gray-300">0.12ms</td><td class="p-4 text-right text-gray-300">0.23ms</td><td class="p-4 text-right text-brand-400 font-bold">0.24ms</td><td class="p-4 text-right text-gray-500">1.00ms</td></tr>
+          <tr class="border-b border-surface-600/50"><td class="p-4 text-white">remember_command</td><td class="p-4 text-right text-gray-300">0.74ms</td><td class="p-4 text-right text-gray-300">0.67ms</td><td class="p-4 text-right text-gray-300">1.14ms</td><td class="p-4 text-right text-brand-400 font-bold">2.09ms</td><td class="p-4 text-right text-gray-500">2.51ms</td></tr>
+          <tr class="border-b border-surface-600/50"><td class="p-4 text-white">boundary_command</td><td class="p-4 text-right text-gray-300">0.95ms</td><td class="p-4 text-right text-gray-300">0.83ms</td><td class="p-4 text-right text-gray-300">1.21ms</td><td class="p-4 text-right text-brand-400 font-bold">2.59ms</td><td class="p-4 text-right text-gray-500">2.59ms</td></tr>
+          <tr class="border-b border-surface-600/50"><td class="p-4 text-white">retrieve_context</td><td class="p-4 text-right text-gray-300">0.29ms</td><td class="p-4 text-right text-gray-300">0.27ms</td><td class="p-4 text-right text-gray-300">0.41ms</td><td class="p-4 text-right text-brand-400 font-bold">0.67ms</td><td class="p-4 text-right text-gray-500">0.72ms</td></tr>
+          <tr class="border-b border-surface-600/50"><td class="p-4 text-white">get_profile</td><td class="p-4 text-right text-gray-300">0.02ms</td><td class="p-4 text-right text-gray-300">0.01ms</td><td class="p-4 text-right text-gray-300">0.02ms</td><td class="p-4 text-right text-brand-400 font-bold">0.04ms</td><td class="p-4 text-right text-gray-500">0.14ms</td></tr>
+          <tr><td class="p-4 text-white">end_session</td><td class="p-4 text-right text-gray-300">0.48ms</td><td class="p-4 text-right text-gray-300">0.44ms</td><td class="p-4 text-right text-gray-300">0.82ms</td><td class="p-4 text-right text-brand-400 font-bold">0.84ms</td><td class="p-4 text-right text-gray-500">0.84ms</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="text-center text-gray-500 text-sm mt-4">Baseline committed to perf/baseline.jsonl. Run <code class="text-brand-400">npm run bench</code> to reproduce.</p>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- Evals -->
+<section id="evals" class="py-24 px-6 bg-surface-800/50">
+  <div class="max-w-5xl mx-auto">
+    <div class="text-center mb-16">
+      <h2 class="text-3xl md:text-5xl font-black mb-4">80 eval scenarios. <span class="gradient-text">100% pass.</span></h2>
+      <p class="text-gray-400 text-lg">Four test suites covering extraction, resolution, retrieval, deletion, adaptation, and adversarial cases.</p>
+    </div>
+    <div class="grid md:grid-cols-2 gap-6">
+      <div class="code-block p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-bold">Extraction Eval</h3>
+          <span class="text-brand-400 font-mono font-bold">22/22</span>
+        </div>
+        <p class="text-gray-400 text-sm">LLM extraction quality: hypotheticals, negations, compliments, non-salient turns, third-party content, modality tagging. Tested on Gemini 3.8 Flash and Haiku 4.5.</p>
+      </div>
+      <div class="code-block p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-bold">System Eval</h3>
+          <span class="text-brand-400 font-mono font-bold">26/26</span>
+        </div>
+        <p class="text-gray-400 text-sm">End-to-end: provenance, extraction, resolution, deletion, retrieval, pause/resume, profile, healing, identity, export, review, correction, boundary.</p>
+      </div>
+      <div class="code-block p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-bold">Hard Tests</h3>
+          <span class="text-brand-400 font-mono font-bold">15/15</span>
+        </div>
+        <p class="text-gray-400 text-sm">Multi-session accumulation, contradiction resolution, abstention, negation, hypothetical, compliment-as-feedback, non-salient, boundary, sleep job, profile, rapid-fire 50 turns, delete-all, correct chain, pause/resume, export.</p>
+      </div>
+      <div class="code-block p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-bold">Super-Hard Tests</h3>
+          <span class="text-brand-400 font-mono font-bold">17/17</span>
+        </div>
+        <p class="text-gray-400 text-sm">Triple contradiction chains, nested hypotheticals, sarcasm/joking, embedded instructions, third-party attribution, subtle corrections, temporal reasoning, ambiguous pronouns, double negatives, adversarial extraction, 50-turn conversations, meta-memory.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- API -->
+<section id="api" class="py-24 px-6">
+  <div class="max-w-5xl mx-auto">
+    <div class="text-center mb-16">
+      <h2 class="text-3xl md:text-5xl font-black mb-4">Simple <span class="gradient-text">API</span></h2>
+      <p class="text-gray-400 text-lg">REST + TypeScript. Local-first. No cloud required.</p>
+    </div>
+    <div class="code-block p-6 mb-8">
+      <div class="text-xs text-gray-500 mb-3 font-mono">TypeScript</div>
+      <pre class="text-sm text-gray-300 font-mono overflow-x-auto"><code>import { MemoryService } from './api/service.js';
+
+const svc = new MemoryService({ storageDir: './data', embeddingDim: 4 });
+await svc.seedIdentityCore({ name: 'Charles' }, 'The user is Charles.');
+
+// Record a conversation
+const turn = await svc.recordTurn('s1', 'user', 'I prefer dark mode.');
+await svc.endSession('s1');
+
+// Retrieve context for a new session
+const ctx = svc.retrieveContext('s2', 'What theme does the user prefer?');
+console.log(ctx.memories);  // [{ value_text: 'I prefer dark mode.', ... }]
+console.log(ctx.abstain);   // false
+
+// Get compiled profile
+const profile = svc.getProfile();
+console.log(profile.profile_text);  // "## Profile\n- user stated: I prefer dark mode."</code></pre>
+    </div>
+    <div class="grid md:grid-cols-3 gap-4 text-sm">
+      <div class="code-block p-4">
+        <div class="text-brand-400 font-mono font-bold mb-2">record_turn</div>
+        <div class="text-gray-400">Record a conversation turn with provenance.</div>
+      </div>
+      <div class="code-block p-4">
+        <div class="text-brand-400 font-mono font-bold mb-2">retrieve_context</div>
+        <div class="text-gray-400">Get LLM-ready context bundle with abstention.</div>
+      </div>
+      <div class="code-block p-4">
+        <div class="text-brand-400 font-mono font-bold mb-2">get_profile</div>
+        <div class="text-gray-400">Compiled user profile with version tracking.</div>
+      </div>
+      <div class="code-block p-4">
+        <div class="text-brand-400 font-mono font-bold mb-2">forget</div>
+        <div class="text-gray-400">Delete by memory, slot, topic, episode, or all.</div>
+      </div>
+      <div class="code-block p-4">
+        <div class="text-brand-400 font-mono font-bold mb-2">export_data</div>
+        <div class="text-gray-400">Full export bundle with provenance.</div>
+      </div>
+      <div class="code-block p-4">
+        <div class="text-brand-400 font-mono font-bold mb-2">run_sleep_job</div>
+        <div class="text-gray-400">Decay, compact, recompile, detect contradictions.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- Quick Start -->
+<section id="quickstart" class="py-24 px-6 bg-surface-800/50">
+  <div class="max-w-3xl mx-auto text-center">
+    <h2 class="text-3xl md:text-5xl font-black mb-4">Get started in <span class="gradient-text">60 seconds</span></h2>
+    <div class="code-block p-6 text-left mt-8">
+      <pre class="text-sm text-gray-300 font-mono overflow-x-auto"><code>git clone https://github.com/charlesponti/seme.git
+cd seme
+npm install
+npm run build
+npm run demo        # runs the full demo
+npm run dev         # starts the Hono server on :3000
+npm run bench       # performance benchmarks</code></pre>
+    </div>
+    <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
+      <a href="https://github.com/charlesponti/seme" class="px-8 py-3.5 rounded-xl bg-brand-500 text-black font-bold text-lg hover:bg-brand-400 transition glow">
+        Clone on GitHub →
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="py-12 px-6 border-t border-surface-600">
+  <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+    <div class="flex items-center gap-3">
+      <span class="text-xl">🧠</span>
+      <span class="font-bold">Seme</span>
+      <span class="text-gray-500 text-sm">Self-healing memory for AI agents</span>
+    </div>
+    <div class="flex items-center gap-6 text-sm text-gray-400">
+      <a href="https://github.com/charlesponti/seme" class="hover:text-white transition">GitHub</a>
+      <a href="#features" class="hover:text-white transition">Features</a>
+      <a href="#api" class="hover:text-white transition">API</a>
+      <a href="#performance" class="hover:text-white transition">Performance</a>
+    </div>
+    <div class="text-gray-500 text-sm">
+      Built by <a href="https://github.com/charlesponti" class="text-brand-400 hover:underline">Ponti Studios</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
