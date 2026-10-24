@@ -492,6 +492,49 @@ document.getElementById('replayBtn').addEventListener('click', runAnimation);
 // Auto-start after 1s
 setTimeout(runAnimation, 1000);
 </script>
+
+<div class="section-divider"></div>
+
+<!-- Sleep Job Animation -->
+<section class="py-24 px-6 bg-surface-800/50">
+  <div class="max-w-6xl mx-auto">
+    <div class="text-center mb-16">
+      <h2 class="text-3xl md:text-5xl font-black mb-4">The sleep job, <span class="gradient-text">step by step.</span></h2>
+      <p class="text-gray-400 text-lg max-w-2xl mx-auto">300+ memories seeded. Watch Seme dedup, detect contradictions, decay, and recompile the profile — live.</p>
+    </div>
+    <div class="grid lg:grid-cols-2 gap-8">
+      <div>
+        <div class="text-sm text-gray-500 font-mono mb-3 uppercase tracking-wider flex items-center justify-between">
+          <span>sleep-job.jsonl</span>
+          <button id="sleepReplayBtn" class="text-brand-400 hover:text-brand-300 text-xs font-mono transition">Replay</button>
+        </div>
+        <div class="code-block p-4 min-h-[360px] max-h-[360px] overflow-y-auto font-mono text-xs" id="sleepLogContainer"></div>
+      </div>
+      <div>
+        <div class="text-sm text-gray-500 font-mono mb-3 uppercase tracking-wider">Step progress</div>
+        <div class="space-y-4" id="sleepStepsContainer"></div>
+        <div class="mt-6 code-block p-4">
+          <div class="text-xs text-gray-500 font-mono mb-2 uppercase">Health metrics</div>
+          <div class="grid grid-cols-2 gap-3 text-sm" id="sleepMetrics">
+            <div class="flex justify-between"><span class="text-gray-400">Active</span><span class="text-white font-mono" id="mActive">-</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Superseded</span><span class="text-white font-mono" id="mSuperseded">-</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Quarantined</span><span class="text-white font-mono" id="mQuarantined">-</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Provenance</span><span class="text-brand-400 font-mono" id="mProvenance">-</span></div>
+          </div>
+        </div>
+        <div class="mt-4 code-block p-4">
+          <div class="text-xs text-gray-500 font-mono mb-2 uppercase">Healing log</div>
+          <div class="grid grid-cols-3 gap-2 text-xs font-mono" id="sleepHealing">
+            <div class="text-center"><div class="text-gray-400">add</div><div class="text-white" id="hAdd">-</div></div>
+            <div class="text-center"><div class="text-gray-400">merge</div><div class="text-white" id="hMerge">-</div></div>
+            <div class="text-center"><div class="text-gray-400">supersede</div><div class="text-white" id="hSupersede">-</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section id="evals" class="py-24 px-6 bg-surface-800/50">
   <div class="max-w-5xl mx-auto">
     <div class="text-center mb-16">
@@ -657,6 +700,159 @@ npm run bench       # performance benchmarks</code></pre>
     </div>
   </div>
 </footer>
+
+
+<style>
+  .log-line { animation: logFadeIn 0.3s ease-out forwards; opacity: 0; }
+  @keyframes logFadeIn { to { opacity: 1; } }
+  .step-card { transition: all 0.4s ease; }
+  .step-pending { opacity: 0.4; }
+  .step-running { border-color: #4ade80; box-shadow: 0 0 12px rgba(34,197,94,0.2); }
+  .step-done { border-color: #22c55e; }
+</style>
+
+<script>
+const sleepLog = [
+  {"ts":"21:43:16","event":"job_start","job_id":"9a2a9a1e","trigger":"manual"},
+  {"ts":"21:43:16","event":"step_start","step":"dedup","detail":"Starting dedup sweep..."},
+  {"ts":"21:43:16","event":"step_complete","step":"dedup","duration_ms":66,"result":{"status":"done","detail":"Merged 154 duplicates"}},
+  {"ts":"21:43:16","event":"step_start","step":"contradiction","detail":"Starting contradiction sweep..."},
+  {"ts":"21:43:16","event":"step_complete","step":"contradiction","duration_ms":1,"result":{"status":"done","detail":"Flagged 1 contradictions"}},
+  {"ts":"21:43:16","event":"step_start","step":"decay","detail":"Starting decay sweep..."},
+  {"ts":"21:43:16","event":"step_complete","step":"decay","duration_ms":1,"result":{"status":"done","detail":"Archived 0 memories"}},
+  {"ts":"21:43:16","event":"step_start","step":"profile_recompile","detail":"Starting profile recompilation..."},
+  {"ts":"21:43:16","event":"step_complete","step":"profile_recompile","duration_ms":2,"result":{"status":"done","detail":"Profile recompiled (v372, held)"}},
+  {"ts":"21:43:16","event":"metrics","metrics":{"counts_by_status":{"active":198,"superseded":207},"quarantine_count":0,"provenance_complete_percent":100}},
+  {"ts":"21:43:16","event":"job_complete","job_id":"9a2a9a1e","status":"completed","steps":{"dedup":{"status":"done","detail":"Merged 154 duplicates"},"contradiction":{"status":"done","detail":"Flagged 1 contradictions"},"decay":{"status":"done","detail":"Archived 0 memories"},"profile_recompile":{"status":"done","detail":"Profile recompiled (v372, held)"}},"metrics":{"counts_by_status":{"active":198,"superseded":207},"quarantine_count":0,"provenance_complete_percent":100}}
+];
+
+const stepInfo = {
+  dedup: { title: "Dedup Sweep", icon: "clean", desc: "Merge exact duplicate memories (same slot + subject + predicate + value)", color: "brand" },
+  contradiction: { title: "Contradiction Sweep", icon: "warn", desc: "Flag single-valued slots with multiple active values for review", color: "yellow" },
+  decay: { title: "Decay Sweep", icon: "down", desc: "Archive memories below confidence threshold (0.15) or 90-day no-corroboration", color: "purple" },
+  profile_recompile: { title: "Profile Recompile", icon: "user", desc: "Recompile user profile from active memories (held if >20% change)", color: "blue" },
+};
+
+const stepOrder = ["dedup", "contradiction", "decay", "profile_recompile"];
+let sleepTimeouts = [];
+
+function sleepClearAll() {
+  sleepTimeouts.forEach(function(t) { clearTimeout(t); });
+  sleepTimeouts = [];
+  document.getElementById("sleepLogContainer").innerHTML = "";
+  document.getElementById("sleepStepsContainer").innerHTML = "";
+  document.getElementById("mActive").textContent = "-";
+  document.getElementById("mSuperseded").textContent = "-";
+  document.getElementById("mQuarantined").textContent = "-";
+  document.getElementById("mProvenance").textContent = "-";
+  document.getElementById("hAdd").textContent = "-";
+  document.getElementById("hMerge").textContent = "-";
+  document.getElementById("hSupersede").textContent = "-";
+}
+
+function formatLogEntry(entry) {
+  var ts = entry.ts;
+  var text = "";
+  if (entry.event === "job_start") {
+    text = "[" + ts + "] job_start trigger=" + entry.trigger + " id=" + entry.job_id;
+  } else if (entry.event === "step_start") {
+    text = "[" + ts + "] step_start " + entry.step + " - " + entry.detail;
+  } else if (entry.event === "step_complete") {
+    var dur = entry.duration_ms;
+    var detail = entry.result ? entry.result.detail : "";
+    text = "[" + ts + "] step_done " + entry.step + " (" + dur + "ms) -> " + detail;
+  } else if (entry.event === "metrics") {
+    var m = entry.metrics;
+    text = "[" + ts + "] metrics active=" + m.counts_by_status.active + " superseded=" + m.counts_by_status.superseded + " quarantined=" + m.quarantine_count + " provenance=" + m.provenance_complete_percent + "%";
+  } else if (entry.event === "job_complete") {
+    text = "[" + ts + "] job_complete status=" + entry.status;
+  }
+  return text;
+}
+
+function addLogLine(entry, delay) {
+  var t = setTimeout(function() {
+    var container = document.getElementById("sleepLogContainer");
+    var div = document.createElement("div");
+    div.className = "log-line mb-1";
+    div.textContent = formatLogEntry(entry);
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+  }, delay);
+  sleepTimeouts.push(t);
+}
+
+function updateStepCard(step, status, detail) {
+  var card = document.getElementById("step-" + step);
+  if (!card) return;
+  var statusBadge = card.querySelector(".step-status");
+  var detailEl = card.querySelector(".step-detail");
+  if (status === "running") {
+    card.classList.add("step-running");
+    statusBadge.textContent = "running...";
+    statusBadge.className = "step-status text-xs font-mono text-yellow-400";
+  } else if (status === "done") {
+    card.classList.remove("step-running");
+    card.classList.add("step-done");
+    statusBadge.textContent = "done";
+    statusBadge.className = "step-status text-xs font-mono text-green-400";
+    if (detailEl) detailEl.textContent = detail;
+  }
+}
+
+function initStepCards() {
+  var container = document.getElementById("sleepStepsContainer");
+  for (var i = 0; i < stepOrder.length; i++) {
+    var step = stepOrder[i];
+    var info = stepInfo[step];
+    var div = document.createElement("div");
+    div.id = "step-" + step;
+    div.className = "code-block p-4 step-card step-pending";
+    div.innerHTML = "<div class=\"flex items-center justify-between mb-2\"><div class=\"flex items-center gap-2\"><span class=\"text-lg\">" + info.icon + "</span><span class=\"font-bold text-sm\">" + info.title + "</span></div><span class=\"step-status text-xs font-mono text-gray-500\">pending</span></div><div class=\"text-xs text-gray-500 mb-2\">" + info.desc + "</div><div class=\"step-detail text-xs text-gray-400 font-mono\"></div>";
+    container.appendChild(div);
+  }
+}
+
+function runSleepAnimation() {
+  sleepClearAll();
+  initStepCards();
+  var elapsed = 0;
+  for (var i = 0; i < sleepLog.length; i++) {
+    var entry = sleepLog[i];
+    elapsed += 150;
+    var logDelay = elapsed;
+    addLogLine(entry, logDelay);
+    if (entry.event === "step_start") {
+      var step = entry.step;
+      var t = setTimeout(function(s) { return function() { updateStepCard(s, "running", ""); }; }(step), logDelay);
+      sleepTimeouts.push(t);
+    }
+    if (entry.event === "step_complete") {
+      var step2 = entry.step;
+      var detail = entry.result ? entry.result.detail : "";
+      var t2 = setTimeout(function(s, d) { return function() { updateStepCard(s, "done", d); }; }(step2, detail), logDelay);
+      sleepTimeouts.push(t2);
+    }
+    if (entry.event === "metrics") {
+      var m = entry.metrics;
+      var t1 = setTimeout(function() { document.getElementById("mActive").textContent = m.counts_by_status.active; }, logDelay);
+      var t2b = setTimeout(function() { document.getElementById("mSuperseded").textContent = m.counts_by_status.superseded; }, logDelay + 100);
+      var t3 = setTimeout(function() { document.getElementById("mQuarantined").textContent = m.quarantine_count; }, logDelay + 200);
+      var t4 = setTimeout(function() { document.getElementById("mProvenance").textContent = m.provenance_complete_percent + "%"; }, logDelay + 300);
+      sleepTimeouts.push(t1, t2b, t3, t4);
+    }
+    if (entry.event === "job_complete") {
+      var t1b = setTimeout(function() { document.getElementById("hAdd").textContent = "352"; }, logDelay);
+      var t2c = setTimeout(function() { document.getElementById("hMerge").textContent = "209"; }, logDelay + 100);
+      var t3b = setTimeout(function() { document.getElementById("hSupersede").textContent = "53"; }, logDelay + 200);
+      sleepTimeouts.push(t1b, t2c, t3b);
+    }
+  }
+}
+
+document.getElementById("sleepReplayBtn").addEventListener("click", runSleepAnimation);
+setTimeout(runSleepAnimation, 1500);
+</script>
 
 </body>
 </html>
