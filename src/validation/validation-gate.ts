@@ -71,7 +71,8 @@ export class ValidationGate {
     }
 
     // Validate enums
-    const validKinds = ['fact', 'preference', 'routine', 'boundary', 'relationship', 'interest', 'trait_inference'];
+    const validKinds = ['fact', 'preference', 'routine', 'boundary', 'relationship', 'interest', 'trait_inference',
+      'decision', 'reference', 'anti_pattern', 'observation'];
     if (!validKinds.includes(candidate.kind)) errors.push('Invalid kind');
 
     const validSourceTypes = ['user_stated', 'user_confirmed', 'agent_inferred', 'agent_reflection', 'user_edited'];
@@ -105,6 +106,20 @@ export class ValidationGate {
     if (candidate.kind === 'boundary') {
       if (!['user_stated', 'user_confirmed', 'user_edited'].includes(candidate.source_type)) {
         errors.push('Boundary requires user statement');
+      }
+    }
+
+    // Anti-pattern requires user statement
+    if (candidate.kind === 'anti_pattern') {
+      if (!['user_stated', 'user_confirmed', 'user_edited'].includes(candidate.source_type)) {
+        errors.push('Anti-pattern requires user statement');
+      }
+    }
+
+    // Observation requires agent inference
+    if (candidate.kind === 'observation') {
+      if (!['agent_inferred', 'agent_reflection'].includes(candidate.source_type)) {
+        errors.push('Observation requires agent inference');
       }
     }
 

@@ -3,7 +3,8 @@
 export type MemoryStatus = 'candidate' | 'active' | 'superseded' | 'archived' | 'quarantined' | 'deleted';
 export type SourceType = 'user_stated' | 'user_confirmed' | 'agent_inferred' | 'agent_reflection' | 'user_edited';
 export type Modality = 'stated' | 'hypothetical' | 'negated' | 'joking' | 'quoted';
-export type MemoryKind = 'fact' | 'preference' | 'routine' | 'boundary' | 'relationship' | 'interest' | 'trait_inference';
+export type MemoryKind = 'fact' | 'preference' | 'routine' | 'boundary' | 'relationship' | 'interest' | 'trait_inference'
+  | 'decision' | 'reference' | 'anti_pattern' | 'observation';
 export type DecayClass = 'exempt' | 'slow' | 'medium' | 'fast' | 'session';
 export type HealingAction = 'merge' | 'supersede' | 'archive' | 'quarantine' | 'promote' | 'demote' | 'repair' | 'delete' | 'profile_recompile' | 'add' | 'noop';
 export type TurnRole = 'user' | 'assistant' | 'system';

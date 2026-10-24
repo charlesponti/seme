@@ -131,8 +131,13 @@ RULES:
 14. Non-salient turns emit nothing. Empty arrays are correct.
 15. Slot discipline: use slot key from registry if one fits; otherwise slot = null. Never invent slots.
 
-KINDS: fact, preference, routine, boundary, relationship, interest, trait_inference
+KINDS: fact, preference, routine, boundary, relationship, interest, trait_inference, decision, reference, anti_pattern, observation
 SOURCE_TYPES: user_stated, agent_inferred (extractor may only emit these two)
+
+DECISION: User makes a choice or commits to a plan. ("I decided to use TypeScript", "Let's go with Postgres", "I chose React over Vue")
+REFERENCE: User mentions a resource, link, or document. ("The docs are at docs.example.com", "Check the README for setup", "See the wiki page")
+ANTI_PATTERN: User states something to avoid or not do. ("Never use var in JavaScript", "Don't store passwords in code", "Avoid premature optimization")
+OBSERVATION: Agent-inferred tentative observation. Only emit when source_type = agent_inferred. ("User seems to prefer concise answers", "User appears to be a morning person")
 MODALITIES: stated, hypothetical, negated, joking, quoted
 DECAY_CLASSES: exempt, slow, medium, fast, session
 SIGNAL_TYPES: explicit_rating, correction, compliment_specific, re_engagement, disengagement, user_edit

@@ -59,6 +59,9 @@ export class MemoryService {
       { slot: 'preference', kind: 'preference', cardinality: 'multi', decay_class: 'medium', profile_included: 1 },
       { slot: 'routine', kind: 'routine', cardinality: 'multi', decay_class: 'medium', profile_included: 1 },
       { slot: 'relationship', kind: 'relationship', cardinality: 'multi', decay_class: 'slow', profile_included: 1 },
+      { slot: 'decision', kind: 'decision', cardinality: 'multi', decay_class: 'slow', profile_included: 1 },
+      { slot: 'reference', kind: 'reference', cardinality: 'multi', decay_class: 'medium', profile_included: 1 },
+      { slot: 'anti_pattern', kind: 'anti_pattern', cardinality: 'multi', decay_class: 'slow', profile_included: 1 },
     ];
     const db = this.storage.getDb();
     for (const s of slots) {

@@ -2,7 +2,7 @@
 
 import Database from 'better-sqlite3';
 import * as sqliteVec from 'sqlite-vec';
-import { getSchemaSql } from '../schema/schema.js';
+import { getSchemaSql, getSchemaSqlV2 } from '../schema/schema.js';
 import { uuid, nowUtc } from '../types/common.js';
 import { createHash } from 'node:crypto';
 
@@ -141,21 +141,34 @@ export class Storage {
         // This shouldn't happen if migrations are sequential
       }
 
-      // Apply migration in transaction
-      const txn = this.db.transaction(() => {
-        this.db.exec(migration.sql);
-        this.db.prepare('INSERT INTO schema_migrations (version, name, applied_at, checksum) VALUES (?, ?, ?, ?)').run(
-          migration.version, migration.name, nowUtc(), migration.checksum
-        );
-      });
-      txn();
+      // Apply migration in transaction (with optional FK disable)
+      const needsFkDisable = (migration as any).disableForeignKeys;
+      if (needsFkDisable) {
+        this.db.pragma('foreign_keys = OFF');
+      }
+      try {
+        const txn = this.db.transaction(() => {
+          this.db.exec(migration.sql);
+          this.db.prepare('INSERT INTO schema_migrations (version, name, applied_at, checksum) VALUES (?, ?, ?, ?)').run(
+            migration.version, migration.name, nowUtc(), migration.checksum
+          );
+        });
+        txn();
+      } finally {
+        if (needsFkDisable) {
+          this.db.pragma('foreign_keys = ON');
+        }
+      }
     }
   }
 
-  private getMigrations(): Array<{ version: number; name: string; sql: string; checksum: string }> {
-    const sql = getSchemaSql(this.embeddingDim);
-    const checksum = createHash('sha256').update(sql).digest('hex');
-    return [{ version: 1, name: 'initial_schema', sql, checksum }];
+  private getMigrations(): Array<{ version: number; name: string; sql: string; checksum: string; disableForeignKeys?: boolean }> {
+    const v1Sql = getSchemaSql(this.embeddingDim);
+    const v2Sql = getSchemaSqlV2();
+    return [
+      { version: 1, name: 'initial_schema', sql: v1Sql, checksum: createHash('sha256').update(v1Sql).digest('hex') },
+      { version: 2, name: 'expand_memory_kinds', sql: v2Sql, checksum: createHash('sha256').update(v2Sql).digest('hex'), disableForeignKeys: true },
+    ];
   }
 
   // Write path: serialised via write queue

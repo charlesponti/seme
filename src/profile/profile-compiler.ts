@@ -48,7 +48,15 @@ export class ProfileCompiler {
     const lines: string[] = [];
     lines.push('## Profile');
     for (const m of deduped) {
-      lines.push(`- ${m.subject} ${m.predicate}: ${m.value_text}`);
+      if (m.kind === 'decision') {
+        lines.push(`- Decision: ${m.value_text}`);
+      } else if (m.kind === 'reference') {
+        lines.push(`- Reference: ${m.value_text}`);
+      } else if (m.kind === 'anti_pattern') {
+        lines.push(`- Avoid: ${m.value_text}`);
+      } else {
+        lines.push(`- ${m.subject} ${m.predicate}: ${m.value_text}`);
+      }
     }
     const renderedText = lines.join('\n');
     const sourceIds = deduped.map(m => m.id);

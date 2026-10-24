@@ -29,6 +29,10 @@ export const KIND_DECAY_DEFAULTS: Record<string, DecayClass> = {
   interest: 'medium',
   preference: 'medium',
   trait_inference: 'fast',
+  decision: 'slow',
+  reference: 'medium',
+  anti_pattern: 'slow',
+  observation: 'fast',
 };
 
 export function getDecayClass(memory: { kind: string; slot: string | null; pinned: number }, slotDecayClass?: DecayClass | null): DecayClass {
