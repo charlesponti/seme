@@ -14,6 +14,7 @@ import { SleepJob } from '../sleep/sleep-job.js';
 import { ReviewQueue } from '../review/review-queue.js';
 import { DeletionManager } from '../deletion/deletion.js';
 import { AdaptationStore } from '../adaptation/adaptation-store.js';
+import { GraphStore } from '../graph/graph-store.js';
 import { uuid, nowUtc } from '../types/common.js';
 import { getDecayClass } from '../confidence/confidence.js';
 
@@ -30,6 +31,7 @@ export class MemoryService {
   private reviewQueue: ReviewQueue;
   private deletionManager: DeletionManager;
   private adaptationStore: AdaptationStore;
+  private graphStore: GraphStore;
 
   constructor(config: StorageConfig) {
     this.storage = new Storage(config);
@@ -46,6 +48,7 @@ export class MemoryService {
     this.reviewQueue = new ReviewQueue(this.storage);
     this.deletionManager = new DeletionManager(this.storage, this.profileCompiler);
     this.adaptationStore = new AdaptationStore(this.storage, this.reviewQueue);
+    this.graphStore = new GraphStore(this.storage);
 
     // Seed slot registry with common slots (synchronous)
     this.seedSlots();
@@ -469,6 +472,29 @@ export class MemoryService {
   async aggregateAdaptations(minSignals?: number, minSessions?: number) {
     return this.adaptationStore.aggregateAndPropose(minSignals, minSessions);
   }
+
+  // Graph Store (Knowledge Graph) — public API
+  createEntity(name: string, type: string, aliases?: string[], description?: string | null, sourceType?: string, confidence?: number): string {
+    return this.graphStore.createEntity(name, type, aliases, description, sourceType, confidence);
+  }
+
+  getEntity(id: string) { return this.graphStore.getEntity(id); }
+  getEntityByName(name: string) { return this.graphStore.getEntityByName(name); }
+  listEntities(type?: string, search?: string, limit?: number, offset?: number) { return this.graphStore.listEntities(type, search, limit, offset); }
+  updateEntity(id: string, updates: any) { return this.graphStore.updateEntity(id, updates); }
+  deleteEntity(id: string) { return this.graphStore.deleteEntity(id); }
+
+  createRelationship(sourceId: string, targetId: string, relationType: string, description?: string | null, sourceTurnId?: string, sourceEpisodeId?: string, sourceType?: string, confidence?: number): string {
+    return this.graphStore.createRelationship(sourceId, targetId, relationType, description, sourceTurnId, sourceEpisodeId, sourceType, confidence);
+  }
+
+  getRelationship(id: string) { return this.graphStore.getRelationship(id); }
+  listRelationships(sourceId?: string, targetId?: string, relationType?: string, limit?: number, offset?: number) { return this.graphStore.listRelationships(sourceId, targetId, relationType, limit, offset); }
+  deleteRelationship(id: string) { return this.graphStore.deleteRelationship(id); }
+
+  getNeighborhood(entityId: string, depth?: number) { return this.graphStore.getNeighborhood(entityId, depth); }
+  findPath(fromId: string, toId: string) { return this.graphStore.findPath(fromId, toId); }
+  getGraphSnapshot() { return this.graphStore.getGraphSnapshot(); }
 
   // Storage access for tests
   getStorage() {
