@@ -229,8 +229,8 @@ export function getVecTableSql(dim: number): string {
   return `CREATE VIRTUAL TABLE IF NOT EXISTS memories_vec USING vec0(memory_id TEXT PRIMARY KEY, embedding FLOAT[${dim}])`;
 }
 
-export const SCHEMA_VERSION = 2;
-export const SCHEMA_NAME = 'self-healing-memory/2';
+export const SCHEMA_VERSION = 3;
+export const SCHEMA_NAME = 'self-healing-memory/3';
 
 export function getSchemaSql(embeddingDim: number): string {
   return SCHEMA_SQL + '\n' + getVecTableSql(embeddingDim);
@@ -311,5 +311,83 @@ CREATE INDEX IF NOT EXISTS idx_memories_episode       ON memories(source_episode
 CREATE INDEX IF NOT EXISTS idx_memories_turn          ON memories(source_turn_id);
 CREATE INDEX IF NOT EXISTS idx_memories_slot_valid    ON memories(slot, valid_to);
 CREATE INDEX IF NOT EXISTS idx_memories_superseded_by ON memories(superseded_by_id);
+`;
+}
+
+/**
+ * Migration v3: Knowledge Graph tables (entities, relationships, links).
+ * Creates 4 new tables with type CHECK constraints and indexes.
+ * Does not modify existing tables.
+ */
+export function getSchemaSqlV3(): string {
+  return `
+-- entities
+CREATE TABLE IF NOT EXISTS entities (
+    id              TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    type            TEXT NOT NULL CHECK (type IN (
+                        'person', 'place', 'organization', 'project',
+                        'tool', 'concept', 'topic', 'preference', 'other')),
+    aliases         TEXT,
+    description     TEXT,
+    first_seen_at   TEXT NOT NULL,
+    last_seen_at    TEXT NOT NULL,
+    mention_count   INTEGER NOT NULL DEFAULT 1,
+    confidence      REAL NOT NULL CHECK (confidence >= 0.0 AND confidence <= 1.0),
+    source_type     TEXT NOT NULL CHECK (source_type IN (
+                        'user_stated', 'user_confirmed', 'agent_inferred',
+                        'agent_reflection', 'user_edited')),
+    profile_included INTEGER NOT NULL DEFAULT 0 CHECK (profile_included IN (0, 1)),
+    pinned          INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0, 1))
+);
+CREATE INDEX IF NOT EXISTS idx_entities_name ON entities(name);
+CREATE INDEX IF NOT EXISTS idx_entities_type ON entities(type);
+
+-- relationships
+CREATE TABLE IF NOT EXISTS relationships (
+    id              TEXT PRIMARY KEY,
+    source_id       TEXT NOT NULL REFERENCES entities(id),
+    target_id       TEXT NOT NULL REFERENCES entities(id),
+    relation_type   TEXT NOT NULL,
+    description     TEXT,
+    weight          REAL NOT NULL DEFAULT 1.0 CHECK (weight >= 0.0 AND weight <= 1.0),
+    first_seen_at   TEXT NOT NULL,
+    last_seen_at    TEXT NOT NULL,
+    mention_count   INTEGER NOT NULL DEFAULT 1,
+    confidence      REAL NOT NULL CHECK (confidence >= 0.0 AND confidence <= 1.0),
+    source_type     TEXT NOT NULL CHECK (source_type IN (
+                        'user_stated', 'user_confirmed', 'agent_inferred',
+                        'agent_reflection', 'user_edited')),
+    source_turn_id  TEXT NOT NULL REFERENCES turns(id),
+    source_episode_id TEXT NOT NULL REFERENCES episodes(id),
+    valid_from      TEXT,
+    valid_to        TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_rel_source ON relationships(source_id);
+CREATE INDEX IF NOT EXISTS idx_rel_target ON relationships(target_id);
+CREATE INDEX IF NOT EXISTS idx_rel_type ON relationships(relation_type);
+
+-- entity_memory_links
+CREATE TABLE IF NOT EXISTS entity_memory_links (
+    entity_id   TEXT NOT NULL REFERENCES entities(id),
+    memory_id   TEXT NOT NULL REFERENCES memories(id),
+    role        TEXT NOT NULL CHECK (role IN ('subject', 'object', 'context', 'mentioned')),
+    created_at  TEXT NOT NULL,
+    PRIMARY KEY (entity_id, memory_id)
+);
+CREATE INDEX IF NOT EXISTS idx_e_m_links_entity ON entity_memory_links(entity_id);
+CREATE INDEX IF NOT EXISTS idx_e_m_links_memory ON entity_memory_links(memory_id);
+
+-- entity_turn_links
+CREATE TABLE IF NOT EXISTS entity_turn_links (
+    entity_id    TEXT NOT NULL REFERENCES entities(id),
+    turn_id      TEXT NOT NULL REFERENCES turns(id),
+    mention_text TEXT NOT NULL,
+    role         TEXT NOT NULL CHECK (role IN ('subject', 'object')),
+    created_at   TEXT NOT NULL,
+    PRIMARY KEY (entity_id, turn_id)
+);
+CREATE INDEX IF NOT EXISTS idx_e_t_links_entity ON entity_turn_links(entity_id);
+CREATE INDEX IF NOT EXISTS idx_e_t_links_turn ON entity_turn_links(turn_id);
 `;
 }
