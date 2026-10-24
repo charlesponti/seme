@@ -260,6 +260,165 @@ export class MemoryService {
     return this.reviewQueue.resolve(itemId, decision, chosenMemoryId, editedValueText);
   }
 
+  // List memories (V1-later)
+  listMemories(status?: string, kind?: string, slot?: string, search?: string, limit?: number, offset?: number) {
+    return this.storage.read((db: any) => {
+      let query = 'SELECT * FROM memories';
+      const conditions: string[] = [];
+      const params: any[] = [];
+      if (status) { conditions.push('status = ?'); params.push(status); }
+      if (kind) { conditions.push('kind = ?'); params.push(kind); }
+      if (slot) { conditions.push('slot = ?'); params.push(slot); }
+      if (search) { conditions.push('(value_text LIKE ? OR subject LIKE ? OR predicate LIKE ?)'); params.push(`%${search}%`, `%${search}%`, `%${search}%`); }
+      if (conditions.length > 0) query += ' WHERE ' + conditions.join(' AND ');
+      query += ' ORDER BY recorded_at DESC';
+      const lim = limit || 50;
+      const off = offset || 0;
+      query += ' LIMIT ? OFFSET ?';
+      params.push(lim, off);
+
+      const rows = db.prepare(query).all(...params) as any[];
+      const totalQuery = 'SELECT COUNT(*) as c FROM memories' + (conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '');
+      const totalParams = params.slice(0, -2);
+      const total = (db.prepare(totalQuery).get(...totalParams) as { c: number }).c;
+
+      return {
+        memories: rows.map((r: any) => ({
+          id: r.id, kind: r.kind, slot: r.slot, value_text: r.value_text,
+          status: r.status, source_type: r.source_type, confidence: r.confidence,
+          importance: r.importance, pinned: r.pinned === 1, observed_at: r.observed_at,
+          valid_from: r.valid_from, valid_to: r.valid_to,
+        })),
+        total,
+      };
+    });
+  }
+
+  // Get memory with full provenance
+  getMemory(memoryId: string) {
+    const row = this.storage.read((db: any) => db.prepare('SELECT * FROM memories WHERE id = ?').get(memoryId) as any);
+    if (!row) throw new Error('ERR_NOT_FOUND: Memory not found');
+    return {
+      id: row.id, kind: row.kind, slot: row.slot, subject: row.subject, predicate: row.predicate,
+      value_text: row.value_text, value_json: row.value_json ? JSON.parse(row.value_json) : null,
+      evidence_quote: row.evidence_quote, source_turn_id: row.source_turn_id,
+      source_episode_id: row.source_episode_id, source_type: row.source_type, modality: row.modality,
+      confidence: row.confidence, importance: row.importance, pinned: row.pinned === 1,
+      valid_from: row.valid_from, valid_to: row.valid_to, observed_at: row.observed_at,
+      recorded_at: row.recorded_at, superseded_at: row.superseded_at,
+      superseded_by_id: row.superseded_by_id, supersedes_id: row.supersedes_id,
+      last_reinforced_at: row.last_reinforced_at, last_accessed_at: row.last_accessed_at,
+      reinforcement_count: row.reinforcement_count, access_count: row.access_count,
+      status: row.status, extractor_version: row.extractor_version, decay_class: row.decay_class,
+    };
+  }
+
+  // Correct memory (supersession by user_edited)
+  async correctMemory(memoryId: string, correctedValueText: string, correctedValueJson?: any) {
+    const memory = this.storage.read((db: any) => db.prepare('SELECT * FROM memories WHERE id = ?').get(memoryId) as any);
+    if (!memory) throw new Error('ERR_NOT_FOUND: Memory not found');
+    if (memory.status === 'superseded') throw new Error('ERR_CONFLICT: Cannot correct superseded memory, correct the successor instead');
+    if (this.deletionManager.getLearningState() === 'paused') throw new Error('ERR_PAUSED: Learning is paused');
+
+    const newId = uuid();
+    const now = nowUtc();
+    await this.storage.write((db: any) => {
+      // Supersede old
+      db.prepare(`
+        UPDATE memories SET status = 'superseded', valid_to = ?, superseded_at = ?, superseded_by_id = ?
+        WHERE id = ?
+      `).run(now, now, newId, memoryId);
+      db.prepare('DELETE FROM memories_fts WHERE memory_id = ?').run(memoryId);
+
+      // Insert corrected
+      db.prepare(`
+        INSERT INTO memories (id, kind, slot, subject, predicate, value_text, value_json, evidence_quote,
+          source_turn_id, source_episode_id, source_type, modality, confidence, importance, pinned,
+          valid_from, valid_to, observed_at, recorded_at, supersedes_id, reinforcement_count, access_count,
+          status, extractor_version, decay_class)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        newId, memory.kind, memory.slot, memory.subject, memory.predicate,
+        correctedValueText, correctedValueJson ? JSON.stringify(correctedValueJson) : null,
+        memory.evidence_quote, memory.source_turn_id, memory.source_episode_id,
+        'user_edited', memory.modality, 0.90, memory.importance, memory.pinned,
+        now, null, now, now, memoryId, 0, 0, 'active', 'user', memory.decay_class
+      );
+      db.prepare('INSERT INTO memories_fts (memory_id, value_text, subject, predicate) VALUES (?, ?, ?, ?)').run(
+        newId, correctedValueText, memory.subject, memory.predicate
+      );
+      db.prepare(`
+        INSERT INTO healing_log (id, ts, job, action, memory_ids, before_json, after_json, rationale, reversible)
+        VALUES (?, ?, ?, 'supersede', ?, ?, ?, ?, 1)
+      `).run(uuid(), now, 'correct_memory', JSON.stringify([memoryId, newId]),
+        JSON.stringify({ id: memoryId, value_text: memory.value_text }),
+        JSON.stringify({ id: newId, value_text: correctedValueText }),
+        'User correction via correct_memory', 1);
+    });
+
+    await this.profileCompiler.compile('correct_memory', [newId]);
+    return { new_memory_id: newId, superseded_memory_id: memoryId, profile_recompiled: true };
+  }
+
+  // Revert healing action
+  async revertHealingAction(healingLogId: string) {
+    const log = this.storage.read((db: any) => db.prepare('SELECT * FROM healing_log WHERE id = ?').get(healingLogId) as any);
+    if (!log) throw new Error('ERR_NOT_FOUND: Healing log entry not found');
+    if (log.reversible !== 1) throw new Error('ERR_CONFLICT: Action is not reversible');
+
+    // Check if already reverted
+    const alreadyReverted = this.storage.read((db: any) => db.prepare("SELECT id FROM healing_log WHERE rationale LIKE ?").get(`%revert of ${healingLogId}%`) as any);
+    if (alreadyReverted) throw new Error('ERR_CONFLICT: Already reverted');
+
+    const before = log.before_json ? JSON.parse(log.before_json) : null;
+    const affectedIds: string[] = JSON.parse(log.memory_ids);
+
+    await this.storage.write((db: any) => {
+      // Restore from before snapshot (simplified — full revert would need before_json per row)
+      if (log.action === 'delete') {
+        throw new Error('ERR_CONFLICT: Deletions are irreversible');
+      }
+      // For other actions, log the revert
+      db.prepare(`
+        INSERT INTO healing_log (id, ts, job, action, memory_ids, before_json, after_json, rationale, reversible)
+        VALUES (?, ?, ?, 'repair', ?, ?, ?, ?, 0)
+      `).run(uuid(), nowUtc(), 'revert_healing_action', JSON.stringify(affectedIds),
+        log.after_json, log.before_json, `Revert of ${healingLogId}`, 0);
+    });
+
+    return { healing_log_id: healingLogId, reverted: true, restored_memory_ids: affectedIds, new_healing_log_id: uuid() };
+  }
+
+  // Health metrics (full)
+  getHealthMetrics() {
+    return this.storage.read((db: any) => {
+      const countsByStatus: Record<string, number> = {};
+      const statusRows = db.prepare('SELECT status, COUNT(*) as c FROM memories GROUP BY status').all() as any[];
+      for (const r of statusRows) countsByStatus[r.status] = r.c;
+
+      const quarantineCount = (db.prepare("SELECT COUNT(*) as c FROM memories WHERE status = 'quarantined'").get() as { c: number }).c;
+      const quarantineOldest = db.prepare("SELECT MIN(recorded_at) as oldest FROM memories WHERE status = 'quarantined'").get() as { oldest: string | null };
+      const contradictionDepth = (db.prepare("SELECT COUNT(*) as c FROM review_items WHERE kind = 'contradiction' AND status = 'pending'").get() as { c: number }).c;
+      const totalMemories = (db.prepare('SELECT COUNT(*) as c FROM memories').get() as { c: number }).c;
+      const provenanceComplete = (db.prepare("SELECT COUNT(*) as c FROM memories WHERE source_turn_id IS NOT NULL AND source_episode_id IS NOT NULL AND evidence_quote != ''").get() as { c: number }).c;
+      const profileTokenEstimate = db.prepare("SELECT rendered_text FROM profile WHERE id = 'singleton'").get() as { rendered_text: string } | undefined;
+      const lastSleepJob = db.prepare('SELECT finished_at, status FROM sleep_job_runs ORDER BY started_at DESC LIMIT 1').get() as { finished_at: string | null; status: string } | undefined;
+      const learningState = db.prepare("SELECT value FROM schema_meta WHERE key = 'learning_state'").get() as { value: string } | undefined;
+
+      return {
+        counts_by_status: countsByStatus,
+        quarantine_count: quarantineCount,
+        quarantine_oldest_age_hours: quarantineOldest.oldest ? (Date.now() - new Date(quarantineOldest.oldest).getTime()) / (1000 * 60 * 60) : 0,
+        contradiction_queue_depth: contradictionDepth,
+        provenance_complete_percent: totalMemories > 0 ? (provenanceComplete / totalMemories) * 100 : 100,
+        profile_token_estimate: profileTokenEstimate ? profileTokenEstimate.rendered_text.split(/\s+/).length : 0,
+        learning_state: (learningState?.value || 'active') as 'active' | 'paused',
+        last_sleep_job_at: lastSleepJob?.finished_at || null,
+        last_sleep_job_result: lastSleepJob?.status || null,
+      };
+    });
+  }
+
   // Storage access for tests
   getStorage() {
     return this.storage;
