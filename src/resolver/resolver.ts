@@ -289,6 +289,10 @@ export class Resolver {
       STAYS_CANDIDATE: 'noop',
     };
 
+    const initialStatus = (candidate.kind === 'observation' && ['agent_inferred', 'agent_reflection'].includes(candidate.source_type))
+      ? 'candidate'
+      : 'active';
+
     await this.storage.write((db) => {
       if (decision === 'ADD') {
         // Insert new memory
@@ -304,7 +308,7 @@ export class Resolver {
           candidate.source_turn_id, candidate.source_episode_id, candidate.source_type,
           candidate.modality, initialConfidence(candidate.source_type as any), candidate.importance,
           0, candidate.valid_from || null, null, candidate.observed_at || now, now,
-          0, 0, 'active', candidate.extractor_version || 'v1', candidate.decay_class
+          0, 0, initialStatus, candidate.extractor_version || 'v1', candidate.decay_class
         );
 
         // Update FTS
@@ -334,7 +338,7 @@ export class Resolver {
             candidate.source_turn_id, candidate.source_episode_id, candidate.source_type,
             candidate.modality, initialConfidence(candidate.source_type as any), candidate.importance,
             0, candidate.valid_from || null, null, candidate.observed_at || now, now,
-            targetId, 0, 0, 'active', candidate.extractor_version || 'v1', candidate.decay_class
+            targetId, 0, 0, initialStatus, candidate.extractor_version || 'v1', candidate.decay_class
           );
 
           // Update FTS for new memory
