@@ -78,8 +78,8 @@ export class RetrievalEngine {
       }
     }
 
-    // 3. Fallback: if no candidates and short query, return all active
-    if (candidateIds.size === 0 && allActive.length > 0 && userMessage.split(/\s+/).length <= 3) {
+    // 3. Fallback: if no candidates and single-word query, return all active
+    if (candidateIds.size === 0 && allActive.length > 0 && userMessage.trim().split(/\s+/).length <= 1) {
       for (const m of allActive) candidateIds.add(m.id);
     }
 

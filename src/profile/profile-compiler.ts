@@ -158,16 +158,16 @@ export class ProfileCompiler {
     return { published: true };
   }
 
-  getProfile(): { profile_text: string; profile_version: number; compiled_at: string; source_memory_ids: string[] } | null {
-    return this.storage.read((db) => {
-      const row = db.prepare('SELECT * FROM profile WHERE id = ?').get('singleton') as any;
-      if (!row) return null;
-      return {
-        profile_text: row.rendered_text,
-        profile_version: row.version,
-        compiled_at: row.updated_at,
-        source_memory_ids: JSON.parse(row.source_memory_ids),
-      };
-    });
+  getProfile(): { profile_text: string; profile_version: number; compiled_at: string; source_memory_ids: string[] } {
+    const row = this.storage.read((db: any) => db.prepare('SELECT * FROM profile WHERE id = ?').get('singleton') as any);
+    if (!row) {
+      return { profile_text: '', profile_version: 0, compiled_at: '', source_memory_ids: [] };
+    }
+    return {
+      profile_text: row.rendered_text,
+      profile_version: row.version,
+      compiled_at: row.updated_at,
+      source_memory_ids: JSON.parse(row.source_memory_ids),
+    };
   }
 }

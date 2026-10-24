@@ -66,8 +66,13 @@ export class MemoryService {
     }
   }
 
-  // 1. record_turn
   async recordTurn(sessionId: string, role: 'user' | 'assistant' | 'system', content: string, ts?: string, turnId?: string) {
+    if (typeof sessionId !== 'string' || typeof role !== 'string' || typeof content !== 'string') {
+      throw new Error('ERR_VALIDATION: Invalid input types');
+    }
+    if (turnId !== undefined && typeof turnId !== 'string') {
+      throw new Error('ERR_VALIDATION: turn_id must be a string');
+    }
     return this.ingest.recordTurn(sessionId, role, content, ts, turnId);
   }
 
@@ -235,6 +240,10 @@ export class MemoryService {
 
   // Identity core
   async seedIdentityCore(contentJson: Record<string, unknown>, renderedText: string) {
+    const existing = this.identityCore.get();
+    if (existing) {
+      return this.identityCore.update(contentJson, renderedText);
+    }
     return this.identityCore.seed(contentJson, renderedText);
   }
 
@@ -298,6 +307,7 @@ export class MemoryService {
   getMemory(memoryId: string) {
     const row = this.storage.read((db: any) => db.prepare('SELECT * FROM memories WHERE id = ?').get(memoryId) as any);
     if (!row) throw new Error('ERR_NOT_FOUND: Memory not found');
+    if (row.status === 'deleted') throw new Error('ERR_NOT_FOUND: Memory not found');
     return {
       id: row.id, kind: row.kind, slot: row.slot, subject: row.subject, predicate: row.predicate,
       value_text: row.value_text, value_json: row.value_json ? JSON.parse(row.value_json) : null,
@@ -323,14 +333,7 @@ export class MemoryService {
     const newId = uuid();
     const now = nowUtc();
     await this.storage.write((db: any) => {
-      // Supersede old
-      db.prepare(`
-        UPDATE memories SET status = 'superseded', valid_to = ?, superseded_at = ?, superseded_by_id = ?
-        WHERE id = ?
-      `).run(now, now, newId, memoryId);
-      db.prepare('DELETE FROM memories_fts WHERE memory_id = ?').run(memoryId);
-
-      // Insert corrected
+      // Insert corrected memory first
       db.prepare(`
         INSERT INTO memories (id, kind, slot, subject, predicate, value_text, value_json, evidence_quote,
           source_turn_id, source_episode_id, source_type, modality, confidence, importance, pinned,
@@ -347,13 +350,21 @@ export class MemoryService {
       db.prepare('INSERT INTO memories_fts (memory_id, value_text, subject, predicate) VALUES (?, ?, ?, ?)').run(
         newId, correctedValueText, memory.subject, memory.predicate
       );
+
+      // Now supersede old (superseded_by_id references newId, which now exists)
+      db.prepare(`
+        UPDATE memories SET status = 'superseded', valid_to = ?, superseded_at = ?, superseded_by_id = ?
+        WHERE id = ?
+      `).run(now, now, newId, memoryId);
+      db.prepare('DELETE FROM memories_fts WHERE memory_id = ?').run(memoryId);
+
       db.prepare(`
         INSERT INTO healing_log (id, ts, job, action, memory_ids, before_json, after_json, rationale, reversible)
         VALUES (?, ?, ?, 'supersede', ?, ?, ?, ?, 1)
       `).run(uuid(), now, 'correct_memory', JSON.stringify([memoryId, newId]),
         JSON.stringify({ id: memoryId, value_text: memory.value_text }),
         JSON.stringify({ id: newId, value_text: correctedValueText }),
-        'User correction via correct_memory', 1);
+        'User correction via correct_memory');
     });
 
     await this.profileCompiler.compile('correct_memory', [newId]);
