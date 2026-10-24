@@ -10,6 +10,7 @@ import { RetrievalEngine } from '../retrieval/retrieval.js';
 import { IdentityCoreManager } from '../identity/identity-core.js';
 import { ExtractionPipeline } from '../extraction/pipeline.js';
 import { Extractor } from '../extraction/extractor.js';
+import { SleepJob } from '../sleep/sleep-job.js';
 import { uuid, nowUtc } from '../types/common.js';
 
 export class MemoryService {
@@ -21,6 +22,7 @@ export class MemoryService {
   private retrieval: RetrievalEngine;
   private identityCore: IdentityCoreManager;
   private extractionPipeline: ExtractionPipeline;
+  private sleepJob: SleepJob;
 
   constructor(config: StorageConfig) {
     this.storage = new Storage(config);
@@ -33,6 +35,7 @@ export class MemoryService {
     this.extractionPipeline = new ExtractionPipeline(
       this.storage, this.ingest, this.gate, this.resolver, this.profileCompiler
     );
+    this.sleepJob = new SleepJob(this.storage, this.profileCompiler);
 
     // Seed slot registry with common slots (synchronous)
     this.seedSlots();
@@ -218,6 +221,15 @@ export class MemoryService {
 
   getIdentityCore() {
     return this.identityCore.get();
+  }
+
+  // Sleep job
+  async runSleepJob(trigger: 'scheduled' | 'idle' | 'session_count' | 'manual' = 'manual') {
+    return this.sleepJob.run(trigger);
+  }
+
+  getSleepJobStatus() {
+    return this.sleepJob.isRunning();
   }
 
   // Storage access for tests

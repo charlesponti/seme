@@ -96,6 +96,28 @@ app.get('/profile', (c) => {
   return c.json(result || { profile_text: '', profile_version: 0, compiled_at: null, source_memory_ids: [] });
 });
 
+// Sleep job
+app.post('/sleep-job', async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  try {
+    const result = await service.runSleepJob(body.trigger || 'manual');
+    return c.json(result);
+  } catch (e: any) {
+    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'run_sleep_job' } }, 400);
+  }
+});
+
+// Health metrics
+app.get('/health-metrics', (c) => {
+  const db = service.getStorage();
+  const countsByStatus: Record<string, number> = {};
+  const statusRows = db.read((d: any) => d.prepare('SELECT status, COUNT(*) as c FROM memories GROUP BY status').all()) as any[];
+  for (const r of statusRows) countsByStatus[r.status] = r.c;
+  const total = db.read((d: any) => (d.prepare('SELECT COUNT(*) as c FROM memories').get() as any).c);
+  const quarantine = db.read((d: any) => (d.prepare("SELECT COUNT(*) as c FROM memories WHERE status = 'quarantined'").get() as any).c);
+  return c.json({ counts_by_status: countsByStatus, quarantine_count: quarantine, total_memories: total });
+});
+
 // Identity core
 app.get('/identity', (c) => {
   const result = service.getIdentityCore();
