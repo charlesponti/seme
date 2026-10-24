@@ -2,6 +2,7 @@
 
 import { Storage } from '../storage/storage.js';
 import { consultModel, loadApiKey } from './model-resolver.js';
+import { PromotionManager } from './promotion.js';
 import { uuid, nowUtc, Memory } from '../types/common.js';
 import { ValidationGate, Candidate as VGCandidate } from '../validation/validation-gate.js';
 import { effectiveConfidence, initialConfidence, kForSource, reinforceConfidence, getContradictionPenalty, isPromotableToActive } from '../confidence/confidence.js';
@@ -17,9 +18,11 @@ export interface Resolution {
 
 export class Resolver {
   private storage: Storage;
+  private promotionManager: PromotionManager;
 
   constructor(storage: Storage) {
     this.storage = storage;
+    this.promotionManager = new PromotionManager(storage);
   }
 
   async resolve(candidate: VGCandidate): Promise<Resolution> {
@@ -126,6 +129,14 @@ export class Resolver {
     // Execute the decision
     const healingLogId = uuid();
     await this.executeDecision(decision, candidate, targetId, candidateId, healingLogId, now, ruleId, decidedBy, modelDecision?.rationale);
+
+    // Check promotion after merge (corroboration-based)
+    if (decision === 'MERGE' && targetId) {
+      const incumbent = this.storage.read((db: any) => db.prepare('SELECT source_type, status FROM memories WHERE id = ?').get(targetId) as { source_type: string; status: string } | undefined);
+      if (incumbent && ['agent_inferred', 'agent_reflection'].includes(incumbent.source_type) && incumbent.status === 'candidate') {
+        await this.promotionManager.checkPromotion(targetId);
+      }
+    }
 
     return {
       decision,
