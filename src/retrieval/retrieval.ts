@@ -2,6 +2,7 @@
 
 import { Storage } from '../storage/storage.js';
 import { effectiveConfidence } from '../confidence/confidence.js';
+import { GraphStore } from '../graph/graph-store.js';
 
 export interface RetrievalContext {
   identity_core_ref: string;
@@ -14,15 +15,21 @@ export interface RetrievalContext {
   }[];
   episodes: { id: string; summary: string; started_at: string }[];
   abstain: boolean;
+  graph_summary?: {
+    entities: { name: string; type: string; mention_count: number }[];
+    relationships: { source: string; relation_type: string; target: string }[];
+  };
 }
 
 const RELEVANCE_FLOOR = 0.15;
 
 export class RetrievalEngine {
   private storage: Storage;
+  private graphStore: GraphStore;
 
-  constructor(storage: Storage) {
+  constructor(storage: Storage, graphStore?: GraphStore) {
     this.storage = storage;
+    this.graphStore = graphStore || new GraphStore(storage);
   }
 
   retrieve(sessionId: string, userMessage: string, timeRangeHint?: { from?: string; to?: string; historical?: boolean }): RetrievalContext {
@@ -78,7 +85,104 @@ export class RetrievalEngine {
       }
     }
 
-    // 3. Fallback: if no candidates and single-word query, return all active
+    // 3. Graph-aware search: entity lookup + traversal
+    const graphMatchedMemoryIds = new Map<string, number>();
+    let graphEntities: { name: string; type: string; mention_count: number }[] = [];
+    let graphRelationships: { source: string; relation_type: string; target: string }[] = [];
+
+    try {
+      const allEntities = this.graphStore.listEntities(undefined, undefined, 1000, 0).entities;
+      const queryLower = userMessage.toLowerCase();
+      const matchedEntities = [];
+
+      for (const entity of allEntities) {
+        const nameLower = entity.name.toLowerCase();
+        if (queryLower.includes(nameLower) && nameLower.length > 2) {
+          matchedEntities.push(entity);
+        }
+        for (const alias of entity.aliases) {
+          if (queryLower.includes(alias.toLowerCase()) && alias.length > 2) {
+            matchedEntities.push(entity);
+            break;
+          }
+        }
+      }
+
+      const seenEntityIds = new Set();
+      const uniqueMatched = matchedEntities.filter(e => {
+        if (seenEntityIds.has(e.id)) return false;
+        seenEntityIds.add(e.id);
+        return true;
+      });
+
+      const visitedEntityIds = new Set();
+      const entityHopMap = new Map();
+
+      for (const entity of uniqueMatched) {
+        if (visitedEntityIds.has(entity.id)) continue;
+        visitedEntityIds.add(entity.id);
+        entityHopMap.set(entity.id, 0);
+      }
+
+      for (const entity of uniqueMatched) {
+        const neigh = this.graphStore.getNeighborhood(entity.id, 1);
+        for (const n of neigh.entities) {
+          if (!visitedEntityIds.has(n.id)) {
+            visitedEntityIds.add(n.id);
+            entityHopMap.set(n.id, 1);
+          }
+        }
+      }
+
+      for (const entity of uniqueMatched) {
+        const neigh = this.graphStore.getNeighborhood(entity.id, 2);
+        for (const n of neigh.entities) {
+          if (!visitedEntityIds.has(n.id)) {
+            visitedEntityIds.add(n.id);
+            entityHopMap.set(n.id, 2);
+          }
+        }
+      }
+
+      for (const [entityId, hop] of entityHopMap.entries()) {
+        const links = this.storage.read((db: any) => {
+          return db.prepare('SELECT memory_id FROM entity_memory_links WHERE entity_id = ?').all(entityId) as { memory_id: string }[];
+        });
+        const score = hop === 0 ? 1.0 : hop === 1 ? 0.7 : 0.4;
+        for (const link of links) {
+          const existing = graphMatchedMemoryIds.get(link.memory_id);
+          if (existing === undefined || score > existing) {
+            graphMatchedMemoryIds.set(link.memory_id, hop);
+          }
+        }
+      }
+
+      for (const memId of graphMatchedMemoryIds.keys()) {
+        candidateIds.add(memId);
+      }
+
+      graphEntities = (Array.from(visitedEntityIds) as string[]).map((id: string) => {
+        const e = this.graphStore.getEntity(id);
+        return e ? { name: e.name, type: e.type, mention_count: e.mention_count } : null;
+      }).filter((e): e is { name: string; type: string; mention_count: number } => e !== null);
+
+      const snapshot = this.graphStore.getGraphSnapshot();
+      graphRelationships = snapshot.relationships
+        .filter(r => visitedEntityIds.has(r.source_id) && visitedEntityIds.has(r.target_id))
+        .map(r => {
+          const src = snapshot.entities.find(e => e.id === r.source_id);
+          const tgt = snapshot.entities.find(e => e.id === r.target_id);
+          return {
+            source: src ? src.name : r.source_id,
+            relation_type: r.relation_type,
+            target: tgt ? tgt.name : r.target_id,
+          };
+        });
+    } catch {
+      // Graph search failed — fall through
+    }
+
+    // 4. Fallback: if no candidates and single-word query, return all active
     if (candidateIds.size === 0 && allActive.length > 0 && userMessage.trim().split(/\s+/).length <= 1) {
       for (const m of allActive) candidateIds.add(m.id);
     }
@@ -154,6 +258,7 @@ export class RetrievalEngine {
       })),
       episodes: episodes.map((e: any) => ({ id: e.id, summary: e.summary, started_at: e.started_at })),
       abstain,
+      graph_summary: graphEntities.length > 0 ? { entities: graphEntities, relationships: graphRelationships } : undefined,
     };
   }
 }
