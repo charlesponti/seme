@@ -341,8 +341,8 @@ const conversation = [
     text: "I don't drink alcohol. I used to live in London but moved to Edinburgh last year.",
     delay: 0,
     memories: [
-      { kind: 'fact', modality: 'negated', decay: 'slow', value: '"I don\'t drink alcohol"', meta: 'slot: dietary_restriction • confidence: 0.85 • source: user_stated', color: 'brand' },
-      { kind: 'fact', modality: 'stated', decay: 'slow', value: '"User moved to Edinburgh (previously London)"', meta: 'slot: home_city • confidence: 0.85 • source: user_stated • superseded London', color: 'brand', resolve: true },
+      { kind: 'fact', modality: 'negated', decay: 'slow', value: "\"I don't drink alcohol\"", meta: 'slot: dietary_restriction • confidence: 0.85 • source: user_stated', color: 'brand' },
+      { kind: 'fact', modality: 'stated', decay: 'slow', value: "\"User moved to Edinburgh (previously London)\"", meta: 'slot: home_city • confidence: 0.85 • source: user_stated • superseded London', color: 'brand', resolve: true },
     ],
   },
   {
@@ -356,25 +356,43 @@ const conversation = [
     text: "My friend John told me he prefers Java. I personally use TypeScript.",
     delay: 600,
     memories: [
-      { kind: 'interest', modality: 'stated', decay: 'medium', value: '"User prefers TypeScript"', meta: 'slot: null • confidence: 0.80 • source: user_stated • John\'s Java excluded (third-party)', color: 'yellow' },
+      { kind: 'interest', modality: 'stated', decay: 'medium', value: "\"User prefers TypeScript\"", meta: 'slot: null • confidence: 0.80 • source: user_stated • John\'s Java excluded (third-party)', color: 'yellow' },
     ],
+  },
+  {
+    role: 'assistant',
+    text: "Got it — TypeScript for you, Java for John. Keeping those separate.",
+    delay: 700,
+    memories: [],
   },
   {
     role: 'user',
     text: "If I won the lottery, I'd buy a mansion in Scotland. Oh yeah, I absolutely LOVE waking up at 5am.",
     delay: 600,
     memories: [
-      { kind: 'fact', modality: 'hypothetical', decay: 'medium', value: '"If user won lottery, would buy mansion in Scotland"', meta: 'slot: null • modality: hypothetical (never stored as stated)', color: 'purple' },
-      { kind: 'skipped', modality: 'joking', decay: '-', value: '"Oh yeah, I absolutely LOVE waking up at 5am"', meta: 'Detected as sarcastic → modality: joking → not stored as stated fact', color: 'gray', skip: true },
+      { kind: 'fact', modality: 'hypothetical', decay: 'medium', value: "\"If user won lottery, would buy mansion in Scotland\"", meta: 'slot: null • modality: hypothetical (never stored as stated)', color: 'purple' },
+      { kind: 'skipped', modality: 'joking', decay: '-', value: "\"Oh yeah, I absolutely LOVE waking up at 5am\"", meta: 'Detected as sarcastic → modality: joking → not stored as stated fact', color: 'gray', skip: true },
     ],
+  },
+  {
+    role: 'assistant',
+    text: "Haha, I'll take the 5am thing with a grain of salt. Mansion noted as hypothetical.",
+    delay: 700,
+    memories: [],
   },
   {
     role: 'user',
     text: "You did an amazing job on that summary!",
     delay: 600,
     memories: [
-      { kind: 'feedback', modality: 'compliment', decay: '-', value: '"Compliment about agent performance"', meta: 'signal_type: compliment_specific • target: persona • 0 memories created', color: 'red', feedback: true },
+      { kind: 'feedback', modality: 'compliment', decay: '-', value: "\"Compliment about agent performance\"", meta: 'signal_type: compliment_specific • target: persona • 0 memories created', color: 'red', feedback: true },
     ],
+  },
+  {
+    role: 'assistant',
+    text: "Thank you! That means a lot. I'll keep improving.",
+    delay: 700,
+    memories: [],
   },
 ];
 
