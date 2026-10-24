@@ -101,6 +101,19 @@ export class ProfileCompiler {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `).run(uuid(), newVersion, status, renderedText, null, reason, JSON.stringify(triggeringMemoryIds), now);
 
+      // If held, create review item
+      if (status === 'held') {
+        db.prepare(`
+          INSERT INTO review_items (id, kind, payload_json, memory_ids, status, created_at)
+          VALUES (?, 'held_profile', ?, ?, 'pending', ?)
+        `).run(
+          uuid(),
+          JSON.stringify({ version: newVersion, reason, diff_summary: `Profile change held: ${Math.abs(renderedText.split(/\s+/).length - (currentProfile?.rendered_text.split(/\s+/).length || 0))} token diff` }),
+          JSON.stringify(triggeringMemoryIds),
+          now
+        );
+      }
+
       // Write healing_log
       db.prepare(`
         INSERT INTO healing_log (id, ts, job, action, memory_ids, before_json, after_json, rationale, reversible)
@@ -109,6 +122,40 @@ export class ProfileCompiler {
     });
 
     return { version: newVersion, status };
+  }
+
+  async publishHeld(version: number): Promise<{ published: boolean }> {
+    const held = this.storage.read((db: any) => {
+      return db.prepare('SELECT * FROM profile_versions WHERE version = ? AND status = ?').get(version, 'held') as any;
+    });
+    if (!held) return { published: false };
+
+    await this.storage.write((db: any) => {
+      // Update profile singleton
+      const existing = db.prepare('SELECT id FROM profile WHERE id = ?').get('singleton');
+      if (existing) {
+        db.prepare(`
+          UPDATE profile SET rendered_text = ?, source_memory_ids = ?, version = ?, updated_at = ?
+          WHERE id = 'singleton'
+        `).run(held.rendered_text, held.triggering_memory_ids, version, nowUtc());
+      } else {
+        db.prepare(`
+          INSERT INTO profile (id, rendered_text, source_memory_ids, version, updated_at)
+          VALUES ('singleton', ?, ?, ?, ?)
+        `).run(held.rendered_text, held.triggering_memory_ids, version, nowUtc());
+      }
+
+      // Mark version as published
+      db.prepare("UPDATE profile_versions SET status = 'published' WHERE version = ?").run(version);
+
+      // Log
+      db.prepare(`
+        INSERT INTO healing_log (id, ts, job, action, memory_ids, before_json, after_json, rationale, reversible)
+        VALUES (?, ?, ?, 'profile_recompile', ?, ?, ?, ?, 0)
+      `).run(uuid(), nowUtc(), 'profile_compiler', held.triggering_memory_ids, null, JSON.stringify({ version, status: 'published' }), `Published held profile v${version}`, 0);
+    });
+
+    return { published: true };
   }
 
   getProfile(): { profile_text: string; profile_version: number; compiled_at: string; source_memory_ids: string[] } | null {
