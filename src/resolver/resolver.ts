@@ -1,6 +1,7 @@
 // src/resolver/resolver.ts — Resolver (06-resolver.md)
 
 import { Storage } from '../storage/storage.js';
+import { consultModel, loadApiKey } from './model-resolver.js';
 import { uuid, nowUtc, Memory } from '../types/common.js';
 import { ValidationGate, Candidate as VGCandidate } from '../validation/validation-gate.js';
 import { effectiveConfidence, initialConfidence, kForSource, reinforceConfidence, getContradictionPenalty, isPromotableToActive } from '../confidence/confidence.js';
@@ -80,9 +81,51 @@ export class Resolver {
       }
     }
 
+    // Model-second path (rule 12): consult model for unresolved pairs
+    // An unresolved pair = same slot, different value, no deterministic rule decided
+    let modelDecision: { decision: string; rationale: string } | null = null;
+    if (decision === 'ADD' && neighbours.length > 0) {
+      // Check if there's an incumbent with a different value in the same slot
+      const unresolvedIncumbent = neighbours.find(n =>
+        n.slot === candidate.slot && n.slot !== null && n.value_text !== candidate.value_text
+      );
+      if (unresolvedIncumbent) {
+        // Rule 9 check: inference can't supersede statement
+        const isInference = ['agent_inferred', 'agent_reflection'].includes(candidate.source_type);
+        const isStatement = ['user_stated', 'user_confirmed', 'user_edited'].includes(unresolvedIncumbent.source_type);
+        if (isInference && isStatement) {
+          // Rule 9: STAYS_CANDIDATE, no model call
+          decision = 'STAYS_CANDIDATE';
+          targetId = unresolvedIncumbent.id;
+          ruleId = 'rule_9_inference_override';
+        } else {
+          // Consult model
+          const apiKey = loadApiKey();
+          if (apiKey) {
+            modelDecision = await consultModel(candidate, unresolvedIncumbent, apiKey);
+            if (modelDecision) {
+              const validDecisions = ['ADD', 'MERGE', 'SUPERSEDE', 'NOOP'];
+              if (validDecisions.includes(modelDecision.decision)) {
+                // Rule 9 validation: if inference vs statement, can't supersede
+                if (modelDecision.decision === 'SUPERSEDE' && isInference && isStatement) {
+                  decision = 'STAYS_CANDIDATE';
+                  targetId = unresolvedIncumbent.id;
+                  ruleId = 'rule_9_inference_override';
+                } else {
+                  decision = modelDecision.decision as any;
+                  targetId = unresolvedIncumbent.id;
+                  ruleId = 'model_second';
+                  decidedBy = 'model';
+                }
+              }
+            }
+          }
+        }
+      }
+    }
     // Execute the decision
     const healingLogId = uuid();
-    await this.executeDecision(decision, candidate, targetId, candidateId, healingLogId, now, ruleId, decidedBy);
+    await this.executeDecision(decision, candidate, targetId, candidateId, healingLogId, now, ruleId, decidedBy, modelDecision?.rationale);
 
     return {
       decision,
@@ -197,7 +240,8 @@ export class Resolver {
     healingLogId: string,
     now: string,
     ruleId: string | null,
-    decidedBy: 'rule' | 'model'
+    decidedBy: 'rule' | 'model',
+    rationale?: string
   ): Promise<void> {
     const actionMap: Record<string, string> = {
       ADD: 'add',
@@ -297,12 +341,12 @@ export class Resolver {
       if (decision === 'SUPERSEDE' && targetId) memoryIds.push(newId);
 
       db.prepare(`
-        INSERT INTO healing_log (id, ts, job, action, memory_ids, before_json, after_json, rationale, reversible)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO healing_log (id, ts, job, action, memory_ids, before_json, after_json, rationale, reversible)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
-        healingLogId, now, 'resolver', actionMap[decision],
-        JSON.stringify(memoryIds), null, null,
-        `${ruleId || 'model'}: ${decision} for candidate`, decision === 'SUPERSEDE' ? 1 : 0
+      healingLogId, now, 'resolver', actionMap[decision],
+      JSON.stringify(memoryIds), null, null,
+      rationale || `${ruleId || 'model'}: ${decision} for candidate`, decision === 'SUPERSEDE' ? 1 : 0
       );
     });
   }
