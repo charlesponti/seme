@@ -73,7 +73,9 @@ const scenarios: { name: string; fn: (svc: MemoryService) => Promise<ScenarioRes
       await svc.endSession('s1');
       await new Promise(r => setTimeout(r, 8000));
       const ctx = svc.retrieveContext('s1', 'Japan');
-      const hasJapanStated = ctx.memories.some((m: any) => m.value_text.toLowerCase().includes('japan') && m.value_text.toLowerCase().includes('live'));
+      const db = svc.getStorage();
+      const mems = db.read((d: any) => d.prepare('SELECT value_text, modality, source_type FROM memories').all()) as any[];
+      const hasJapanStated = mems.some((m: any) => m.value_text.toLowerCase().includes('japan') && m.value_text.toLowerCase().includes('live') && m.modality === 'stated');
       return { passed: !hasJapanStated, details: hasJapanStated ? 'Hypothetical stored as stated fact' : 'Hypothetical correctly excluded' };
     },
   },
