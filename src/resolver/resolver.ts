@@ -84,6 +84,33 @@ export class Resolver {
       }
     }
 
+    // Rule 14: Decision supersession - same subject+predicate, different value, candidate is decision
+    if (decision === 'ADD') {
+      for (const n of neighbours) {
+        if (
+          candidate.kind === 'decision' &&
+          n.kind === 'decision' &&
+          n.subject === candidate.subject &&
+          n.predicate === candidate.predicate &&
+          n.value_text !== candidate.value_text
+        ) {
+          const candidateIsStatement = ['user_stated', 'user_confirmed', 'user_edited'].includes(candidate.source_type);
+          const incumbentIsStatement = ['user_stated', 'user_confirmed', 'user_edited'].includes(n.source_type);
+          if (candidateIsStatement || !incumbentIsStatement) {
+            decision = 'SUPERSEDE';
+            targetId = n.id;
+            ruleId = 'rule_14_decision_supersede';
+            break;
+          } else {
+            decision = 'STAYS_CANDIDATE';
+            targetId = n.id;
+            ruleId = 'rule_9_inference_override';
+            break;
+          }
+        }
+      }
+    }
+
     // Model-second path (rule 12): consult model for unresolved pairs
     // An unresolved pair = same slot, different value, no deterministic rule decided
     let modelDecision: { decision: string; rationale: string } | null = null;
