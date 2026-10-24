@@ -3,12 +3,15 @@
 import { Storage } from '../storage/storage.js';
 import { uuid, nowUtc } from '../types/common.js';
 import { isCoreEligible } from '../confidence/confidence.js';
+import { GraphStore } from '../graph/graph-store.js';
 
 export class ProfileCompiler {
   private storage: Storage;
+  private graphStore: GraphStore;
 
-  constructor(storage: Storage) {
+  constructor(storage: Storage, graphStore?: GraphStore) {
     this.storage = storage;
+    this.graphStore = graphStore || new GraphStore(storage);
   }
 
   async compile(reason: string, triggeringMemoryIds: string[]): Promise<{ version: number; status: string }> {
@@ -58,6 +61,33 @@ export class ProfileCompiler {
         lines.push(`- ${m.subject} ${m.predicate}: ${m.value_text}`);
       }
     }
+
+    // Add entity-centric sections from knowledge graph
+    const profileEntities = this.graphStore.listEntities(undefined, undefined, 100, 0).entities.filter(e => e.profile_included === 1);
+    if (profileEntities.length > 0) {
+      lines.push('');
+      lines.push('## Entities');
+      for (const e of profileEntities) {
+        lines.push(`- ${e.name} (${e.type}) — mentioned ${e.mention_count} times`);
+      }
+
+      // Relationships between profile-included entities
+      const profileEntityIds = new Set(profileEntities.map(e => e.id));
+      const snapshot = this.graphStore.getGraphSnapshot();
+      const profileRels = snapshot.relationships.filter(r =>
+        profileEntityIds.has(r.source_id) && profileEntityIds.has(r.target_id)
+      );
+      if (profileRels.length > 0) {
+        lines.push('');
+        lines.push('## Relationships');
+        for (const r of profileRels) {
+          const src = snapshot.entities.find(e => e.id === r.source_id);
+          const tgt = snapshot.entities.find(e => e.id === r.target_id);
+          lines.push(`- ${src?.name || r.source_id} -> ${r.relation_type} -> ${tgt?.name || r.target_id}`);
+        }
+      }
+    }
+
     const renderedText = lines.join('\n');
     const sourceIds = deduped.map(m => m.id);
 

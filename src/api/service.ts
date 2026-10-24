@@ -38,8 +38,9 @@ export class MemoryService {
     this.ingest = new IngestManager(this.storage);
     this.gate = new ValidationGate(this.storage);
     this.resolver = new Resolver(this.storage);
-    this.profileCompiler = new ProfileCompiler(this.storage);
-    this.retrieval = new RetrievalEngine(this.storage);
+    this.graphStore = new GraphStore(this.storage);
+    this.profileCompiler = new ProfileCompiler(this.storage, this.graphStore);
+    this.retrieval = new RetrievalEngine(this.storage, this.graphStore);
     this.identityCore = new IdentityCoreManager(this.storage);
     this.extractionPipeline = new ExtractionPipeline(
       this.storage, this.ingest, this.gate, this.resolver, this.profileCompiler
@@ -48,7 +49,6 @@ export class MemoryService {
     this.reviewQueue = new ReviewQueue(this.storage);
     this.deletionManager = new DeletionManager(this.storage, this.profileCompiler);
     this.adaptationStore = new AdaptationStore(this.storage, this.reviewQueue);
-    this.graphStore = new GraphStore(this.storage);
 
     // Seed slot registry with common slots (synchronous)
     this.seedSlots();
