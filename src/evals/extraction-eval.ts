@@ -130,6 +130,23 @@ const testCases: TestCase[] = [
       (o) => ({ passed: o.memory_candidates.length === 0, details: `Expected 0 candidates for greetings, got ${o.memory_candidates.length}` }),
     ],
   },
+  {
+    name: 'Long rambling message with 20+ facts',
+    turns: [
+      { id: 't1', role: 'user', content: 'Okay so I\'ve been thinking about this a lot lately and I wanted to just dump everything on you. So first of all, my name is Charles Ponti and I\'m the founder of Ponti Studios, which is a software company based in Edinburgh, Scotland. We\'ve been around since 2022 and we currently have about 12 employees. Our main product is a dictation app called Ponte that uses speech recognition, and we recently shipped version 2.0 which has a new feature called "Smart Insert" that automatically formats dictated text.\n\nNow, about my tech stack - I primarily use TypeScript for everything, both frontend and backend. For the frontend I use React with Next.js, and for the backend I use Node.js with Express. Our database is PostgreSQL, and we use Redis for caching. We deploy everything on Vercel for the web app and AWS for the backend services. I also use Tailwind CSS for styling and Prisma as our ORM.\n\nOn the personal side, I live in Edinburgh with my partner Sarah and our dog Max. I drink coffee every morning, usually from a local roaster called Artisan Roast. I\'m learning Rust on the side and I\'ve been reading "The Rust Programming Language" book. I exercise three times a week at a gym called PureGym. I also play guitar, mostly acoustic, and I\'ve been working on learning "Blackbird" by The Beatles.\n\nFor Ponti Studios, our revenue model is subscription-based. We charge £9.99 per month or £99 per year for Ponte Pro. We currently have about 2,500 paying subscribers. Our target market is professionals who do a lot of writing - lawyers, doctors, journalists. We\'re planning to expand to the US market next quarter. Our main competitor is a company called Otter.ai but we differentiate by focusing on privacy and local processing.\n\nOh and one more thing - I\'m planning to attend the WWDC conference in June. I also want to mention that I prefer dark mode for all my applications, I use VS Code as my primary editor, and my favorite programming language besides TypeScript is probably Swift. I also have a side project where I\'m building a knowledge graph system called Seme that uses SQLite for storage.', ts: '2026-10-24T10:00:00Z' },
+    ],
+    checks: [
+      (o) => ({ passed: o.memory_candidates.length >= 25, details: `Expected ≥25 memory candidates from long message, got ${o.memory_candidates.length}` }),
+      (o) => ({ passed: o.memory_candidates.some((c: any) => c.value_text.toLowerCase().includes('charles')), details: 'Should extract name fact' }),
+      (o) => ({ passed: o.memory_candidates.some((c: any) => c.value_text.toLowerCase().includes('ponti studios')), details: 'Should extract company fact' }),
+      (o) => ({ passed: o.memory_candidates.some((c: any) => c.value_text.toLowerCase().includes('typescript')), details: 'Should extract tech stack' }),
+      (o) => ({ passed: o.memory_candidates.some((c: any) => c.value_text.toLowerCase().includes('dark mode')), details: 'Should extract preference from last paragraph' }),
+      (o) => ({ passed: o.memory_candidates.some((c: any) => c.value_text.toLowerCase().includes('seme')), details: 'Should extract side project from last paragraph' }),
+      (o) => ({ passed: o.memory_candidates.some((c: any) => c.value_text.toLowerCase().includes('blackbird')), details: 'Should extract from middle paragraph' }),
+      (o) => ({ passed: o.memory_candidates.some((c: any) => c.value_text.toLowerCase().includes('otter')), details: 'Should extract competitor from fourth paragraph' }),
+      (o) => ({ passed: o.memory_candidates.every((c: any) => c.source_type === 'user_stated' || c.source_type === 'agent_inferred'), details: 'All should be user_stated or agent_inferred' }),
+    ],
+  },
 ];
 
 async function runEval(model: string, apiKey: string) {
