@@ -64,20 +64,21 @@ export class RetrievalEngine {
 
     // 1. FTS5 keyword search
     try {
+      const sanitized = userMessage.replace(/[?*"()]/g, ' ').trim();
       const ftsResults = this.storage.read((db: any) => {
         return db.prepare(`
           SELECT memory_id FROM memories_fts
           WHERE memories_fts MATCH ?
           LIMIT 20
-        `).all(userMessage) as { memory_id: string }[];
+        `).all(sanitized) as { memory_id: string }[];
       });
       for (const r of ftsResults) candidateIds.add(r.memory_id);
     } catch {
       // FTS5 query syntax error — fall through to keyword matching
     }
 
-    // 2. Exact keyword match
-    const words = userMessage.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    // 2. Exact keyword match (strip punctuation)
+    const words = userMessage.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 2);
     for (const m of allActive) {
       const text = `${m.subject} ${m.predicate} ${m.value_text}`.toLowerCase();
       if (words.some(w => text.includes(w))) {

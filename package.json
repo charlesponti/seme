@@ -2,6 +2,10 @@
   "name": "seme",
   "version": "1.0.0",
   "description": "Self-healing memory system for AI companions. Local-first, single-user, SQLite-backed.",
+  "keywords": [],
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
   "main": "index.js",
   "scripts": {
     "build": "tsc",
@@ -10,10 +14,6 @@
     "dev": "npm run build && npm run start",
     "bench": "node dist/benchmarks/perf.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
     "@hono/node-server": "^2.1.5",
     "better-sqlite3": "^13.0.3",
@@ -24,7 +24,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^26.6.5",
-    "@types/uuid": "^10.0.0",
+    "@types/uuid": "^11.0.0",
     "typescript": "^7.0.2"
   }
 }

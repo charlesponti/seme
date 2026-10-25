@@ -248,6 +248,8 @@ export class Resolver {
 
   private isSupersede(candidate: VGCandidate, incumbent: Memory): boolean {
     if (!candidate.slot) return false;
+    if (!incumbent.slot) return false;
+    if (candidate.slot !== incumbent.slot) return false;
     // Check slot cardinality
     const slot = this.storage.read((db) => {
       return db.prepare('SELECT cardinality FROM slot_registry WHERE slot = ?').get(candidate.slot) as { cardinality: string } | undefined;
