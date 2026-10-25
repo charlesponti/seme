@@ -6,6 +6,7 @@
   <title>API-1: Record → End → Extract → Retrieve → Profile</title>
   <!-- GitHub uses system fonts, no CDN needed -->
   <link rel="stylesheet" href="shared.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
 </head>
 <body>
   <nav class="nav">
@@ -80,11 +81,11 @@
           <h3>Extract Memories</h3>
           <p>The extraction pipeline sends the conversation to the LLM with a structured prompt. The LLM identifies atomic claims (facts, preferences, decisions, etc.) and returns them as structured memories with subject, predicate, value_text, slot, and confidence.</p>
           <div class="code-block">// LLM extracts: "The user prefers dark mode for all editors."</div>
-          <div class="code-block">{
+          <pre class="code-block"><code class="language-json">{
   "kind": "preference",
   "slot": "theme",
   "value_text": "The user prefers dark mode for all editors."
-}</div>
+}</code></pre>
         </div>
       </div>
       <div class="step">
@@ -135,5 +136,7 @@
   <footer class="footer">
     <div class="container">Seme Memory System — API Test Suite</div>
   </footer>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
 </body>
 </html>

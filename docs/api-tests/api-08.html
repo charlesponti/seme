@@ -6,6 +6,7 @@
   <title>API-8: Create Contradiction → List → Resolve → Verify</title>
   <!-- GitHub uses system fonts, no CDN needed -->
   <link rel="stylesheet" href="shared.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
 </head>
 <body>
   <nav class="nav">
@@ -57,7 +58,7 @@
           <h3>List Pending</h3>
           <p><code>GET /review-queue</code> returns all pending review items. The UI can display these to the user for resolution.</p>
           <div class="code-block">const items = seme.reviewQueueList();</div>
-<div class="code-block">{
+<pre class="code-block"><code class="language-json">{
   "items": [
     {
       "id": "ri-1",
@@ -69,7 +70,7 @@
     }
   ],
   "total": 1
-}</div>
+}</code></pre>
         </div>
       </div>
       <div class="step">
@@ -78,9 +79,9 @@
           <h3>Resolve</h3>
           <p><code>POST /review-queue/:id/resolve</code> with action: confirm (keep new), dismiss (keep old), or edit (modify). The item is marked resolved and removed from pending.</p>
           <div class="code-block">const resolved = await seme.resolveReviewItem('ri-1', 'confirm');</div>
-<div class="code-block">{
+<pre class="code-block"><code class="language-json">{
   "resolved": true
-}</div>
+}</code></pre>
         </div>
       </div>
     </div>
@@ -113,5 +114,7 @@
   <footer class="footer">
     <div class="container">Seme Memory System — API Test Suite</div>
   </footer>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
 </body>
 </html>

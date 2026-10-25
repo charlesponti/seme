@@ -6,6 +6,7 @@
   <title>API-7: Remember → Export → Verify Bundle</title>
   <!-- GitHub uses system fonts, no CDN needed -->
   <link rel="stylesheet" href="shared.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
 </head>
 <body>
   <nav class="nav">
@@ -56,7 +57,7 @@
         <div class="step-content">
           <h3>JSON Bundle</h3>
           <p>The export is a single JSON object with keys for each table. Each value is an array of rows. This is a portable, human-readable format.</p>
-          <div class="code-block">{
+          <pre class="code-block"><code class="language-json">{
   "memories": [
     {
       "id": "mem-1",
@@ -113,7 +114,7 @@
     "rendered_text": "The user is Charles Ponti."
   },
   "deletion_log": []
-}</div>
+}</code></pre>
         </div>
       </div>
       <div class="step">
@@ -153,5 +154,7 @@
   <footer class="footer">
     <div class="container">Seme Memory System — API Test Suite</div>
   </footer>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
 </body>
 </html>

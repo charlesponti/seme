@@ -6,6 +6,7 @@
   <title>API-4: Graph Search Returns Graph Summary</title>
   <!-- GitHub uses system fonts, no CDN needed -->
   <link rel="stylesheet" href="shared.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
 </head>
 <body>
   <nav class="nav">
@@ -63,7 +64,7 @@
         <div class="step-content">
           <h3>Graph Summary in Response</h3>
           <p>The response includes a <code>graph_summary</code> object with matched entities and relationships. This is used by the LLM to provide richer, more connected answers.</p>
-          <div class="code-block">{
+          <pre class="code-block"><code class="language-json">{
   "graph_summary": {
     "entities": [
       {
@@ -79,7 +80,7 @@
       }
     ]
   }
-}</div>
+}</code></pre>
         </div>
       </div>
     </div>
@@ -108,5 +109,7 @@
   <footer class="footer">
     <div class="container">Seme Memory System — API Test Suite</div>
   </footer>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
 </body>
 </html>

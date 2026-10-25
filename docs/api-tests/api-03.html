@@ -6,6 +6,7 @@
   <title>API-3: Create Entity → Relationship → Traverse → Search</title>
   <!-- GitHub uses system fonts, no CDN needed -->
   <link rel="stylesheet" href="shared.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
 </head>
 <body>
   <nav class="nav">
@@ -71,7 +72,7 @@ seme.createRelationship(ponti, edinburgh, 'located_in', 'located in', turnId, ep
           <h3>Get Neighborhood (N-hop)</h3>
           <p>Traverse the graph from an entity up to N hops. Returns all entities and relationships within the neighborhood. Used for "tell me everything about Charles" queries.</p>
           <div class="code-block">const neigh = seme.getNeighborhood(charles, 2);</div>
-<div class="code-block">{
+<pre class="code-block"><code class="language-json">{
   "entities": [
     {
       "id": "uuid-1",
@@ -124,7 +125,7 @@ seme.createRelationship(ponti, edinburgh, 'located_in', 'located in', turnId, ep
       "source_type": "user_stated"
     }
   ]
-}</div>
+}</code></pre>
         </div>
       </div>
       <div class="step">
@@ -133,7 +134,7 @@ seme.createRelationship(ponti, edinburgh, 'located_in', 'located in', turnId, ep
           <h3>Find Path</h3>
           <p>BFS shortest path between two entities. Used for "how is Charles connected to Edinburgh?" queries. Returns the path as an array of entities and relationships.</p>
           <div class="code-block">const path = seme.findPath(charles, edinburgh);</div>
-<div class="code-block">{
+<pre class="code-block"><code class="language-json">{
   "path": [
     {
       "id": "uuid-1",
@@ -165,7 +166,7 @@ seme.createRelationship(ponti, edinburgh, 'located_in', 'located in', turnId, ep
       "relation_type": "located_in"
     }
   ]
-}</div>
+}</code></pre>
         </div>
       </div>
       <div class="step">
@@ -174,7 +175,7 @@ seme.createRelationship(ponti, edinburgh, 'located_in', 'located in', turnId, ep
           <h3>Graph Snapshot</h3>
           <p>Returns the entire graph: all entities and all relationships. Used for visualization, export, and debugging.</p>
           <div class="code-block">const snap = seme.getGraphSnapshot();</div>
-<div class="code-block">{
+<pre class="code-block"><code class="language-json">{
   "entities": [
     {
       "id": "uuid-1",
@@ -241,7 +242,7 @@ seme.createRelationship(ponti, edinburgh, 'located_in', 'located in', turnId, ep
       "valid_to": null
     }
   ]
-}</div>
+}</code></pre>
         </div>
       </div>
     </div>
@@ -274,5 +275,7 @@ seme.createRelationship(ponti, edinburgh, 'located_in', 'located in', turnId, ep
   <footer class="footer">
     <div class="container">Seme Memory System — API Test Suite</div>
   </footer>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
 </body>
 </html>

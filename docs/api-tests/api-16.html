@@ -6,6 +6,7 @@
   <title>API-16: List Entities with Search Filter</title>
   <!-- GitHub uses system fonts, no CDN needed -->
   <link rel="stylesheet" href="shared.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
 </head>
 <body>
   <nav class="nav">
@@ -54,7 +55,7 @@ seme.createEntity('React', 'tool', [], 'Framework', 'user_stated', 0.9);
 seme.createEntity('Ponti Studios', 'organization', [], 'Company', 'user_stated', 0.9);
 
 const tools = seme.listEntities('tool');</div>
-<div class="code-block">{
+<pre class="code-block"><code class="language-json">{
   "entities": [
     {
       "id": "uuid-1",
@@ -82,7 +83,7 @@ const tools = seme.listEntities('tool');</div>
     }
   ],
   "total": 2
-}</div>
+}</code></pre>
         </div>
       </div>
       <div class="step">
@@ -91,7 +92,7 @@ const tools = seme.listEntities('tool');</div>
           <h3>Filter by Search Text</h3>
           <p><code>listEntities(undefined, search)</code> searches entity names and aliases. Returns entities whose name or alias contains the search text.</p>
           <div class="code-block">const search = seme.listEntities(undefined, 'Type');</div>
-<div class="code-block">{
+<pre class="code-block"><code class="language-json">{
   "entities": [
     {
       "id": "uuid-1",
@@ -107,7 +108,7 @@ const tools = seme.listEntities('tool');</div>
     }
   ],
   "total": 1
-}</div>
+}</code></pre>
         </div>
       </div>
       <div class="step">
@@ -142,5 +143,7 @@ const tools = seme.listEntities('tool');</div>
   <footer class="footer">
     <div class="container">Seme Memory System — API Test Suite</div>
   </footer>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
 </body>
 </html>

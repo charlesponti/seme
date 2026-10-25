@@ -6,6 +6,7 @@
   <title>API-12: Delete All Without Confirmation → ERR_VALIDATION</title>
   <!-- GitHub uses system fonts, no CDN needed -->
   <link rel="stylesheet" href="shared.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
 </head>
 <body>
   <nav class="nav">
@@ -50,10 +51,10 @@
           <div class="code-block">// Without confirmation:</div>
           <div class="code-block">await seme.forgetCommand('all', undefined, undefined, undefined, undefined, false);</div>
           <div class="code-block">// Throws:</div>
-          <div class="code-block">{
+          <pre class="code-block"><code class="language-json">{
   "error": "ERR_VALIDATION",
   "message": "Confirmation required for delete-all"
-}</div>
+}</code></pre>
         </div>
       </div>
       <div class="step">
@@ -64,10 +65,10 @@
           <div class="code-block">// With confirmation:</div>
           <div class="code-block">await seme.forgetCommand('all', undefined, undefined, undefined, undefined, true);</div>
           <div class="code-block">// Result:</div>
-          <div class="code-block">{
+          <pre class="code-block"><code class="language-json">{
   "status": "deleted",
   "deletion_log": "entries for each deleted memory"
-}</div>
+}</code></pre>
         </div>
       </div>
     </div>
@@ -100,5 +101,7 @@
   <footer class="footer">
     <div class="container">Seme Memory System — API Test Suite</div>
   </footer>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
 </body>
 </html>

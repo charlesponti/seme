@@ -6,6 +6,7 @@
   <title>API-5: Remember → Correct → Forget → Verify</title>
   <!-- GitHub uses system fonts, no CDN needed -->
   <link rel="stylesheet" href="shared.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
 </head>
 <body>
   <nav class="nav">
@@ -51,11 +52,11 @@
           <p>The user explicitly tells the system to remember something. <code>POST /remember</code> creates a memory with <code>source_type: user_edited</code> and high confidence. This bypasses the extraction pipeline.</p>
           <div class="code-block">const r = await seme.rememberCommand('s1', 'I live in London.', turnId, 'fact');</div>
 <div class="code-block">// Creates memory:</div>
-<div class="code-block">{
+<pre class="code-block"><code class="language-json">{
   "kind": "fact",
   "slot": "home_city",
   "value_text": "The user lives in London."
-}</div>
+}</code></pre>
         </div>
       </div>
       <div class="step">
@@ -65,16 +66,16 @@
           <p>The user corrects a memory. <code>POST /memories/:id/correct</code> creates a NEW memory with the corrected value, marks the old one as superseded, and links them. The new memory has <code>source_type: user_edited</code>.</p>
           <div class="code-block">const corrected = await seme.correctMemory(memId, 'I live in Edinburgh.');</div>
           <div class="code-block">// Old memory:</div>
-          <div class="code-block">{
+          <pre class="code-block"><code class="language-json">{
   "status": "superseded",
   "superseded_by_id": "newId"
-}</div>
+}</code></pre>
           <div class="code-block">// New memory:</div>
-          <div class="code-block">{
+          <pre class="code-block"><code class="language-json">{
   "status": "active",
   "supersedes_id": "oldId",
   "source_type": "user_edited"
-}</div>
+}</code></pre>
         </div>
       </div>
       <div class="step">
@@ -84,16 +85,16 @@
           <p>The user deletes a memory. <code>POST /forget</code> soft-deletes (marks as deleted, doesn't remove from DB). Also logs to <code>deletion_log</code> for audit. Cascades to graph links.</p>
           <div class="code-block">await seme.forgetCommand('memory', memId);</div>
           <div class="code-block">// Memory:</div>
-          <div class="code-block">{
+          <pre class="code-block"><code class="language-json">{
   "status": "deleted"
-}</div>
+}</code></pre>
           <div class="code-block">// Deletion log:</div>
-          <div class="code-block">{
+          <pre class="code-block"><code class="language-json">{
   "action": "forget",
   "memory_id": "memId",
   "reason": "user_request",
   "timestamp": "2026-10-25T01:40:00Z"
-}</div>
+}</code></pre>
         </div>
       </div>
       <div class="step">
@@ -133,5 +134,7 @@
   <footer class="footer">
     <div class="container">Seme Memory System — API Test Suite</div>
   </footer>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
 </body>
 </html>
