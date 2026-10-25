@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API-15: List Memories with Pagination</title>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="container nav-inner">
+      <a href="index.html" class="nav-brand">Seme API Tests</a>
+      <div class="nav-links">
+        <a href="api-01.html">1</a><a href="api-02.html">2</a><a href="api-03.html">3</a><a href="api-04.html">4</a>
+        <a href="api-05.html">5</a><a href="api-06.html">6</a><a href="api-07.html">7</a><a href="api-08.html">8</a>
+        <a href="api-09.html">9</a><a href="api-10.html">10</a><a href="api-11.html">11</a><a href="api-12.html">12</a>
+        <a href="api-13.html">13</a><a href="api-14.html">14</a><a href="api-15.html">15</a><a href="api-16.html">16</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="hero">
+      <span class="badge">API-15</span>
+      <h1>List Memories with Pagination</h1>
+      <p>Paginated memory listing: navigate large memory sets efficiently with limit and offset.</p>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">What This Tests</h2>
+      <p class="section-subtitle">Tests that the memory listing API supports pagination with limit and offset, returning the correct subset of memories and total count.</p>
+
+      <div class="flow">
+        <div class="flow-step">Create 10 Memories</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Page 1 (0-4)</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Page 2 (5-9)</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Total = 10</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">How It Works</h2>
+      <div class="step">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <h3>Pagination Parameters</h3>
+          <p><code>listMemories(status, kind, slot, search, limit, offset)</code>. The <code>limit</code> controls page size, <code>offset</code> controls the starting position.</p>
+          <div class="code-block">const page1 = svc.listMemories('active', undefined, undefined, undefined, 5, 0);
+// Returns: { memories: [5 items], total: 10 }
+
+const page2 = svc.listMemories('active', undefined, undefined, undefined, 5, 5);
+// Returns: { memories: [5 items], total: 10 }</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <h3>Total Count</h3>
+          <p>The response always includes <code>total</code> — the total number of matching memories (not just the page). This enables the UI to calculate total pages.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <h3>Filter + Paginate</h3>
+          <p>Pagination works with all filters. <code>listMemories('active', 'fact', undefined, 'coffee', 10, 0)</code> returns active facts matching "coffee", paginated.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">API Parameters</h2>
+      <table class="table">
+        <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+        <tr><td>status</td><td>string</td><td>Filter by status: active, superseded, deleted</td></tr>
+        <tr><td>kind</td><td>string</td><td>Filter by kind: fact, preference, decision, etc.</td></tr>
+        <tr><td>slot</td><td>string</td><td>Filter by slot: home_city, name, etc.</td></tr>
+        <tr><td>search</td><td>string</td><td>Full-text search in value_text</td></tr>
+        <tr><td>limit</td><td>number</td><td>Page size (default: 50)</td></tr>
+        <tr><td>offset</td><td>number</td><td>Starting position (default: 0)</td></tr>
+      </table>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">Test Result</h2>
+      <div class="card">
+        <div class="card-title">✓ PASS (11ms)</div>
+        <div class="card-body">Page1: 5, Page2: 5, Total: 10</div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="container">Seme Memory System — API Test Suite</div>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API-5: Remember → Correct → Forget → Verify</title>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="container nav-inner">
+      <a href="index.html" class="nav-brand">Seme API Tests</a>
+      <div class="nav-links">
+        <a href="api-01.html">1</a><a href="api-02.html">2</a><a href="api-03.html">3</a><a href="api-04.html">4</a>
+        <a href="api-05.html">5</a><a href="api-06.html">6</a><a href="api-07.html">7</a><a href="api-08.html">8</a>
+        <a href="api-09.html">9</a><a href="api-10.html">10</a><a href="api-11.html">11</a><a href="api-12.html">12</a>
+        <a href="api-13.html">13</a><a href="api-14.html">14</a><a href="api-15.html">15</a><a href="api-16.html">16</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="hero">
+      <span class="badge">API-5</span>
+      <h1>Remember → Correct → Forget → Verify</h1>
+      <p>The memory lifecycle: create, edit, and delete memories with full provenance and audit trail.</p>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">What This Tests</h2>
+      <p class="section-subtitle">Tests the complete memory lifecycle: explicit remember, correction (creates new memory + supersedes old), and forget (soft delete with audit log).</p>
+
+      <div class="flow">
+        <div class="flow-step">Remember</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Correct</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Forget</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Verify</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">How It Works</h2>
+      <div class="step">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <h3>Remember (Explicit)</h3>
+          <p>The user explicitly tells the system to remember something. <code>POST /remember</code> creates a memory with <code>source_type: user_edited</code> and high confidence. This bypasses the extraction pipeline.</p>
+          <div class="code-block">const r = await svc.rememberCommand('s1', 'I live in London.', turnId, 'fact');
+// Creates memory: { kind: "fact", slot: "home_city", value_text: "..." }</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <h3>Correct (Edit)</h3>
+          <p>The user corrects a memory. <code>POST /memories/:id/correct</code> creates a NEW memory with the corrected value, marks the old one as superseded, and links them. The new memory has <code>source_type: user_edited</code>.</p>
+          <div class="code-block">const corrected = await svc.correctMemory(memId, 'I live in Edinburgh.');
+// Old memory: status = 'superseded', superseded_by_id = newId
+// New memory: status = 'active', supersedes_id = oldId, source_type = 'user_edited'</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <h3>Forget (Soft Delete)</h3>
+          <p>The user deletes a memory. <code>POST /forget</code> soft-deletes (marks as deleted, doesn't remove from DB). Also logs to <code>deletion_log</code> for audit. Cascades to graph links.</p>
+          <div class="code-block">await svc.forgetCommand('memory', memId);
+// Memory: status = 'deleted'
+// deletion_log: entry created with reason and timestamp</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-number">4</div>
+        <div class="step-content">
+          <h3>Verify</h3>
+          <p>After forget, <code>GET /memories/:id</code> throws <code>ERR_NOT_FOUND</code>. The memory is gone from active queries but preserved in the DB for audit.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">Key Concepts</h2>
+      <div class="card">
+        <div class="card-title">Correction = Supersession</div>
+        <div class="card-body">Correcting a memory doesn't modify it in place. It creates a new memory and supersedes the old one. This preserves the history of what the user said vs. what they corrected.</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Soft Delete</div>
+        <div class="card-body">Forgetting a memory marks it as deleted but doesn't remove it from the database. The deletion_log records who deleted what and when. This supports "undo" and audit requirements.</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Source Type Tracking</div>
+        <div class="card-body">Each memory tracks its source_type: user_stated (from conversation), user_edited (from explicit remember/correct), inferred (from extraction), feedback_derived (from compliments/corrections). This enables provenance queries.</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">Test Result</h2>
+      <div class="card">
+        <div class="card-title">✓ PASS (3ms)</div>
+        <div class="card-body">Corrected: new memory created with source_type = user_edited, Forgotten: ERR_NOT_FOUND thrown</div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="container">Seme Memory System — API Test Suite</div>
+  </footer>
+</body>
+</html>

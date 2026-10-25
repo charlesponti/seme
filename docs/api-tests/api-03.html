@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API-3: Create Entity → Relationship → Traverse → Search</title>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="container nav-inner">
+      <a href="index.html" class="nav-brand">Seme API Tests</a>
+      <div class="nav-links">
+        <a href="api-01.html">1</a><a href="api-02.html">2</a><a href="api-03.html">3</a><a href="api-04.html">4</a>
+        <a href="api-05.html">5</a><a href="api-06.html">6</a><a href="api-07.html">7</a><a href="api-08.html">8</a>
+        <a href="api-09.html">9</a><a href="api-10.html">10</a><a href="api-11.html">11</a><a href="api-12.html">12</a>
+        <a href="api-13.html">13</a><a href="api-14.html">14</a><a href="api-15.html">15</a><a href="api-16.html">16</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="hero">
+      <span class="badge">API-3</span>
+      <h1>Create Entity → Relationship → Traverse → Search</h1>
+      <p>The Knowledge Graph in action: create entities, link them with relationships, traverse the graph, and search across it.</p>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">What This Tests</h2>
+      <p class="section-subtitle">Tests the full KG lifecycle: entity creation, relationship creation, graph traversal (N-hop neighborhood), shortest path, and graph snapshot.</p>
+
+      <div class="flow">
+        <div class="flow-step">Create Entities</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Create Relationships</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Get Neighborhood</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Find Path</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Graph Snapshot</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">How It Works</h2>
+      <div class="step">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <h3>Create Entities</h3>
+          <p>Entities are nodes in the knowledge graph. Each has a name, type, aliases, description, source type, and confidence. Types include: person, organization, place, tool, concept, event, preference, habit, goal, skill.</p>
+          <div class="code-block">const charles = svc.createEntity('Charles', 'person', [], 'User', 'user_stated', 0.9);
+const ponti = svc.createEntity('Ponti Studios', 'organization', [], 'Company', 'user_stated', 0.9);
+const edinburgh = svc.createEntity('Edinburgh', 'place', [], 'City', 'user_stated', 0.9);</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <h3>Create Relationships</h3>
+          <p>Relationships are directed edges between entities. Each has a relation type (works_at, lives_in, uses, etc.), description, source turn/episode, source type, and confidence.</p>
+          <div class="code-block">svc.createRelationship(charles, ponti, 'works_at', 'works at', turnId, episodeId);
+svc.createRelationship(ponti, edinburgh, 'located_in', 'located in', turnId, episodeId);</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <h3>Get Neighborhood (N-hop)</h3>
+          <p>Traverse the graph from an entity up to N hops. Returns all entities and relationships within the neighborhood. Used for "tell me everything about Charles" queries.</p>
+          <div class="code-block">const neigh = svc.getNeighborhood(charles, 2);
+// Returns: Charles, Ponti Studios, Edinburgh + 2 relationships</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-number">4</div>
+        <div class="step-content">
+          <h3>Find Path</h3>
+          <p>BFS shortest path between two entities. Used for "how is Charles connected to Edinburgh?" queries. Returns the path as an array of entities and relationships.</p>
+          <div class="code-block">const path = svc.findPath(charles, edinburgh);
+// Returns: Charles → works_at → Ponti Studios → located_in → Edinburgh</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-number">5</div>
+        <div class="step-content">
+          <h3>Graph Snapshot</h3>
+          <p>Returns the entire graph: all entities and all relationships. Used for visualization, export, and debugging.</p>
+          <div class="code-block">const snap = svc.getGraphSnapshot();
+// Returns: { entities: [...], relationships: [...] }</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">Key Concepts</h2>
+      <div class="card">
+        <div class="card-title">Provenance</div>
+        <div class="card-body">Every entity and relationship is linked to a source turn and episode. This enables "why does the system know this?" queries and supports deletion cascades.</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Graph as Retrieval Signal</div>
+        <div class="card-body">The graph is not just for display. During retrieval, the system traverses 2 hops from matched entities to find related context. This is "graph-augmented retrieval."</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Entity Resolution</div>
+        <div class="card-body">When the same entity is mentioned multiple times (e.g., "Ponti Studios" and "Ponti"), the resolver merges them into one entity with multiple aliases.</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">Test Result</h2>
+      <div class="card">
+        <div class="card-title">✓ PASS (4ms)</div>
+        <div class="card-body">Neighborhood: 3 entities, Path: Charles→Ponti Studios→Edinburgh, Snapshot: 3e/2r</div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="container">Seme Memory System — API Test Suite</div>
+  </footer>
+</body>
+</html>

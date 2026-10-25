@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API-10: Sleep Job with Graph Data → Dedup + Contradiction</title>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="container nav-inner">
+      <a href="index.html" class="nav-brand">Seme API Tests</a>
+      <div class="nav-links">
+        <a href="api-01.html">1</a><a href="api-02.html">2</a><a href="api-03.html">3</a><a href="api-04.html">4</a>
+        <a href="api-05.html">5</a><a href="api-06.html">6</a><a href="api-07.html">7</a><a href="api-08.html">8</a>
+        <a href="api-09.html">9</a><a href="api-10.html">10</a><a href="api-11.html">11</a><a href="api-12.html">12</a>
+        <a href="api-13.html">13</a><a href="api-14.html">14</a><a href="api-15.html">15</a><a href="api-16.html">16</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="hero">
+      <span class="badge">API-10</span>
+      <h1>Sleep Job with Graph Data → Dedup + Contradiction</h1>
+      <p>The consolidation process: deduplicate entities, detect contradictions, and merge graph data.</p>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">What This Tests</h2>
+      <p class="section-subtitle">Tests the sleep job with graph data: creates duplicate entities and contradictory relationships, runs the sleep job, and verifies deduplication and contradiction detection.</p>
+
+      <div class="flow">
+        <div class="flow-step">Create Duplicates</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Create Contradictions</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Run Sleep Job</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Verify Dedup</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Verify Contradictions</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">How It Works</h2>
+      <div class="step">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <h3>Create Duplicate Entities</h3>
+          <p>Create "Ponti Studios" twice with slightly different descriptions. The sleep job should detect these as duplicates and merge them.</p>
+          <div class="code-block">const ponti1 = svc.createEntity('Ponti Studios', 'organization', [], 'Company', 'user_stated', 0.9);
+const ponti2 = svc.createEntity('Ponti Studios', 'organization', ['Ponti'], 'Duplicate', 'user_stated', 0.8);</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <h3>Create Contradictory Relationships</h3>
+          <p>Create two relationships with the same relation type but different targets: "Charles lives in London" and "Charles lives in Edinburgh". The sleep job detects this as a contradiction.</p>
+          <div class="code-block">svc.createRelationship(charles, london, 'lives_in', 'Lives in London', turnId, episodeId);
+svc.createRelationship(charles, edinburgh, 'lives_in', 'Lives in Edinburgh', turnId, episodeId);</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <h3>Run Sleep Job</h3>
+          <p><code>POST /sleep-job</code> triggers the consolidation process. It runs 5 phases: (1) Memory dedup, (2) Graph entity dedup, (3) Contradiction detection, (4) Profile recompile, (5) Stale cleanup.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-number">4</div>
+        <div class="step-content">
+          <h3>Verify</h3>
+          <p>After the sleep job: entity count should decrease (dedup), and review queue should have contradiction items. The sleep job log records all actions taken.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">Sleep Job Phases</h2>
+      <table class="table">
+        <tr><th>Phase</th><th>Description</th><th>Output</th></tr>
+        <tr><td>1. Memory Dedup</td><td>Find and merge duplicate memories (same slot + similar value)</td><td>Merged memories, audit log</td></tr>
+        <tr><td>2. Graph Entity Dedup</td><td>Find and merge duplicate entities (same name + type)</td><td>Merged entities, updated relationships</td></tr>
+        <tr><td>3. Contradiction Detection</td><td>Find conflicting memories/relationships</td><td>Review items created</td></tr>
+        <tr><td>4. Profile Recompile</td><td>Rebuild profile from active memories</td><td>Updated profile text</td></tr>
+        <tr><td>5. Stale Cleanup</td><td>Remove or archive stale/low-confidence memories</td><td>Cleaned up memories</td></tr>
+      </table>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">Test Result</h2>
+      <div class="card">
+        <div class="card-title">✓ PASS (5ms)</div>
+        <div class="card-body">Sleep: completed, Entities: 6→4, Reviews: 1+</div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="container">Seme Memory System — API Test Suite</div>
+  </footer>
+</body>
+</html>

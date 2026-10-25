@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API-8: Create Contradiction → List → Resolve → Verify</title>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="container nav-inner">
+      <a href="index.html" class="nav-brand">Seme API Tests</a>
+      <div class="nav-links">
+        <a href="api-01.html">1</a><a href="api-02.html">2</a><a href="api-03.html">3</a><a href="api-04.html">4</a>
+        <a href="api-05.html">5</a><a href="api-06.html">6</a><a href="api-07.html">7</a><a href="api-08.html">8</a>
+        <a href="api-09.html">9</a><a href="api-10.html">10</a><a href="api-11.html">11</a><a href="api-12.html">12</a>
+        <a href="api-13.html">13</a><a href="api-14.html">14</a><a href="api-15.html">15</a><a href="api-16.html">16</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="hero">
+      <span class="badge">API-8</span>
+      <h1>Create Contradiction → List → Resolve → Verify</h1>
+      <p>The review queue: when the system detects contradictions, it queues them for human review.</p>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">What This Tests</h2>
+      <p class="section-subtitle">Tests the review queue lifecycle: create a review item, list pending items, resolve it (confirm/dismiss/edit), and verify it's removed from the queue.</p>
+
+      <div class="flow">
+        <div class="flow-step">Create Item</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">List Pending</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Resolve</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Verify Empty</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">How It Works</h2>
+      <div class="step">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <h3>Review Item Kinds</h3>
+          <p>Review items are created when the system detects: contradictions (user said X then Y), conflicts (memories disagree), or supersessions (new value replaces old). Each has a kind and payload.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <h3>List Pending</h3>
+          <p><code>GET /review-queue</code> returns all pending review items. The UI can display these to the user for resolution.</p>
+          <div class="code-block">const items = svc.reviewQueueList();
+// Returns: { items: [...], total: N }</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <h3>Resolve</h3>
+          <p><code>POST /review-queue/:id/resolve</code> with action: confirm (keep new), dismiss (keep old), or edit (modify). The item is marked resolved and removed from pending.</p>
+          <div class="code-block">const resolved = await svc.resolveReviewItem('ri-1', 'confirm');
+// Returns: { resolved: true }</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">When Reviews Are Created</h2>
+      <div class="card">
+        <div class="card-title">Contradiction Detection</div>
+        <div class="card-body">When the user says "I live in London" and later "I live in Edinburgh" without correcting, the system creates a contradiction review item instead of silently superseding.</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Sleep Job Conflicts</div>
+        <div class="card-body">During the sleep job, when deduplication or contradiction detection finds conflicting memories, review items are created for human resolution.</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Graph Entity Conflicts</div>
+        <div class="card-body">When the same entity is mentioned with conflicting attributes (e.g., "Ponti Studios" is both a company and a non-profit), a review item is created.</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">Test Result</h2>
+      <div class="card">
+        <div class="card-title">✓ PASS (1ms)</div>
+        <div class="card-body">Before: 1, Resolved: true, After: 0</div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="container">Seme Memory System — API Test Suite</div>
+  </footer>
+</body>
+</html>

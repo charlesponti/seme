@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API-9: Feedback → Aggregate → Propose → Lock → Verify</title>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="container nav-inner">
+      <a href="index.html" class="nav-brand">Seme API Tests</a>
+      <div class="nav-links">
+        <a href="api-01.html">1</a><a href="api-02.html">2</a><a href="api-03.html">3</a><a href="api-04.html">4</a>
+        <a href="api-05.html">5</a><a href="api-06.html">6</a><a href="api-07.html">7</a><a href="api-08.html">8</a>
+        <a href="api-09.html">9</a><a href="api-10.html">10</a><a href="api-11.html">11</a><a href="api-12.html">12</a>
+        <a href="api-13.html">13</a><a href="api-14.html">14</a><a href="api-15.html">15</a><a href="api-16.html">16</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="hero">
+      <span class="badge">API-9</span>
+      <h1>Feedback → Aggregate → Propose → Lock → Verify</h1>
+      <p>The adaptation system: learn from user feedback (compliments, corrections) and propose personality/style changes.</p>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">What This Tests</h2>
+      <p class="section-subtitle">Tests the full adaptation lifecycle: ingest feedback signals, aggregate them into proposals, apply a proposal, and lock the dimension.</p>
+
+      <div class="flow">
+        <div class="flow-step">Ingest Feedback</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Aggregate</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Propose Changes</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Apply</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Lock</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">How It Works</h2>
+      <div class="step">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <h3>Ingest Feedback</h3>
+          <p>When the user compliments or corrects the assistant, <code>POST /feedback</code> records the signal. Types: compliment_specific, compliment_general, correction, rejection, engagement, disengagement.</p>
+          <div class="code-block">await svc.ingestFeedback({
+  signal_type: 'compliment_specific',
+  target: 'register',
+  detail_json: '{"aspect":"tone"}',
+  episode_id: ep.id
+});</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <h3>Aggregate</h3>
+          <p>After N feedback signals on the same dimension, <code>POST /adaptations/aggregate</code> analyzes them and proposes changes. Requires minimum signal count.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <h3>Propose & Apply</h3>
+          <p>Proposals are changes to a dimension (e.g., "register" → "warmer tone"). <code>POST /adaptations/:dimension/apply</code> activates the proposal.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-number">4</div>
+        <div class="step-content">
+          <h3>Lock</h3>
+          <p>The user can lock a dimension to prevent further automatic changes. <code>POST /adaptations/:dimension/lock</code> with <code>{ locked: true }</code>.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">Adaptation Dimensions</h2>
+      <table class="table">
+        <tr><th>Dimension</th><th>Description</th><th>Example</th></tr>
+        <tr><td>register</td><td>Communication style</td><td>Formal → casual</td></tr>
+        <tr><td>verbosity</td><td>Response length</td><td>Concise → detailed</td></tr>
+        <tr><td>tone</td><td>Emotional tone</td><td>Neutral → warm</td></tr>
+        <tr><td>format</td><td>Output format</td><td>Prose → bullets</td></tr>
+      </table>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">Test Result</h2>
+      <div class="card">
+        <div class="card-title">✓ PASS (2ms)</div>
+        <div class="card-body">Proposals: 1+, State: active, Locked: true</div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="container">Seme Memory System — API Test Suite</div>
+  </footer>
+</body>
+</html>

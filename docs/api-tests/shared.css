@@ -1,0 +1,297 @@
+/* Vercel Design System — Shared Styles */
+:root {
+  --color-bg: #ffffff;
+  --color-text: #171717;
+  --color-text-secondary: #4d4d4d;
+  --color-text-muted: #666666;
+  --color-border: rgba(0, 0, 0, 0.08);
+  --color-border-light: #ebebeb;
+  --color-surface: #fafafa;
+  --color-accent-blue: #0a72ef;
+  --color-accent-pink: #de1d8d;
+  --color-accent-red: #ff5b4f;
+  --color-badge-bg: #ebf5ff;
+  --color-badge-text: #0068d6;
+  --color-link: #0072f5;
+  --color-focus: hsla(212, 100%, 48%, 1);
+  --shadow-border: 0px 0px 0px 1px rgba(0, 0, 0, 0.08);
+  --shadow-card: 0px 0px 0px 1px rgba(0, 0, 0, 0.08), 0px 2px 2px rgba(0, 0, 0, 0.04), 0px 0px 0px 1px #fafafa;
+  --shadow-elevated: 0px 0px 0px 1px rgba(0, 0, 0, 0.08), 0px 2px 2px rgba(0, 0, 0, 0.04), 0px 8px 8px -8px rgba(0, 0, 0, 0.04), 0px 0px 0px 1px #fafafa;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-pill: 9999px;
+  --font-sans: 'Geist', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  background: var(--color-bg);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* Nav */
+.nav {
+  position: sticky;
+  top: 0;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  border-bottom: var(--shadow-border);
+  padding: 12px 0;
+  z-index: 100;
+}
+
+.nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nav-brand {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.72px;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.nav-links {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+}
+
+.nav-links a {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.nav-links a:hover {
+  color: var(--color-link);
+}
+
+.nav-cta {
+  background: var(--color-text);
+  color: #ffffff;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+
+.nav-cta:hover { opacity: 0.85; }
+
+/* Hero */
+.hero {
+  padding: 80px 0 60px;
+  text-align: center;
+}
+
+.hero h1 {
+  font-size: 48px;
+  font-weight: 600;
+  line-height: 1.0;
+  letter-spacing: -2.4px;
+  color: var(--color-text);
+  margin-bottom: 16px;
+}
+
+.hero p {
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1.8;
+  color: var(--color-text-secondary);
+  max-width: 640px;
+  margin: 0 auto 32px;
+}
+
+/* Section */
+.section {
+  padding: 60px 0;
+}
+
+.section-title {
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -1.28px;
+  margin-bottom: 12px;
+}
+
+.section-subtitle {
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  margin-bottom: 40px;
+  max-width: 720px;
+}
+
+/* Cards */
+.card {
+  background: #ffffff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 24px;
+  margin-bottom: 16px;
+}
+
+.card-title {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.96px;
+  margin-bottom: 8px;
+}
+
+.card-body {
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+/* Code blocks */
+.code-block {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  overflow-x: auto;
+  box-shadow: var(--shadow-border);
+  margin: 16px 0;
+  white-space: pre;
+  line-height: 1.5;
+}
+
+.code-block .keyword { color: var(--color-accent-blue); }
+.code-block .string { color: var(--color-accent-pink); }
+.code-block .comment { color: var(--color-text-muted); }
+
+/* Step list */
+.step {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+  align-items: flex-start;
+}
+
+.step-number {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-text);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.step-content h3 {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.36px;
+  margin-bottom: 4px;
+}
+
+.step-content p {
+  font-size: 16px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+/* Badge */
+.badge {
+  display: inline-block;
+  background: var(--color-badge-bg);
+  color: var(--color-badge-text);
+  padding: 0px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-mono);
+}
+
+/* Flow diagram */
+.flow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 24px 0;
+  justify-content: center;
+}
+
+.flow-step {
+  background: #ffffff;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-border);
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: var(--font-mono);
+}
+
+.flow-arrow {
+  color: var(--color-text-muted);
+  font-size: 20px;
+}
+
+/* Table */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 14px;
+}
+
+.table th {
+  text-align: left;
+  padding: 12px 16px;
+  font-weight: 600;
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.table td {
+  padding: 12px 16px;
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.table tr:last-child td { border-bottom: none; }
+
+/* Footer */
+.footer {
+  padding: 40px 0;
+  border-top: var(--shadow-border);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .hero h1 { font-size: 32px; letter-spacing: -1.28px; }
+  .hero p { font-size: 18px; }
+  .flow { flex-direction: column; }
+  .flow-arrow { transform: rotate(90deg); }
+}

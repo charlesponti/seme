@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API-1: Record → End → Extract → Retrieve → Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="container nav-inner">
+      <a href="index.html" class="nav-brand">Seme API Tests</a>
+      <div class="nav-links">
+        <a href="api-01.html">1</a>
+        <a href="api-02.html">2</a>
+        <a href="api-03.html">3</a>
+        <a href="api-04.html">4</a>
+        <a href="api-05.html">5</a>
+        <a href="api-06.html">6</a>
+        <a href="api-07.html">7</a>
+        <a href="api-08.html">8</a>
+        <a href="api-09.html">9</a>
+        <a href="api-10.html">10</a>
+        <a href="api-11.html">11</a>
+        <a href="api-12.html">12</a>
+        <a href="api-13.html">13</a>
+        <a href="api-14.html">14</a>
+        <a href="api-15.html">15</a>
+        <a href="api-16.html">16</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="hero">
+      <span class="badge">API-1</span>
+      <h1>Record → End → Extract → Retrieve → Profile</h1>
+      <p>The complete conversation lifecycle: from raw turns to structured memories, profile, and retrieval.</p>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">What This Tests</h2>
+      <p class="section-subtitle">This is the core end-to-end flow. A user has a conversation, the system extracts memories from it, compiles a profile, and then retrieves relevant memories when asked a question.</p>
+
+      <div class="flow">
+        <div class="flow-step">Record Turns</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">End Session</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Extract Memories</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Retrieve Context</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Get Profile</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">How It Works</h2>
+      <div class="step">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <h3>Record Turns</h3>
+          <p>The client sends user and assistant messages to <code>POST /sessions/:id/turns</code>. Each turn is stored in the <code>turns</code> table with role, content, and timestamp. The system also creates or reuses an open episode for the session.</p>
+          <div class="code-block">curl -X POST /sessions/s1/turns -d '{"role":"user","content":"I prefer dark mode."}'</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <h3>End Session</h3>
+          <p>When the conversation ends, <code>POST /sessions/:id/end</code> closes the episode and triggers the extraction pipeline asynchronously. The pipeline runs in the background.</p>
+          <div class="code-block">curl -X POST /sessions/s1/end -d '{}'</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <h3>Extract Memories</h3>
+          <p>The extraction pipeline sends the conversation to the LLM with a structured prompt. The LLM identifies atomic claims (facts, preferences, decisions, etc.) and returns them as structured memories with subject, predicate, value_text, slot, and confidence.</p>
+          <div class="code-block">// LLM extracts: "The user prefers dark mode for all editors."
+// Stored as: { kind: "preference", slot: "theme", value_text: "..." }</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-number">4</div>
+        <div class="step-content">
+          <h3>Retrieve Context</h3>
+          <p>When the user asks a question, <code>POST /sessions/:id/retrieve</code> searches memories using FTS5 keyword search + graph traversal + semantic similarity. Returns ranked memories, profile text, episodes, and abstention flag.</p>
+          <div class="code-block">curl -X POST /sessions/s2/retrieve -d '{"user_message":"What does the user prefer?"}'</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-number">5</div>
+        <div class="step-content">
+          <h3>Get Profile</h3>
+          <p>The profile is compiled from active memories into a structured markdown document. <code>GET /profile</code> returns the compiled profile text with all user attributes.</p>
+          <div class="code-block">## Profile
+- user prefers: The user prefers dark mode for all editors.
+- user drinks: The user drinks coffee every morning.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">Key Concepts</h2>
+      <div class="card">
+        <div class="card-title">Atomic Claims</div>
+        <div class="card-body">Each memory is a single, self-contained claim. "The user prefers dark mode." is one memory. "The user likes coffee." is another. This atomicity enables precise retrieval and contradiction detection.</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Slot System</div>
+        <div class="card-body">Memories have slots (e.g., "home_city", "name", "theme"). Single-valued slots can only have one active memory — a new value supersedes the old one. Multi-valued slots can accumulate multiple memories.</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Abstention</div>
+        <div class="card-body">When no relevant memories are found, the system returns <code>abstain: true</code>. This prevents hallucination — the LLM should not answer from parametric knowledge.</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">Test Result</h2>
+      <div class="card">
+        <div class="card-title">✓ PASS (20,033ms)</div>
+        <div class="card-body">Memories: 2 extracted, Profile: 120 chars, Abstain: false</div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="container">Seme Memory System — API Test Suite</div>
+  </footer>
+</body>
+</html>

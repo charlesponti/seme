@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API-13: Pause Blocks Remember → ERR_PAUSED</title>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="container nav-inner">
+      <a href="index.html" class="nav-brand">Seme API Tests</a>
+      <div class="nav-links">
+        <a href="api-01.html">1</a><a href="api-02.html">2</a><a href="api-03.html">3</a><a href="api-04.html">4</a>
+        <a href="api-05.html">5</a><a href="api-06.html">6</a><a href="api-07.html">7</a><a href="api-08.html">8</a>
+        <a href="api-09.html">9</a><a href="api-10.html">10</a><a href="api-11.html">11</a><a href="api-12.html">12</a>
+        <a href="api-13.html">13</a><a href="api-14.html">14</a><a href="api-15.html">15</a><a href="api-16.html">16</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="hero">
+      <span class="badge">API-13</span>
+      <h1>Pause Blocks Remember → ERR_PAUSED</h1>
+      <p>Pause/resume learning: temporarily disable memory operations without losing data.</p>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">What This Tests</h2>
+      <p class="section-subtitle">Tests that when learning is paused, the remember operation is blocked with ERR_PAUSED. Resume restores normal operation.</p>
+
+      <div class="flow">
+        <div class="flow-step">Pause Learning</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Remember (blocked)</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">ERR_PAUSED</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Resume</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">Remember (works)</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">How It Works</h2>
+      <div class="step">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <h3>Pause</h3>
+          <p><code>POST /pause</code> sets a flag that blocks all memory write operations: remember, correct, forget, and extraction pipeline. Read operations (retrieve, get profile) still work.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <h3>Blocked Operations</h3>
+          <p>Any write operation during pause throws <code>ERR_PAUSED</code>. This includes explicit remember, correction, deletion, and the async extraction pipeline (which checks the flag before processing).</p>
+          <div class="code-block">await svc.pauseLearning();
+try {
+  await svc.rememberCommand('s1', 'Test.', turnId, 'fact');
+} catch (e) {
+  // e.message === "ERR_PAUSED: Learning is paused"
+}
+await svc.resumeLearning();</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <h3>Resume</h3>
+          <p><code>POST /resume</code> clears the pause flag. All operations return to normal. Pending extractions that were blocked can be retried.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">Use Cases</h2>
+      <div class="card">
+        <div class="card-title">Privacy Mode</div>
+        <div class="card-body">The user can pause learning during sensitive conversations. The system won't extract or store any memories until resumed.</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Maintenance</div>
+        <div class="card-body">Administrators can pause learning during system maintenance or data migration without losing in-flight data.</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Testing</div>
+        <div class="card-body">Developers can pause learning to test retrieval without triggering extraction.</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2 class="section-title">Test Result</h2>
+      <div class="card">
+        <div class="card-title">✓ PASS (1ms)</div>
+        <div class="card-body">ERR_PAUSED thrown: true</div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="container">Seme Memory System — API Test Suite</div>
+  </footer>
+</body>
+</html>
