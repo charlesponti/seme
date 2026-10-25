@@ -1,0 +1,22 @@
+meta {
+  name: Create Entity
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/entities
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "TypeScript",
+    "type": "tool",
+    "aliases": ["TS"],
+    "description": "Programming language",
+    "source_type": "user_stated",
+    "confidence": 0.9
+  }
+}

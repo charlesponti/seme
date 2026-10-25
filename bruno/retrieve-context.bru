@@ -5,7 +5,7 @@ meta {
 }
 
 post {
-  url: http://localhost:3100/sessions/{{sessionId}}/retrieve
+  url: {{baseUrl}}/sessions/{{sessionId}}/retrieve
   body: json
   auth: none
 }

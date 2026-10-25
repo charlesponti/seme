@@ -1,0 +1,16 @@
+meta {
+  name: Graph Path
+  type: http
+  seq: 15
+}
+
+get {
+  url: {{baseUrl}}/graph/path/{{fromId}}/{{toId}}
+  body: none
+  auth: none
+}
+
+vars:pre-request {
+  fromId: REPLACE_WITH_FROM_ENTITY_ID
+  toId: REPLACE_WITH_TO_ENTITY_ID
+}

@@ -1,0 +1,15 @@
+meta {
+  name: Graph Neighborhood
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{baseUrl}}/graph/neighborhood/{{entityId}}?depth=2
+  body: none
+  auth: none
+}
+
+vars:pre-request {
+  entityId: REPLACE_WITH_ENTITY_ID
+}

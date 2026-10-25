@@ -1,0 +1,18 @@
+meta {
+  name: Graph Search
+  type: http
+  seq: 16
+}
+
+post {
+  url: {{baseUrl}}/graph/search
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "session_id": "s1",
+    "user_message": "Where does Charles work?"
+  }
+}

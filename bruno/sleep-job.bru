@@ -1,0 +1,17 @@
+meta {
+  name: Run Sleep Job
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{baseUrl}}/sleep-job
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "trigger": "manual"
+  }
+}
