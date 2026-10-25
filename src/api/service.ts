@@ -22,6 +22,7 @@ import { HybridSearch } from '../search/hybrid-search.js';
 import { KBIntelligence } from '../kb/kb-intelligence.js';
 import { TaskStore } from '../tasks/task-store.js';
 import { AutoDeprecation } from '../deprecation/auto-deprecation.js';
+import { ProcedureStore } from '../procedures/procedure-store.js';
 import { uuid, nowUtc } from '../types/common.js';
 import { getDecayClass } from '../confidence/confidence.js';
 
@@ -46,6 +47,7 @@ export class MemoryService {
   private kbIntelligence: KBIntelligence;
   private taskStore: TaskStore;
   private autoDeprecation: AutoDeprecation;
+  private procedureStore: ProcedureStore;
 
   constructor(config: StorageConfig) {
     this.storage = new Storage(config);
@@ -60,6 +62,7 @@ export class MemoryService {
     this.kbIntelligence = new KBIntelligence(this.storage, this.wikiStore, this.graphStore);
     this.taskStore = new TaskStore(this.storage);
     this.autoDeprecation = new AutoDeprecation(this.storage);
+    this.procedureStore = new ProcedureStore(this.storage);
     this.profileCompiler = new ProfileCompiler(this.storage, this.graphStore);
     this.retrieval = new RetrievalEngine(this.storage, this.graphStore);
     this.identityCore = new IdentityCoreManager(this.storage);
@@ -564,6 +567,14 @@ export class MemoryService {
   // --- Auto-deprecation ---
   runAutoDeprecation() { return this.autoDeprecation.run(); }
   getDeprecationThresholds() { return this.autoDeprecation.getThresholds(); }
+
+  // --- Procedures ---
+  createProcedure(params: { title: string; description?: string; procedure_type: string; trigger_pattern?: string; steps?: any[]; guards?: any[]; confidence?: number; status?: string }) { return this.procedureStore.create(params); }
+  getProcedure(id: string) { return this.procedureStore.get(id); }
+  listProcedures(params?: { procedure_type?: string; status?: string; trigger?: string; limit?: number; offset?: number }) { return this.procedureStore.list(params); }
+  updateProcedure(id: string, params: { title?: string; description?: string; procedure_type?: string; trigger_pattern?: string; steps?: any[]; guards?: any[]; confidence?: number; status?: string }) { return this.procedureStore.update(id, params); }
+  deleteProcedure(id: string) { return this.procedureStore.delete(id); }
+  findProcedures(trigger: string) { return this.procedureStore.findMatching(trigger); }
 
   // Storage access for tests
   getStorage() {

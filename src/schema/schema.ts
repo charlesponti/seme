@@ -229,7 +229,7 @@ export function getVecTableSql(dim: number): string {
   return `CREATE VIRTUAL TABLE IF NOT EXISTS memories_vec USING vec0(memory_id TEXT PRIMARY KEY, embedding FLOAT[${dim}])`;
 }
 
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 export const SCHEMA_NAME = 'self-healing-memory/3';
 
 export function getSchemaSql(embeddingDim: number): string {
@@ -480,5 +480,29 @@ CREATE TABLE IF NOT EXISTS kb_tasks (
 CREATE INDEX IF NOT EXISTS idx_kb_tasks_status ON kb_tasks(status);
 CREATE INDEX IF NOT EXISTS idx_kb_tasks_priority ON kb_tasks(priority);
 CREATE INDEX IF NOT EXISTS idx_kb_tasks_due ON kb_tasks(due_date);
+`;
+}
+
+/**
+ * Migration v7: Procedures table (SOPs, playbooks, prompts).
+ */
+export function getSchemaSqlV7(): string {
+  return `
+CREATE TABLE IF NOT EXISTS procedures (
+    id              TEXT PRIMARY KEY,
+    title           TEXT NOT NULL,
+    description     TEXT,
+    procedure_type  TEXT NOT NULL CHECK (procedure_type IN ('sop', 'playbook', 'ui_walkthrough', 'prompt')),
+    trigger_pattern TEXT,
+    steps_json      TEXT NOT NULL DEFAULT '[]',
+    guards_json     TEXT NOT NULL DEFAULT '[]',
+    confidence      REAL NOT NULL DEFAULT 0.8 CHECK (confidence >= 0.0 AND confidence <= 1.0),
+    status          TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived', 'draft')),
+    created_at      TEXT NOT NULL,
+    updated_at      TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_procedures_type ON procedures(procedure_type);
+CREATE INDEX IF NOT EXISTS idx_procedures_status ON procedures(status);
+CREATE INDEX IF NOT EXISTS idx_procedures_trigger ON procedures(trigger_pattern);
 `;
 }

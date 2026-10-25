@@ -533,6 +533,61 @@ app.get('/deprecation/thresholds', (c) => {
   return c.json(service.getDeprecationThresholds());
 });
 
+// Procedures
+app.post('/procedures', async (c) => {
+  const body = await c.req.json();
+  try {
+    const id = service.createProcedure(body);
+    return c.json({ id }, 201);
+  } catch (e: any) {
+    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'create_procedure' } }, 400);
+  }
+});
+
+app.get('/procedures', (c) => {
+  const type = c.req.query('procedure_type') || undefined;
+  const status = c.req.query('status') || undefined;
+  const trigger = c.req.query('trigger') || undefined;
+  const limit = parseInt(c.req.query('limit') || '50');
+  const offset = parseInt(c.req.query('offset') || '0');
+  return c.json(service.listProcedures({ procedure_type: type, status, trigger, limit, offset }));
+});
+
+app.get('/procedures/:id', (c) => {
+  const id = c.req.param('id');
+  const result = service.getProcedure(id);
+  if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Procedure not found', operation: 'get_procedure' } }, 404);
+  return c.json(result);
+});
+
+app.patch('/procedures/:id', async (c) => {
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  try {
+    const result = service.updateProcedure(id, body);
+    if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Procedure not found', operation: 'update_procedure' } }, 404);
+    return c.json(result);
+  } catch (e: any) {
+    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'update_procedure' } }, 400);
+  }
+});
+
+app.delete('/procedures/:id', async (c) => {
+  const id = c.req.param('id');
+  try {
+    const result = service.deleteProcedure(id);
+    if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Procedure not found', operation: 'delete_procedure' } }, 404);
+    return c.json({ deleted: true });
+  } catch (e: any) {
+    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'delete_procedure' } }, 400);
+  }
+});
+
+app.get('/procedures/match/:trigger', (c) => {
+  const trigger = c.req.param('trigger');
+  return c.json({ procedures: service.findProcedures(trigger) });
+});
+
 function parseErrorCode(msg: string): string {
   if (msg.includes('ERR_VALIDATION')) return 'ERR_VALIDATION';
   if (msg.includes('ERR_NOT_FOUND')) return 'ERR_NOT_FOUND';
