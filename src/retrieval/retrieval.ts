@@ -32,7 +32,7 @@ export class RetrievalEngine {
     this.graphStore = graphStore || new GraphStore(storage);
   }
 
-  retrieve(sessionId: string, userMessage: string, timeRangeHint?: { from?: string; to?: string; historical?: boolean }): RetrievalContext {
+  retrieve(sessionId: string, userMessage: string, timeRangeHint?: { from?: string; to?: string; historical?: boolean; since?: string; before?: string; asOf?: string }): RetrievalContext {
     const now = new Date().toISOString();
     const isHistorical = timeRangeHint?.historical === true;
 
@@ -54,9 +54,15 @@ export class RetrievalEngine {
       `).all() as any[];
     });
 
-    // All active memories
+    // All active memories (with temporal filtering)
+    const fromTs = timeRangeHint?.from;
+    const toTs = timeRangeHint?.to || (timeRangeHint?.historical ? timeRangeHint?.asOf : undefined);
+    let sql = `SELECT * FROM memories WHERE status = 'active'`;
+    const params: any[] = [];
+    if (fromTs) { sql += ' AND observed_at >= ?'; params.push(fromTs); }
+    if (toTs) { sql += ' AND observed_at <= ?'; params.push(toTs); }
     const allActive = this.storage.read((db: any) => {
-      return db.prepare(`SELECT * FROM memories WHERE status = 'active'`).all() as any[];
+      return db.prepare(sql).all(...params) as any[];
     });
 
     // Hybrid retrieval: FTS5 + exact keyword match

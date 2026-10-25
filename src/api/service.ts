@@ -119,8 +119,14 @@ export class MemoryService {
   }
 
   // 3. retrieve_context
-  retrieveContext(sessionId: string, userMessage: string, timeRangeHint?: { from?: string; to?: string; historical?: boolean }) {
-    return this.retrieval.retrieve(sessionId, userMessage);
+  retrieveContext(sessionId: string, userMessage: string, timeRangeHint?: { from?: string; to?: string; asOf?: string; historical?: boolean; since?: string; before?: string }) {
+    // Normalize temporal params
+    const hint = timeRangeHint ? {
+      from: timeRangeHint.from || timeRangeHint.since,
+      to: timeRangeHint.to || timeRangeHint.before || timeRangeHint.asOf,
+      historical: timeRangeHint.historical || !!timeRangeHint.asOf,
+    } : undefined;
+    return this.retrieval.retrieve(sessionId, userMessage, hint);
   }
 
   // 4. remember_command
@@ -536,7 +542,7 @@ export class MemoryService {
   listSources() { return this.storage.read((db: any) => db.prepare('SELECT * FROM sources ORDER BY created_at DESC').all()); }
 
   // --- Hybrid search ---
-  hybridSearchQuery(query: string, options?: { limit?: number; include_turns?: boolean; include_memories?: boolean; include_wiki?: boolean; include_graph?: boolean }) { return this.hybridSearch.search(query, options); }
+  hybridSearchQuery(query: string, options?: { limit?: number; include_turns?: boolean; include_memories?: boolean; include_wiki?: boolean; include_graph?: boolean; since?: string; before?: string; asOf?: string }) { return this.hybridSearch.search(query, options); }
 
   // --- KB Intelligence ---
   kbChallenge(claim: string) { return this.kbIntelligence.challenge(claim); }

@@ -50,7 +50,15 @@ app.post('/sessions/:sessionId/retrieve', async (c) => {
   const sessionId = c.req.param('sessionId');
   const body = await c.req.json();
   try {
-    const result = service.retrieveContext(sessionId, body.user_message, body.time_range_hint);
+    const timeRangeHint = body.since || body.before || body.asOf ? {
+      since: body.since,
+      before: body.before,
+      asOf: body.asOf,
+      from: body.from,
+      to: body.to,
+      historical: body.historical,
+    } : undefined;
+    const result = service.retrieveContext(sessionId, body.user_message || '', timeRangeHint);
     return c.json(result);
   } catch (e: any) {
     return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'retrieve_context' } }, 400);
@@ -434,6 +442,9 @@ app.post('/search', async (c) => {
       include_memories: body.include_memories,
       include_wiki: body.include_wiki,
       include_graph: body.include_graph,
+      since: body.since,
+      before: body.before,
+      asOf: body.asOf,
     });
     return c.json(result);
   } catch (e: any) {

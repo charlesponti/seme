@@ -28,7 +28,7 @@ export class HybridSearch {
     this.graphStore = graphStore;
   }
 
-  search(query: string, options?: { limit?: number; include_turns?: boolean; include_memories?: boolean; include_wiki?: boolean; include_graph?: boolean }): HybridSearchResult {
+  search(query: string, options?: { limit?: number; include_turns?: boolean; include_memories?: boolean; include_wiki?: boolean; include_graph?: boolean; since?: string; before?: string; asOf?: string }): HybridSearchResult {
     const limit = options?.limit || 20;
     const includeTurns = options?.include_turns !== false;
     const includeMemories = options?.include_memories !== false;
@@ -66,18 +66,24 @@ export class HybridSearch {
       }
     }
 
+    const fromTs = options?.since;
+    const toTs = options?.before || options?.asOf;
+    
     // 2. Search memories (FTS)
     if (includeMemories) {
       try {
+        let sql = `
+          SELECT m.id, m.value_text, m.kind, m.subject, m.predicate
+          FROM memories m
+          JOIN memories_fts ON memories_fts.memory_id = m.id
+          WHERE memories_fts MATCH ? AND m.status = 'active'`;
+        const params: any[] = [query];
+        if (fromTs) { sql += ' AND m.observed_at >= ?'; params.push(fromTs); }
+        if (toTs) { sql += ' AND m.observed_at <= ?'; params.push(toTs); }
+        sql += ' ORDER BY rank LIMIT ?';
+        params.push(limit);
         const mems = this.storage.read((db: any) => {
-          return db.prepare(`
-            SELECT m.id, m.value_text, m.kind, m.subject, m.predicate
-            FROM memories m
-            JOIN memories_fts ON memories_fts.memory_id = m.id
-            WHERE memories_fts MATCH ? AND m.status = 'active'
-            ORDER BY rank
-            LIMIT ?
-          `).all(query, limit) as any[];
+          return db.prepare(sql).all(...params) as any[];
         });
         result.layers.memories = mems.map((m: any, i: number) => ({
           id: m.id,
