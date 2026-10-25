@@ -524,6 +524,15 @@ app.delete('/tasks/:id', async (c) => {
   }
 });
 
+// Auto-deprecation
+app.post('/deprecation/run', async (c) => {
+  return c.json(service.runAutoDeprecation());
+});
+
+app.get('/deprecation/thresholds', (c) => {
+  return c.json(service.getDeprecationThresholds());
+});
+
 function parseErrorCode(msg: string): string {
   if (msg.includes('ERR_VALIDATION')) return 'ERR_VALIDATION';
   if (msg.includes('ERR_NOT_FOUND')) return 'ERR_NOT_FOUND';

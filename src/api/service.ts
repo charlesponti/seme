@@ -21,6 +21,7 @@ import { SourceIngestion } from '../ingestion/source-ingestion.js';
 import { HybridSearch } from '../search/hybrid-search.js';
 import { KBIntelligence } from '../kb/kb-intelligence.js';
 import { TaskStore } from '../tasks/task-store.js';
+import { AutoDeprecation } from '../deprecation/auto-deprecation.js';
 import { uuid, nowUtc } from '../types/common.js';
 import { getDecayClass } from '../confidence/confidence.js';
 
@@ -44,6 +45,7 @@ export class MemoryService {
   private hybridSearch: HybridSearch;
   private kbIntelligence: KBIntelligence;
   private taskStore: TaskStore;
+  private autoDeprecation: AutoDeprecation;
 
   constructor(config: StorageConfig) {
     this.storage = new Storage(config);
@@ -57,6 +59,7 @@ export class MemoryService {
     this.hybridSearch = new HybridSearch(this.storage, this.wikiStore, this.graphStore);
     this.kbIntelligence = new KBIntelligence(this.storage, this.wikiStore, this.graphStore);
     this.taskStore = new TaskStore(this.storage);
+    this.autoDeprecation = new AutoDeprecation(this.storage);
     this.profileCompiler = new ProfileCompiler(this.storage, this.graphStore);
     this.retrieval = new RetrievalEngine(this.storage, this.graphStore);
     this.identityCore = new IdentityCoreManager(this.storage);
@@ -557,6 +560,10 @@ export class MemoryService {
   listTasks(params?: { status?: string; priority?: string; limit?: number; offset?: number }) { return this.taskStore.list(params); }
   updateTask(id: string, params: { title?: string; description?: string; status?: string; priority?: string; due_date?: string; memory_ids?: string[]; entity_ids?: string[] }) { return this.taskStore.update(id, params); }
   deleteTask(id: string) { return this.taskStore.delete(id); }
+
+  // --- Auto-deprecation ---
+  runAutoDeprecation() { return this.autoDeprecation.run(); }
+  getDeprecationThresholds() { return this.autoDeprecation.getThresholds(); }
 
   // Storage access for tests
   getStorage() {
