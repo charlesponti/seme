@@ -24,6 +24,7 @@ import { TaskStore } from '../tasks/task-store.js';
 import { AutoDeprecation } from '../deprecation/auto-deprecation.js';
 import { ProcedureStore } from '../procedures/procedure-store.js';
 import { DataImport } from '../import/data-import.js';
+import { IntegrationStore } from '../integrations/integration-store.js';
 import { uuid, nowUtc } from '../types/common.js';
 import { getDecayClass } from '../confidence/confidence.js';
 
@@ -50,6 +51,7 @@ export class MemoryService {
   private autoDeprecation: AutoDeprecation;
   private procedureStore: ProcedureStore;
   private dataImport: DataImport;
+  private integrationStore: IntegrationStore;
 
   constructor(config: StorageConfig) {
     this.storage = new Storage(config);
@@ -66,6 +68,7 @@ export class MemoryService {
     this.autoDeprecation = new AutoDeprecation(this.storage);
     this.procedureStore = new ProcedureStore(this.storage);
     this.dataImport = new DataImport(this.storage);
+    this.integrationStore = new IntegrationStore(this.storage);
     this.profileCompiler = new ProfileCompiler(this.storage, this.graphStore);
     this.retrieval = new RetrievalEngine(this.storage, this.graphStore);
     this.identityCore = new IdentityCoreManager(this.storage);
@@ -623,6 +626,15 @@ export class MemoryService {
 
   // --- Data import ---
   importData(bundle: any, strategy?: 'skip' | 'overwrite' | 'merge') { return this.dataImport.importBundle(bundle, strategy); }
+
+  // --- Integrations ---
+  listIntegrations() { return this.integrationStore.list(); }
+  getIntegration(id: string) { return this.integrationStore.get(id); }
+  connectIntegration(serviceName: string, authType?: string, scopes?: string[]) { return this.integrationStore.connect(serviceName, authType, scopes); }
+  setIntegrationStatus(id: string, status: string, credentials?: string) { return this.integrationStore.setStatus(id, status as any, credentials); }
+  disconnectIntegration(id: string) { return this.integrationStore.disconnect(id); }
+  deleteIntegration(id: string) { return this.integrationStore.delete(id); }
+  listKnownServices() { return this.integrationStore.listKnownServices(); }
 
   // Storage access for tests
   getStorage() {

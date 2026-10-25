@@ -229,7 +229,7 @@ export function getVecTableSql(dim: number): string {
   return `CREATE VIRTUAL TABLE IF NOT EXISTS memories_vec USING vec0(memory_id TEXT PRIMARY KEY, embedding FLOAT[${dim}])`;
 }
 
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 export const SCHEMA_NAME = 'self-healing-memory/3';
 
 export function getSchemaSql(embeddingDim: number): string {
@@ -504,5 +504,27 @@ CREATE TABLE IF NOT EXISTS procedures (
 CREATE INDEX IF NOT EXISTS idx_procedures_type ON procedures(procedure_type);
 CREATE INDEX IF NOT EXISTS idx_procedures_status ON procedures(status);
 CREATE INDEX IF NOT EXISTS idx_procedures_trigger ON procedures(trigger_pattern);
+`;
+}
+
+/**
+ * Migration v8: Integrations table (Composio-style external service connections).
+ */
+export function getSchemaSqlV8(): string {
+  return `
+CREATE TABLE IF NOT EXISTS integrations (
+    id              TEXT PRIMARY KEY,
+    service_name    TEXT NOT NULL,
+    display_name    TEXT NOT NULL,
+    status          TEXT NOT NULL DEFAULT 'disconnected' CHECK (status IN ('connected', 'disconnected', 'error', 'pending')),
+    auth_type       TEXT NOT NULL DEFAULT 'oauth2' CHECK (auth_type IN ('oauth2', 'api_key', 'none')),
+    credentials     TEXT,
+    scopes          TEXT NOT NULL DEFAULT '[]',
+    last_synced_at  TEXT,
+    created_at      TEXT NOT NULL,
+    updated_at      TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_integrations_service ON integrations(service_name);
+CREATE INDEX IF NOT EXISTS idx_integrations_status ON integrations(status);
 `;
 }

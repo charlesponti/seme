@@ -611,6 +611,48 @@ app.post('/import', async (c) => {
   }
 });
 
+// Integrations
+app.get('/integrations', (c) => {
+  return c.json(service.listIntegrations());
+});
+
+app.get('/integrations/known', (c) => {
+  return c.json(service.listKnownServices());
+});
+
+app.post('/integrations/connect', async (c) => {
+  const body = await c.req.json();
+  try {
+    const id = service.connectIntegration(body.service_name, body.auth_type, body.scopes);
+    return c.json({ id }, 201);
+  } catch (e: any) {
+    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'connect_integration' } }, 400);
+  }
+});
+
+app.patch('/integrations/:id', async (c) => {
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  try {
+    const result = service.setIntegrationStatus(id, body.status, body.credentials);
+    if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Integration not found', operation: 'update_integration' } }, 404);
+    return c.json({ updated: true });
+  } catch (e: any) {
+    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'update_integration' } }, 400);
+  }
+});
+
+app.delete('/integrations/:id', async (c) => {
+  const id = c.req.param('id');
+  try {
+    const result = service.deleteIntegration(id);
+    if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Integration not found', operation: 'delete_integration' } }, 404);
+    return c.json({ deleted: true });
+  } catch (e: any) {
+    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'delete_integration' } }, 400);
+  }
+});
+
 function parseErrorCode(msg: string): string {
   if (msg.includes('ERR_VALIDATION')) return 'ERR_VALIDATION';
   if (msg.includes('ERR_NOT_FOUND')) return 'ERR_NOT_FOUND';
