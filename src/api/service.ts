@@ -23,6 +23,7 @@ import { KBIntelligence } from '../kb/kb-intelligence.js';
 import { TaskStore } from '../tasks/task-store.js';
 import { AutoDeprecation } from '../deprecation/auto-deprecation.js';
 import { ProcedureStore } from '../procedures/procedure-store.js';
+import { DataImport } from '../import/data-import.js';
 import { uuid, nowUtc } from '../types/common.js';
 import { getDecayClass } from '../confidence/confidence.js';
 
@@ -48,6 +49,7 @@ export class MemoryService {
   private taskStore: TaskStore;
   private autoDeprecation: AutoDeprecation;
   private procedureStore: ProcedureStore;
+  private dataImport: DataImport;
 
   constructor(config: StorageConfig) {
     this.storage = new Storage(config);
@@ -63,6 +65,7 @@ export class MemoryService {
     this.taskStore = new TaskStore(this.storage);
     this.autoDeprecation = new AutoDeprecation(this.storage);
     this.procedureStore = new ProcedureStore(this.storage);
+    this.dataImport = new DataImport(this.storage);
     this.profileCompiler = new ProfileCompiler(this.storage, this.graphStore);
     this.retrieval = new RetrievalEngine(this.storage, this.graphStore);
     this.identityCore = new IdentityCoreManager(this.storage);
@@ -617,6 +620,9 @@ export class MemoryService {
   updateProcedure(id: string, params: { title?: string; description?: string; procedure_type?: string; trigger_pattern?: string; steps?: any[]; guards?: any[]; confidence?: number; status?: string }) { return this.procedureStore.update(id, params); }
   deleteProcedure(id: string) { return this.procedureStore.delete(id); }
   findProcedures(trigger: string) { return this.procedureStore.findMatching(trigger); }
+
+  // --- Data import ---
+  importData(bundle: any, strategy?: 'skip' | 'overwrite' | 'merge') { return this.dataImport.importBundle(bundle, strategy); }
 
   // Storage access for tests
   getStorage() {

@@ -600,6 +600,17 @@ app.post('/memories/:id/feedback', async (c) => {
   }
 });
 
+// Data import
+app.post('/import', async (c) => {
+  const body = await c.req.json();
+  try {
+    const result = service.importData(body.bundle || body, body.strategy || 'skip');
+    return c.json(result);
+  } catch (e: any) {
+    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'import_data' } }, 400);
+  }
+});
+
 function parseErrorCode(msg: string): string {
   if (msg.includes('ERR_VALIDATION')) return 'ERR_VALIDATION';
   if (msg.includes('ERR_NOT_FOUND')) return 'ERR_NOT_FOUND';
