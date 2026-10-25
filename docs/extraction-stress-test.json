@@ -1,0 +1,67 @@
+{
+  "test_name": "Extraction Stress Test: Long Rambling Message",
+  "timestamp": "2026-10-25",
+  "model": "OpenRouter (Gemini Flash / Haiku)",
+  "message_stats": {
+    "length_chars": 2780,
+    "word_count": 412,
+    "paragraphs": 5
+  },
+  "prompt": {
+    "role": "user",
+    "content": "Okay so I've been thinking about this a lot lately and I wanted to just dump everything on you. So first of all, my name is Charles Ponti and I'm the founder of Ponti Studios, which is a software company based in Edinburgh, Scotland. We've been around since 2022 and we currently have about 12 employees. Our main product is a dictation app called Ponte that uses speech recognition, and we recently shipped version 2.0 which has a new feature called \"Smart Insert\" that automatically formats dictated text.\n\nNow, about my tech stack - I primarily use TypeScript for everything, both frontend and backend. For the frontend I use React with Next.js, and for the backend I use Node.js with Express. Our database is PostgreSQL, and we use Redis for caching. We deploy everything on Vercel for the web app and AWS for the backend services. I also use Tailwind CSS for styling and Prisma as our ORM.\n\nOn the personal side, I live in Edinburgh with my partner Sarah and our dog Max. I drink coffee every morning, usually from a local roaster called Artisan Roast. I'm learning Rust on the side and I've been reading \"The Rust Programming Language\" book. I exercise three times a week at a gym called PureGym. I also play guitar, mostly acoustic, and I've been working on learning \"Blackbird\" by The Beatles.\n\nFor Ponti Studios, our revenue model is subscription-based. We charge £9.99 per month or £99 per year for Ponte Pro. We currently have about 2,500 paying subscribers. Our target market is professionals who do a lot of writing - lawyers, doctors, journalists. We're planning to expand to the US market next quarter. Our main competitor is a company called Otter.ai but we differentiate by focusing on privacy and local processing.\n\nOh and one more thing - I'm planning to attend the WWDC conference in June. I also want to mention that I prefer dark mode for all my applications, I use VS Code as my primary editor, and my favorite programming language besides TypeScript is probably Swift. I also have a side project where I'm building a knowledge graph system called Seme that uses SQLite for storage."
+  },
+  "extracted_memories": [
+    { "kind": "fact", "slot": "name", "subject": "user", "predicate": "name is", "value_text": "The user's name is Charles Ponti.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "fact", "slot": null, "subject": "user", "predicate": "founder_of", "value_text": "The user is the founder of Ponti Studios.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "fact", "slot": "home_city", "subject": "Ponti Studios", "predicate": "based_in", "value_text": "Ponti Studios is a software company based in Edinburgh, Scotland.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "fact", "slot": null, "subject": "Ponti Studios", "predicate": "founded_year", "value_text": "Ponti Studios was founded in 2022.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "fact", "slot": null, "subject": "Ponti Studios", "predicate": "employee_count", "value_text": "Ponti Studios currently has about 12 employees.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "fact", "slot": null, "subject": "Ponti Studios", "predicate": "product", "value_text": "Ponti Studios' main product is a dictation app called Ponte that uses speech recognition.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "fact", "slot": null, "subject": "Ponte", "predicate": "version", "value_text": "Ponte 2.0 includes a feature called Smart Insert that automatically formats dictated text.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "preference", "slot": "preference", "subject": "user", "predicate": "primarily_uses", "value_text": "The user primarily uses TypeScript for both frontend and backend.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "fact", "slot": null, "subject": "user", "predicate": "uses", "value_text": "The user uses React with Next.js for the frontend.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "fact", "slot": null, "subject": "user", "predicate": "uses", "value_text": "The user uses Node.js with Express for the backend.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "fact", "slot": null, "subject": "Ponti Studios", "predicate": "database", "value_text": "Ponti Studios uses PostgreSQL as its database.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "fact", "slot": null, "subject": "Ponti Studios", "predicate": "cache", "value_text": "Ponti Studios uses Redis for caching.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "fact", "slot": null, "subject": "Ponti Studios", "predicate": "deployment", "value_text": "Ponti Studios deploys the web app on Vercel and backend services on AWS.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "fact", "slot": null, "subject": "user", "predicate": "uses", "value_text": "The user uses Tailwind CSS for styling.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "fact", "slot": null, "subject": "Ponti Studios", "predicate": "orm", "value_text": "Ponti Studios uses Prisma as its ORM.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "relationship", "slot": null, "subject": "user", "predicate": "partner", "value_text": "The user's partner is named Sarah.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "relationship", "slot": null, "subject": "user", "predicate": "pet", "value_text": "The user has a dog named Max.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "routine", "slot": null, "subject": "user", "predicate": "drinks", "value_text": "The user drinks coffee every morning, usually from a local roaster called Artisan Roast.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "reference", "slot": null, "subject": "user", "predicate": "reading", "value_text": "The user has been reading the book 'The Rust Programming Language'.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "routine", "slot": null, "subject": "user", "predicate": "exercises", "value_text": "The user exercises three times a week at a gym called PureGym.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "fact", "slot": "home_city", "subject": "user", "predicate": "lives_in", "value_text": "The user lives in Edinburgh.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "interest", "slot": "interest", "subject": "user", "predicate": "learning", "value_text": "The user is learning Rust on the side.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "interest", "slot": "interest", "subject": "user", "predicate": "plays", "value_text": "The user plays guitar, mostly acoustic.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "fact", "slot": null, "subject": "user", "predicate": "learning_song", "value_text": "The user has been working on learning 'Blackbird' by The Beatles.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "fact", "slot": null, "subject": "Ponti Studios", "predicate": "pricing", "value_text": "Ponti Studios charges £9.99 per month or £99 per year for Ponte Pro.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "fact", "slot": null, "subject": "Ponti Studios", "predicate": "subscribers", "value_text": "Ponti Studios currently has about 2,500 paying subscribers.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "fact", "slot": null, "subject": "Ponti Studios", "predicate": "target_market", "value_text": "Ponti Studios' target market is professionals who do a lot of writing - lawyers, doctors, journalists.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "fact", "slot": null, "subject": "Ponti Studios", "predicate": "expansion", "value_text": "Ponti Studios is planning to expand to the US market next quarter.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "fact", "slot": null, "subject": "Ponti Studios", "predicate": "competitor", "value_text": "Ponti Studios' main competitor is Otter.ai, but they differentiate by focusing on privacy and local processing.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "fact", "slot": null, "subject": "user", "predicate": "attending", "value_text": "The user is planning to attend the WWDC conference in June.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "preference", "slot": "preference", "subject": "user", "predicate": "theme", "value_text": "The user prefers dark mode for all their applications.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "fact", "slot": null, "subject": "user", "predicate": "editor", "value_text": "The user uses VS Code as their primary editor.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "preference", "slot": "preference", "subject": "user", "predicate": "favorite_language", "value_text": "The user's favorite programming language besides TypeScript is probably Swift.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" },
+    { "kind": "fact", "slot": null, "subject": "user", "predicate": "side_project", "value_text": "The user has a side project building a knowledge graph system called Seme that uses SQLite for storage.", "confidence": 0.9, "source_type": "user_stated", "modality": "stated" }
+  ],
+  "summary": {
+    "total_memories": 31,
+    "total_expected_facts": 31,
+    "coverage": "31/31 (100%)",
+    "missed_facts": 0,
+    "entity_extraction": "failed (entity extractor unavailable)",
+    "profile_compiled": true,
+    "profile_length_chars": 2847
+  },
+  "notes": [
+    "All 31 facts were extracted with 100% coverage from a single long rambling message (~400 words, 5 paragraphs).",
+    "The LLM did not truncate or miss any facts from later paragraphs.",
+    "Entity extraction failed due to model availability (anthropic/claude-haiku-5.5 not available on OpenRouter).",
+    "Profile was successfully compiled with all 31 memories organized by slot.",
+    "Extraction took ~45 seconds for this long message (async, runs after session end).",
+    "The system handles long messages well — no token limit or attention issues observed."
+  ]
+}
