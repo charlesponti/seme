@@ -588,6 +588,18 @@ app.get('/procedures/match/:trigger', (c) => {
   return c.json({ procedures: service.findProcedures(trigger) });
 });
 
+// Per-memory feedback
+app.post('/memories/:id/feedback', async (c) => {
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  try {
+    const result = service.memoryFeedback(id, body.signal_type || 'explicit_rating', body.detail);
+    return c.json(result);
+  } catch (e: any) {
+    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'memory_feedback' } }, 400);
+  }
+});
+
 function parseErrorCode(msg: string): string {
   if (msg.includes('ERR_VALIDATION')) return 'ERR_VALIDATION';
   if (msg.includes('ERR_NOT_FOUND')) return 'ERR_NOT_FOUND';

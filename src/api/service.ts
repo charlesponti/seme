@@ -568,6 +568,48 @@ export class MemoryService {
   runAutoDeprecation() { return this.autoDeprecation.run(); }
   getDeprecationThresholds() { return this.autoDeprecation.getThresholds(); }
 
+  // --- Per-memory feedback ---
+  memoryFeedback(memoryId: string, signalType: string, detail?: string): { updated: boolean; new_confidence: number } {
+    const memory = this.storage.read((db: any) => db.prepare('SELECT * FROM memories WHERE id = ?').get(memoryId) as any);
+    if (!memory) throw new Error('ERR_NOT_FOUND: Memory not found');
+
+    const now = nowUtc();
+    let newConfidence = memory.confidence;
+    let reinforcementDelta = 0;
+
+    switch (signalType) {
+      case 'explicit_rating':
+      case 'compliment_specific':
+      case 're_engagement':
+        newConfidence = Math.min(1.0, newConfidence + 0.1);
+        reinforcementDelta = 1;
+        break;
+      case 'correction':
+        newConfidence = Math.max(0.1, newConfidence - 0.2);
+        break;
+      case 'disengagement':
+        newConfidence = Math.max(0.1, newConfidence - 0.05);
+        break;
+      default:
+        newConfidence = Math.min(1.0, newConfidence + 0.05);
+        break;
+    }
+
+    // Update memory
+    this.storage.getDb().prepare(`
+      UPDATE memories SET confidence = ?, reinforcement_count = reinforcement_count + ?, last_reinforced_at = ? WHERE id = ?
+    `).run(newConfidence, reinforcementDelta, now, memoryId);
+
+    // Record feedback event
+    const feedbackId = uuid();
+    this.storage.getDb().prepare(`
+      INSERT INTO feedback_events (id, ts, episode_id, signal_type, target, detail_json)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(feedbackId, now, memory.source_episode_id, signalType, 'other', JSON.stringify({ memory_id: memoryId, detail: detail || '' }));
+
+    return { updated: true, new_confidence: newConfidence };
+  }
+
   // --- Procedures ---
   createProcedure(params: { title: string; description?: string; procedure_type: string; trigger_pattern?: string; steps?: any[]; guards?: any[]; confidence?: number; status?: string }) { return this.procedureStore.create(params); }
   getProcedure(id: string) { return this.procedureStore.get(id); }
