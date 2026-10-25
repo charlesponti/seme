@@ -66,40 +66,75 @@ export class EntityExtractor {
       return { extractor_version: this.version, entity_candidates: [], relationship_candidates: [] };
     }
 
-    const prompt = this.buildPrompt(input);
-
-    try {
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: this.model,
-          messages: [
-            { role: 'system', content: this.systemPrompt() },
-            { role: 'user', content: prompt },
-          ],
-          temperature: 0.1,
-          response_format: { type: 'json_object' },
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('unavailable');
-      }
-
-      const data = await response.json();
-      const content = data.choices?.[0]?.message?.content;
-      if (!content) throw new Error('unavailable');
-
-      const parsed = JSON.parse(content);
-      return this.validateOutput(parsed, input.episode_id);
-    } catch (e: any) {
-      if (e.message === 'unavailable' || e.message === 'invalid_output') throw e;
-      throw new Error('unavailable');
+    // Chunk turns to avoid LLM output limits (max ~8 turns per call)
+    const CHUNK_SIZE = 6;
+    const chunks: { id: string; role: string; content: string; ts: string }[][] = [];
+    for (let i = 0; i < input.turns.length; i += CHUNK_SIZE) {
+      chunks.push(input.turns.slice(i, i + CHUNK_SIZE));
     }
+
+    const allEntities: EntityCandidate[] = [];
+    const allRelationships: RelationshipCandidate[] = [];
+    const seenEntities = new Set<string>();
+
+    for (const chunk of chunks) {
+      const chunkInput = { episode_id: input.episode_id, turns: chunk };
+      const prompt = this.buildPrompt(chunkInput);
+
+      try {
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`,
+          },
+          body: JSON.stringify({
+            model: this.model,
+            messages: [
+              { role: 'system', content: this.systemPrompt() },
+              { role: 'user', content: prompt },
+            ],
+            temperature: 0.1,
+            response_format: { type: 'json_object' },
+          }),
+        });
+
+        if (!response.ok) {
+          console.error('Entity extractor unavailable for chunk');
+          continue;
+        }
+
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content;
+        if (!content) continue;
+
+        // Strip markdown code fences if present
+        let jsonStr = content.trim();
+        if (jsonStr.startsWith('```')) {
+          jsonStr = jsonStr.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+        }
+
+        const parsed = JSON.parse(jsonStr);
+        const validated = this.validateOutput(parsed, input.episode_id);
+
+        for (const e of validated.entity_candidates) {
+          const key = e.name.toLowerCase();
+          if (!seenEntities.has(key)) {
+            seenEntities.add(key);
+            allEntities.push(e);
+          }
+        }
+        allRelationships.push(...validated.relationship_candidates);
+      } catch (e: any) {
+        console.error('Entity extraction chunk failed:', e.message);
+      }
+    }
+
+    return {
+      extractor_version: this.version,
+      entity_candidates: allEntities,
+      relationship_candidates: allRelationships,
+    };
   }
 
   private systemPrompt(): string {

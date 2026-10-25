@@ -103,7 +103,13 @@ export class Extractor {
       const content = data.choices?.[0]?.message?.content;
       if (!content) throw new Error('unavailable');
 
-      const parsed = JSON.parse(content);
+      // Strip markdown code fences if present
+      let jsonStr = content.trim();
+      if (jsonStr.startsWith('```')) {
+        jsonStr = jsonStr.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+      }
+
+      const parsed = JSON.parse(jsonStr);
       return this.validateOutput(parsed, input.episode_id);
     } catch (e: any) {
       if (e.message === 'unavailable' || e.message === 'invalid_output') throw e;
