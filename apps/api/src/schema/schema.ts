@@ -229,7 +229,7 @@ export function getVecTableSql(dim: number): string {
   return `CREATE VIRTUAL TABLE IF NOT EXISTS memories_vec USING vec0(memory_id TEXT PRIMARY KEY, embedding FLOAT[${dim}])`;
 }
 
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 export const SCHEMA_NAME = 'self-healing-memory/3';
 
 export function getSchemaSql(embeddingDim: number): string {
@@ -325,9 +325,7 @@ export function getSchemaSqlV3(): string {
 CREATE TABLE IF NOT EXISTS entities (
     id              TEXT PRIMARY KEY,
     name            TEXT NOT NULL,
-    type            TEXT NOT NULL CHECK (type IN (
-                        'person', 'place', 'organization', 'project',
-                        'tool', 'concept', 'topic', 'preference', 'animal', 'other')),
+    type            TEXT NOT NULL,
     aliases         TEXT,
     description     TEXT,
     first_seen_at   TEXT NOT NULL,
@@ -526,5 +524,35 @@ CREATE TABLE IF NOT EXISTS integrations (
 );
 CREATE INDEX IF NOT EXISTS idx_integrations_service ON integrations(service_name);
 CREATE INDEX IF NOT EXISTS idx_integrations_status ON integrations(status);
+`;
+}
+
+/**
+ * Migration v9: Remove hardcoded entity type CHECK constraint.
+ * Recreates entities table without type constraint to allow any type string.
+ */
+export function getSchemaSqlV9(): string {
+  return `
+CREATE TABLE IF NOT EXISTS entities_new (
+    id              TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    type            TEXT NOT NULL,
+    aliases         TEXT,
+    description     TEXT,
+    first_seen_at   TEXT NOT NULL,
+    last_seen_at    TEXT NOT NULL,
+    mention_count   INTEGER NOT NULL DEFAULT 1,
+    confidence      REAL NOT NULL CHECK (confidence >= 0.0 AND confidence <= 1.0),
+    source_type     TEXT NOT NULL CHECK (source_type IN (
+                        'user_stated', 'user_confirmed', 'agent_inferred',
+                        'agent_reflection', 'user_edited')),
+    profile_included INTEGER NOT NULL DEFAULT 0 CHECK (profile_included IN (0, 1)),
+    pinned          INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0, 1))
+);
+INSERT INTO entities_new SELECT * FROM entities;
+DROP TABLE entities;
+ALTER TABLE entities_new RENAME TO entities;
+CREATE INDEX IF NOT EXISTS idx_entities_name ON entities(name);
+CREATE INDEX IF NOT EXISTS idx_entities_type ON entities(type);
 `;
 }
