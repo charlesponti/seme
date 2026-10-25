@@ -58,22 +58,60 @@
           <p>The export is a single JSON object with keys for each table. Each value is an array of rows. This is a portable, human-readable format.</p>
           <div class="code-block">{
   "memories": [
-    { "id": "mem-1", "kind": "fact", "slot": "home_city", "subject": "user", "predicate": "lives in", "value_text": "The user lives in London.", "status": "active", "source_type": "user_stated", "confidence": 0.9 }
+    {
+      "id": "mem-1",
+      "kind": "fact",
+      "slot": "home_city",
+      "subject": "user",
+      "predicate": "lives in",
+      "value_text": "The user lives in London.",
+      "status": "active",
+      "source_type": "user_stated",
+      "confidence": 0.9
+    }
   ],
   "turns": [
-    { "id": "turn-1", "session_id": "s1", "role": "user", "content": "I live in London.", "created_at": "2026-10-25T01:40:00Z" }
+    {
+      "id": "turn-1",
+      "session_id": "s1",
+      "role": "user",
+      "content": "I live in London.",
+      "created_at": "2026-10-25T01:40:00Z"
+    }
   ],
   "episodes": [
-    { "id": "ep-1", "session_id": "s1", "started_at": "2026-10-25T01:40:00Z", "ended_at": "2026-10-25T01:40:05Z", "status": "closed" }
+    {
+      "id": "ep-1",
+      "session_id": "s1",
+      "started_at": "2026-10-25T01:40:00Z",
+      "ended_at": "2026-10-25T01:40:05Z",
+      "status": "closed"
+    }
   ],
   "entities": [
-    { "id": "ent-1", "name": "London", "type": "place", "aliases": [], "description": "City", "mention_count": 1, "confidence": 0.9, "source_type": "user_stated" }
+    {
+      "id": "ent-1",
+      "name": "London",
+      "type": "place",
+      "aliases": [],
+      "description": "City",
+      "mention_count": 1,
+      "confidence": 0.9,
+      "source_type": "user_stated"
+    }
   ],
   "relationships": [],
   "profile_versions": [
-    { "version": 1, "status": "active", "rendered_text": "## Profile\n- user lives in: The user lives in London." }
+    {
+      "version": 1,
+      "status": "active",
+      "rendered_text": "## Profile\n- user lives in: The user lives in London."
+    }
   ],
-  "identity_core": { "id": "singleton", "rendered_text": "The user is Charles Ponti." },
+  "identity_core": {
+    "id": "singleton",
+    "rendered_text": "The user is Charles Ponti."
+  },
   "deletion_log": []
 }</div>
         </div>

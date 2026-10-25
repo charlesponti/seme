@@ -73,13 +73,56 @@ seme.createRelationship(ponti, edinburgh, 'located_in', 'located in', turnId, ep
           <div class="code-block">const neigh = seme.getNeighborhood(charles, 2);</div>
 <div class="code-block">{
   "entities": [
-    { "id": "uuid-1", "name": "Charles", "type": "person", "aliases": [], "description": "User", "mention_count": 1, "confidence": 0.9, "source_type": "user_stated" },
-    { "id": "uuid-2", "name": "Ponti Studios", "type": "organization", "aliases": [], "description": "Company", "mention_count": 1, "confidence": 0.9, "source_type": "user_stated" },
-    { "id": "uuid-3", "name": "Edinburgh", "type": "place", "aliases": [], "description": "City", "mention_count": 1, "confidence": 0.9, "source_type": "user_stated" }
+    {
+      "id": "uuid-1",
+      "name": "Charles",
+      "type": "person",
+      "aliases": [],
+      "description": "User",
+      "mention_count": 1,
+      "confidence": 0.9,
+      "source_type": "user_stated"
+    },
+    {
+      "id": "uuid-2",
+      "name": "Ponti Studios",
+      "type": "organization",
+      "aliases": [],
+      "description": "Company",
+      "mention_count": 1,
+      "confidence": 0.9,
+      "source_type": "user_stated"
+    },
+    {
+      "id": "uuid-3",
+      "name": "Edinburgh",
+      "type": "place",
+      "aliases": [],
+      "description": "City",
+      "mention_count": 1,
+      "confidence": 0.9,
+      "source_type": "user_stated"
+    }
   ],
   "relationships": [
-    { "id": "uuid-4", "source_id": "uuid-1", "target_id": "uuid-2", "relation_type": "works_at", "description": "works at", "confidence": 0.9, "source_type": "user_stated" },
-    { "id": "uuid-5", "source_id": "uuid-2", "target_id": "uuid-3", "relation_type": "located_in", "description": "located in", "confidence": 0.9, "source_type": "user_stated" }
+    {
+      "id": "uuid-4",
+      "source_id": "uuid-1",
+      "target_id": "uuid-2",
+      "relation_type": "works_at",
+      "description": "works at",
+      "confidence": 0.9,
+      "source_type": "user_stated"
+    },
+    {
+      "id": "uuid-5",
+      "source_id": "uuid-2",
+      "target_id": "uuid-3",
+      "relation_type": "located_in",
+      "description": "located in",
+      "confidence": 0.9,
+      "source_type": "user_stated"
+    }
   ]
 }</div>
         </div>
@@ -92,13 +135,35 @@ seme.createRelationship(ponti, edinburgh, 'located_in', 'located in', turnId, ep
           <div class="code-block">const path = seme.findPath(charles, edinburgh);</div>
 <div class="code-block">{
   "path": [
-    { "id": "uuid-1", "name": "Charles", "type": "person" },
-    { "id": "uuid-2", "name": "Ponti Studios", "type": "organization" },
-    { "id": "uuid-3", "name": "Edinburgh", "type": "place" }
+    {
+      "id": "uuid-1",
+      "name": "Charles",
+      "type": "person"
+    },
+    {
+      "id": "uuid-2",
+      "name": "Ponti Studios",
+      "type": "organization"
+    },
+    {
+      "id": "uuid-3",
+      "name": "Edinburgh",
+      "type": "place"
+    }
   ],
   "relationships": [
-    { "id": "uuid-4", "source_id": "uuid-1", "target_id": "uuid-2", "relation_type": "works_at" },
-    { "id": "uuid-5", "source_id": "uuid-2", "target_id": "uuid-3", "relation_type": "located_in" }
+    {
+      "id": "uuid-4",
+      "source_id": "uuid-1",
+      "target_id": "uuid-2",
+      "relation_type": "works_at"
+    },
+    {
+      "id": "uuid-5",
+      "source_id": "uuid-2",
+      "target_id": "uuid-3",
+      "relation_type": "located_in"
+    }
   ]
 }</div>
         </div>
@@ -111,13 +176,70 @@ seme.createRelationship(ponti, edinburgh, 'located_in', 'located in', turnId, ep
           <div class="code-block">const snap = seme.getGraphSnapshot();</div>
 <div class="code-block">{
   "entities": [
-    { "id": "uuid-1", "name": "Charles", "type": "person", "aliases": [], "description": "User", "mention_count": 1, "confidence": 0.9, "source_type": "user_stated", "profile_included": 0, "pinned": 0 },
-    { "id": "uuid-2", "name": "Ponti Studios", "type": "organization", "aliases": [], "description": "Company", "mention_count": 1, "confidence": 0.9, "source_type": "user_stated", "profile_included": 0, "pinned": 0 },
-    { "id": "uuid-3", "name": "Edinburgh", "type": "place", "aliases": [], "description": "City", "mention_count": 1, "confidence": 0.9, "source_type": "user_stated", "profile_included": 0, "pinned": 0 }
+    {
+      "id": "uuid-1",
+      "name": "Charles",
+      "type": "person",
+      "aliases": [],
+      "description": "User",
+      "mention_count": 1,
+      "confidence": 0.9,
+      "source_type": "user_stated",
+      "profile_included": 0,
+      "pinned": 0
+    },
+    {
+      "id": "uuid-2",
+      "name": "Ponti Studios",
+      "type": "organization",
+      "aliases": [],
+      "description": "Company",
+      "mention_count": 1,
+      "confidence": 0.9,
+      "source_type": "user_stated",
+      "profile_included": 0,
+      "pinned": 0
+    },
+    {
+      "id": "uuid-3",
+      "name": "Edinburgh",
+      "type": "place",
+      "aliases": [],
+      "description": "City",
+      "mention_count": 1,
+      "confidence": 0.9,
+      "source_type": "user_stated",
+      "profile_included": 0,
+      "pinned": 0
+    }
   ],
   "relationships": [
-    { "id": "uuid-4", "source_id": "uuid-1", "target_id": "uuid-2", "relation_type": "works_at", "description": "works at", "weight": 1.0, "mention_count": 1, "confidence": 0.9, "source_type": "user_stated", "valid_from": null, "valid_to": null },
-    { "id": "uuid-5", "source_id": "uuid-2", "target_id": "uuid-3", "relation_type": "located_in", "description": "located in", "weight": 1.0, "mention_count": 1, "confidence": 0.9, "source_type": "user_stated", "valid_from": null, "valid_to": null }
+    {
+      "id": "uuid-4",
+      "source_id": "uuid-1",
+      "target_id": "uuid-2",
+      "relation_type": "works_at",
+      "description": "works at",
+      "weight": 1.0,
+      "mention_count": 1,
+      "confidence": 0.9,
+      "source_type": "user_stated",
+      "valid_from": null,
+      "valid_to": null
+    },
+    {
+      "id": "uuid-5",
+      "source_id": "uuid-2",
+      "target_id": "uuid-3",
+      "relation_type": "located_in",
+      "description": "located in",
+      "weight": 1.0,
+      "mention_count": 1,
+      "confidence": 0.9,
+      "source_type": "user_stated",
+      "valid_from": null,
+      "valid_to": null
+    }
   ]
 }</div>
         </div>

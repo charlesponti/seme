@@ -50,7 +50,10 @@
           <div class="code-block">// Without confirmation:</div>
           <div class="code-block">await seme.forgetCommand('all', undefined, undefined, undefined, undefined, false);</div>
           <div class="code-block">// Throws:</div>
-          <div class="code-block">{ "error": "ERR_VALIDATION", "message": "Confirmation required for delete-all" }</div>
+          <div class="code-block">{
+  "error": "ERR_VALIDATION",
+  "message": "Confirmation required for delete-all"
+}</div>
         </div>
       </div>
       <div class="step">
@@ -61,7 +64,10 @@
           <div class="code-block">// With confirmation:</div>
           <div class="code-block">await seme.forgetCommand('all', undefined, undefined, undefined, undefined, true);</div>
           <div class="code-block">// Result:</div>
-          <div class="code-block">{ "status": "deleted", "deletion_log": "entries for each deleted memory" }</div>
+          <div class="code-block">{
+  "status": "deleted",
+  "deletion_log": "entries for each deleted memory"
+}</div>
         </div>
       </div>
     </div>

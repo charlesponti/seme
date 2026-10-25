@@ -65,8 +65,19 @@
           <p>The response includes a <code>graph_summary</code> object with matched entities and relationships. This is used by the LLM to provide richer, more connected answers.</p>
           <div class="code-block">{
   "graph_summary": {
-    "entities": [{"name": "Charles", "type": "person"}],
-    "relationships": [{"relation_type": "works_at", "source": "Charles", "target": "Ponti Studios"}]
+    "entities": [
+      {
+        "name": "Charles",
+        "type": "person"
+      }
+    ],
+    "relationships": [
+      {
+        "relation_type": "works_at",
+        "source": "Charles",
+        "target": "Ponti Studios"
+      }
+    ]
   }
 }</div>
         </div>

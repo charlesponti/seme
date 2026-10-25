@@ -52,24 +52,151 @@
           <div class="code-block">const page1 = seme.listMemories('active', undefined, undefined, undefined, 5, 0);</div>
 <div class="code-block">{
   "memories": [
-    { "id": "mem-1", "kind": "fact", "slot": "fact_0", "subject": "user", "predicate": "fact is", "value_text": "Fact 0.", "status": "active", "source_type": "user_edited", "confidence": 0.9, "observed_at": "2026-10-25T01:40:00Z", "valid_from": "2026-10-25T01:40:00Z", "valid_to": null },
-    { "id": "mem-2", "kind": "fact", "slot": "fact_1", "subject": "user", "predicate": "fact is", "value_text": "Fact 1.", "status": "active", "source_type": "user_edited", "confidence": 0.9, "observed_at": "2026-10-25T01:40:00Z", "valid_from": "2026-10-25T01:40:00Z", "valid_to": null },
-    { "id": "mem-3", "kind": "fact", "slot": "fact_2", "subject": "user", "predicate": "fact is", "value_text": "Fact 2.", "status": "active", "source_type": "user_edited", "confidence": 0.9, "observed_at": "2026-10-25T01:40:00Z", "valid_from": "2026-10-25T01:40:00Z", "valid_to": null },
-    { "id": "mem-4", "kind": "fact", "slot": "fact_3", "subject": "user", "predicate": "fact is", "value_text": "Fact 3.", "status": "active", "source_type": "user_edited", "confidence": 0.9, "observed_at": "2026-10-25T01:40:00Z", "valid_from": "2026-10-25T01:40:00Z", "valid_to": null },
-    { "id": "mem-5", "kind": "fact", "slot": "fact_4", "subject": "user", "predicate": "fact is", "value_text": "Fact 4.", "status": "active", "source_type": "user_edited", "confidence": 0.9, "observed_at": "2026-10-25T01:40:00Z", "valid_from": "2026-10-25T01:40:00Z", "valid_to": null }
+    {
+      "id": "mem-1",
+      "kind": "fact",
+      "slot": "fact_0",
+      "subject": "user",
+      "predicate": "fact is",
+      "value_text": "Fact 0.",
+      "status": "active",
+      "source_type": "user_edited",
+      "confidence": 0.9,
+      "observed_at": "2026-10-25T01:40:00Z",
+      "valid_from": "2026-10-25T01:40:00Z",
+      "valid_to": null
+    },
+    {
+      "id": "mem-2",
+      "kind": "fact",
+      "slot": "fact_1",
+      "subject": "user",
+      "predicate": "fact is",
+      "value_text": "Fact 1.",
+      "status": "active",
+      "source_type": "user_edited",
+      "confidence": 0.9,
+      "observed_at": "2026-10-25T01:40:00Z",
+      "valid_from": "2026-10-25T01:40:00Z",
+      "valid_to": null
+    },
+    {
+      "id": "mem-3",
+      "kind": "fact",
+      "slot": "fact_2",
+      "subject": "user",
+      "predicate": "fact is",
+      "value_text": "Fact 2.",
+      "status": "active",
+      "source_type": "user_edited",
+      "confidence": 0.9,
+      "observed_at": "2026-10-25T01:40:00Z",
+      "valid_from": "2026-10-25T01:40:00Z",
+      "valid_to": null
+    },
+    {
+      "id": "mem-4",
+      "kind": "fact",
+      "slot": "fact_3",
+      "subject": "user",
+      "predicate": "fact is",
+      "value_text": "Fact 3.",
+      "status": "active",
+      "source_type": "user_edited",
+      "confidence": 0.9,
+      "observed_at": "2026-10-25T01:40:00Z",
+      "valid_from": "2026-10-25T01:40:00Z",
+      "valid_to": null
+    },
+    {
+      "id": "mem-5",
+      "kind": "fact",
+      "slot": "fact_4",
+      "subject": "user",
+      "predicate": "fact is",
+      "value_text": "Fact 4.",
+      "status": "active",
+      "source_type": "user_edited",
+      "confidence": 0.9,
+      "observed_at": "2026-10-25T01:40:00Z",
+      "valid_from": "2026-10-25T01:40:00Z",
+      "valid_to": null
+    }
   ],
   "total": 10
-}
-
-const page2 = seme.listMemories('active', undefined, undefined, undefined, 5, 5);
-Returns:
-{
+}</div>
+<div class="code-block">{
   "memories": [
-    { "id": "mem-1", "kind": "fact", "slot": "fact_0", "subject": "user", "predicate": "fact is", "value_text": "Fact 0.", "status": "active", "source_type": "user_edited", "confidence": 0.9, "observed_at": "2026-10-25T01:40:00Z", "valid_from": "2026-10-25T01:40:00Z", "valid_to": null },
-    { "id": "mem-2", "kind": "fact", "slot": "fact_1", "subject": "user", "predicate": "fact is", "value_text": "Fact 1.", "status": "active", "source_type": "user_edited", "confidence": 0.9, "observed_at": "2026-10-25T01:40:00Z", "valid_from": "2026-10-25T01:40:00Z", "valid_to": null },
-    { "id": "mem-3", "kind": "fact", "slot": "fact_2", "subject": "user", "predicate": "fact is", "value_text": "Fact 2.", "status": "active", "source_type": "user_edited", "confidence": 0.9, "observed_at": "2026-10-25T01:40:00Z", "valid_from": "2026-10-25T01:40:00Z", "valid_to": null },
-    { "id": "mem-4", "kind": "fact", "slot": "fact_3", "subject": "user", "predicate": "fact is", "value_text": "Fact 3.", "status": "active", "source_type": "user_edited", "confidence": 0.9, "observed_at": "2026-10-25T01:40:00Z", "valid_from": "2026-10-25T01:40:00Z", "valid_to": null },
-    { "id": "mem-5", "kind": "fact", "slot": "fact_4", "subject": "user", "predicate": "fact is", "value_text": "Fact 4.", "status": "active", "source_type": "user_edited", "confidence": 0.9, "observed_at": "2026-10-25T01:40:00Z", "valid_from": "2026-10-25T01:40:00Z", "valid_to": null }
+    {
+      "id": "mem-1",
+      "kind": "fact",
+      "slot": "fact_0",
+      "subject": "user",
+      "predicate": "fact is",
+      "value_text": "Fact 0.",
+      "status": "active",
+      "source_type": "user_edited",
+      "confidence": 0.9,
+      "observed_at": "2026-10-25T01:40:00Z",
+      "valid_from": "2026-10-25T01:40:00Z",
+      "valid_to": null
+    },
+    {
+      "id": "mem-2",
+      "kind": "fact",
+      "slot": "fact_1",
+      "subject": "user",
+      "predicate": "fact is",
+      "value_text": "Fact 1.",
+      "status": "active",
+      "source_type": "user_edited",
+      "confidence": 0.9,
+      "observed_at": "2026-10-25T01:40:00Z",
+      "valid_from": "2026-10-25T01:40:00Z",
+      "valid_to": null
+    },
+    {
+      "id": "mem-3",
+      "kind": "fact",
+      "slot": "fact_2",
+      "subject": "user",
+      "predicate": "fact is",
+      "value_text": "Fact 2.",
+      "status": "active",
+      "source_type": "user_edited",
+      "confidence": 0.9,
+      "observed_at": "2026-10-25T01:40:00Z",
+      "valid_from": "2026-10-25T01:40:00Z",
+      "valid_to": null
+    },
+    {
+      "id": "mem-4",
+      "kind": "fact",
+      "slot": "fact_3",
+      "subject": "user",
+      "predicate": "fact is",
+      "value_text": "Fact 3.",
+      "status": "active",
+      "source_type": "user_edited",
+      "confidence": 0.9,
+      "observed_at": "2026-10-25T01:40:00Z",
+      "valid_from": "2026-10-25T01:40:00Z",
+      "valid_to": null
+    },
+    {
+      "id": "mem-5",
+      "kind": "fact",
+      "slot": "fact_4",
+      "subject": "user",
+      "predicate": "fact is",
+      "value_text": "Fact 4.",
+      "status": "active",
+      "source_type": "user_edited",
+      "confidence": 0.9,
+      "observed_at": "2026-10-25T01:40:00Z",
+      "valid_from": "2026-10-25T01:40:00Z",
+      "valid_to": null
+    }
   ],
   "total": 10
 }</div>
