@@ -19,6 +19,7 @@ import { WikiStore } from '../wiki/wiki-store.js';
 import { WikiCompiler } from '../wiki/wiki-compiler.js';
 import { SourceIngestion } from '../ingestion/source-ingestion.js';
 import { HybridSearch } from '../search/hybrid-search.js';
+import { KBIntelligence } from '../kb/kb-intelligence.js';
 import { uuid, nowUtc } from '../types/common.js';
 import { getDecayClass } from '../confidence/confidence.js';
 
@@ -40,6 +41,7 @@ export class MemoryService {
   private wikiCompiler: WikiCompiler;
   private sourceIngestion: SourceIngestion;
   private hybridSearch: HybridSearch;
+  private kbIntelligence: KBIntelligence;
 
   constructor(config: StorageConfig) {
     this.storage = new Storage(config);
@@ -51,6 +53,7 @@ export class MemoryService {
     this.wikiCompiler = new WikiCompiler(this.storage, this.wikiStore);
     this.sourceIngestion = new SourceIngestion(this.storage, config.storageDir);
     this.hybridSearch = new HybridSearch(this.storage, this.wikiStore, this.graphStore);
+    this.kbIntelligence = new KBIntelligence(this.storage, this.wikiStore, this.graphStore);
     this.profileCompiler = new ProfileCompiler(this.storage, this.graphStore);
     this.retrieval = new RetrievalEngine(this.storage, this.graphStore);
     this.identityCore = new IdentityCoreManager(this.storage);
@@ -531,6 +534,13 @@ export class MemoryService {
 
   // --- Hybrid search ---
   hybridSearchQuery(query: string, options?: { limit?: number; include_turns?: boolean; include_memories?: boolean; include_wiki?: boolean; include_graph?: boolean }) { return this.hybridSearch.search(query, options); }
+
+  // --- KB Intelligence ---
+  kbChallenge(claim: string) { return this.kbIntelligence.challenge(claim); }
+  kbEmerge() { return this.kbIntelligence.emerge(); }
+  kbConnect(topicA: string, topicB: string) { return this.kbIntelligence.connect(topicA, topicB); }
+  kbContradictions() { return this.kbIntelligence.contradictions(); }
+  kbLint() { return this.kbIntelligence.lint(); }
 
   // Storage access for tests
   getStorage() {

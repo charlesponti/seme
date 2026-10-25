@@ -441,6 +441,29 @@ app.post('/search', async (c) => {
   }
 });
 
+// KB Intelligence
+app.post('/kb/challenge', async (c) => {
+  const body = await c.req.json();
+  return c.json(service.kbChallenge(body.claim || ''));
+});
+
+app.post('/kb/emerge', async (c) => {
+  return c.json(service.kbEmerge());
+});
+
+app.post('/kb/connect', async (c) => {
+  const body = await c.req.json();
+  return c.json(service.kbConnect(body.topic_a || '', body.topic_b || ''));
+});
+
+app.get('/kb/contradictions', (c) => {
+  return c.json({ contradictions: service.kbContradictions() });
+});
+
+app.post('/kb/lint', async (c) => {
+  return c.json(service.kbLint());
+});
+
 function parseErrorCode(msg: string): string {
   if (msg.includes('ERR_VALIDATION')) return 'ERR_VALIDATION';
   if (msg.includes('ERR_NOT_FOUND')) return 'ERR_NOT_FOUND';
