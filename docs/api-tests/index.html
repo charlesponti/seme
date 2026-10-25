@@ -4,37 +4,37 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Seme API Dashboard</title>
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <!-- GitHub uses system fonts, no CDN needed -->
   <link rel="stylesheet" href="shared.css">
   <style>
     .dashboard { display: grid; grid-template-columns: 280px 1fr; min-height: 100vh; }
-    .sidebar { background: #fafafa; border-right: 1px solid #ebebeb; padding: 24px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
-    .sidebar-title { font-size: 14px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+    .sidebar { background: #f6f8fa; border-right: 1px solid #d0d7de; padding: 24px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+    .sidebar-title { font-size: 14px; font-weight: 600; color: #6e7781; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
     .sidebar-nav { list-style: none; }
     .sidebar-nav li { margin-bottom: 4px; }
-    .sidebar-nav a { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 6px; font-size: 14px; color: #4d4d4d; text-decoration: none; transition: background 0.15s; }
-    .sidebar-nav a:hover { background: #ebebeb; color: #171717; }
-    .sidebar-nav a.active { background: #171717; color: #ffffff; }
+    .sidebar-nav a { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 6px; font-size: 14px; color: #57606a; text-decoration: none; transition: background 0.15s; }
+    .sidebar-nav a:hover { background: #d0d7de; color: #24292f; }
+    .sidebar-nav a.active { background: #24292f; color: #ffffff; }
     .sidebar-nav .badge { font-size: 10px; padding: 2px 6px; }
     .main { padding: 40px; }
     .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 40px; }
-    .stat-card { background: #ffffff; border-radius: 8px; box-shadow: 0px 0px 0px 1px rgba(0,0,0,0.08), 0px 2px 2px rgba(0,0,0,0.04), 0px 0px 0px 1px #fafafa; padding: 20px; }
-    .stat-value { font-size: 32px; font-weight: 600; letter-spacing: -1.28px; color: #171717; }
-    .stat-label { font-size: 12px; font-weight: 500; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
-    .stat-sub { font-size: 12px; color: #4d4d4d; margin-top: 8px; }
+    .stat-card { background: #ffffff; border-radius: 8px; box-shadow: 0px 0px 0px 1px rgba(31,35,40,0.12), 0px 2px 2px rgba(0,0,0,0.04), 0px 0px 0px 1px #f6f8fa; padding: 20px; }
+    .stat-value { font-size: 32px; font-weight: 600; letter-spacing: -1.28px; color: #24292f; }
+    .stat-label { font-size: 12px; font-weight: 500; color: #6e7781; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+    .stat-sub { font-size: 12px; color: #57606a; margin-top: 8px; }
     .test-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
-    .test-card { background: #ffffff; border-radius: 8px; box-shadow: 0px 0px 0px 1px rgba(0,0,0,0.08), 0px 2px 2px rgba(0,0,0,0.04), 0px 0px 0px 1px #fafafa; padding: 20px; text-decoration: none; color: inherit; transition: box-shadow 0.15s; display: block; }
-    .test-card:hover { box-shadow: 0px 0px 0px 1px rgba(0,0,0,0.12), 0px 4px 8px rgba(0,0,0,0.06), 0px 0px 0px 1px #fafafa; }
+    .test-card { background: #ffffff; border-radius: 8px; box-shadow: 0px 0px 0px 1px rgba(31,35,40,0.12), 0px 2px 2px rgba(0,0,0,0.04), 0px 0px 0px 1px #f6f8fa; padding: 20px; text-decoration: none; color: inherit; transition: box-shadow 0.15s; display: block; }
+    .test-card:hover { box-shadow: 0px 0px 0px 1px rgba(31,35,40,0.12), 0px 4px 8px rgba(31,35,40,0.06), 0px 0px 0px 1px #f6f8fa; }
     .test-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
     .test-card-title { font-size: 16px; font-weight: 600; letter-spacing: -0.32px; }
-    .test-card-desc { font-size: 14px; color: #4d4d4d; line-height: 1.5; }
+    .test-card-desc { font-size: 14px; color: #57606a; line-height: 1.5; }
     .test-card-meta { display: flex; gap: 8px; margin-top: 12px; }
-    .category-header { font-size: 14px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin: 32px 0 16px; padding-bottom: 8px; border-bottom: 1px solid #ebebeb; }
-    .code-preview { background: #fafafa; border-radius: 6px; padding: 12px; font-family: 'Geist Mono', monospace; font-size: 12px; color: #4d4d4d; margin-top: 12px; overflow: hidden; max-height: 80px; position: relative; }
-    .code-preview::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 30px; background: linear-gradient(transparent, #fafafa); }
-    .syntax-key { color: #0a72ef; }
-    .syntax-str { color: #de1d8d; }
-    .syntax-num { color: #ff5b4f; }
+    .category-header { font-size: 14px; font-weight: 600; color: #6e7781; text-transform: uppercase; letter-spacing: 0.5px; margin: 32px 0 16px; padding-bottom: 8px; border-bottom: 1px solid #d0d7de; }
+    .code-preview { background: #f6f8fa; border-radius: 6px; padding: 12px; font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace; font-size: 12px; color: #57606a; margin-top: 12px; overflow: hidden; max-height: 80px; position: relative; }
+    .code-preview::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 30px; background: linear-gradient(transparent, #f6f8fa); }
+    .syntax-key { color: #0969da; }
+    .syntax-str { color: #8250df; }
+    .syntax-num { color: #cf222e; }
     @media (max-width: 1024px) { .dashboard { grid-template-columns: 1fr; } .sidebar { position: relative; height: auto; } .stats-grid { grid-template-columns: repeat(2, 1fr); } .test-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -64,7 +64,7 @@
     </aside>
     <main class="main">
       <h1 style="font-size:48px;font-weight:600;letter-spacing:-2.4px;margin-bottom:8px;">Seme API Dashboard</h1>
-      <p style="font-size:20px;color:#4d4d4d;margin-bottom:40px;">16 complex API request patterns, all verified. 100% pass rate.</p>
+      <p style="font-size:20px;color:#57606a;margin-bottom:40px;">16 complex API request patterns, all verified. 100% pass rate.</p>
 
       <div class="stats-grid">
         <div class="stat-card">
