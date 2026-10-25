@@ -79,8 +79,8 @@
         <div class="step-content">
           <h3>Extract Memories</h3>
           <p>The extraction pipeline sends the conversation to the LLM with a structured prompt. The LLM identifies atomic claims (facts, preferences, decisions, etc.) and returns them as structured memories with subject, predicate, value_text, slot, and confidence.</p>
-          <div class="code-block">// LLM extracts: "The user prefers dark mode for all editors."
-// Stored as: { kind: "preference", slot: "theme", value_text: "..." }</div>
+          <div class="code-block">// LLM extracts: "The user prefers dark mode for all editors."</div>
+          <div class="code-block">{ "kind": "preference", "slot": "theme", "value_text": "The user prefers dark mode for all editors." }</div>
         </div>
       </div>
       <div class="step">

@@ -47,9 +47,10 @@
         <div class="step-content">
           <h3>Forget All Operation</h3>
           <p><code>POST /forget</code> with <code>{ target: "all" }</code> deletes all memories. This is a destructive operation that requires <code>confirm: true</code>.</p>
-          <div class="code-block">// Without confirmation:
-await seme.forgetCommand('all', undefined, undefined, undefined, undefined, false);
-// Throws: ERR_VALIDATION: Confirmation required for delete-all</div>
+          <div class="code-block">// Without confirmation:</div>
+          <div class="code-block">await seme.forgetCommand('all', undefined, undefined, undefined, undefined, false);</div>
+          <div class="code-block">// Throws:</div>
+          <div class="code-block">{ "error": "ERR_VALIDATION", "message": "Confirmation required for delete-all" }</div>
         </div>
       </div>
       <div class="step">
@@ -57,10 +58,10 @@ await seme.forgetCommand('all', undefined, undefined, undefined, undefined, fals
         <div class="step-content">
           <h3>With Confirmation</h3>
           <p>When <code>confirm: true</code> is passed, all memories are soft-deleted and logged to the deletion_log. This is irreversible (except via restore from backup).</p>
-          <div class="code-block">// With confirmation:
-await seme.forgetCommand('all', undefined, undefined, undefined, undefined, true);
-// All memories: status = 'deleted'
-// deletion_log: entries for each deleted memory</div>
+          <div class="code-block">// With confirmation:</div>
+          <div class="code-block">await seme.forgetCommand('all', undefined, undefined, undefined, undefined, true);</div>
+          <div class="code-block">// Result:</div>
+          <div class="code-block">{ "status": "deleted", "deletion_log": "entries for each deleted memory" }</div>
         </div>
       </div>
     </div>
