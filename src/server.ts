@@ -424,6 +424,23 @@ app.get('/sources', (c) => {
   return c.json(service.listSources());
 });
 
+// Hybrid search
+app.post('/search', async (c) => {
+  const body = await c.req.json();
+  try {
+    const result = service.hybridSearchQuery(body.query || '', {
+      limit: body.limit,
+      include_turns: body.include_turns,
+      include_memories: body.include_memories,
+      include_wiki: body.include_wiki,
+      include_graph: body.include_graph,
+    });
+    return c.json(result);
+  } catch (e: any) {
+    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'hybrid_search' } }, 400);
+  }
+});
+
 function parseErrorCode(msg: string): string {
   if (msg.includes('ERR_VALIDATION')) return 'ERR_VALIDATION';
   if (msg.includes('ERR_NOT_FOUND')) return 'ERR_NOT_FOUND';

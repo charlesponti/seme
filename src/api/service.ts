@@ -18,6 +18,7 @@ import { GraphStore } from '../graph/graph-store.js';
 import { WikiStore } from '../wiki/wiki-store.js';
 import { WikiCompiler } from '../wiki/wiki-compiler.js';
 import { SourceIngestion } from '../ingestion/source-ingestion.js';
+import { HybridSearch } from '../search/hybrid-search.js';
 import { uuid, nowUtc } from '../types/common.js';
 import { getDecayClass } from '../confidence/confidence.js';
 
@@ -38,6 +39,7 @@ export class MemoryService {
   private wikiStore: WikiStore;
   private wikiCompiler: WikiCompiler;
   private sourceIngestion: SourceIngestion;
+  private hybridSearch: HybridSearch;
 
   constructor(config: StorageConfig) {
     this.storage = new Storage(config);
@@ -48,6 +50,7 @@ export class MemoryService {
     this.wikiStore = new WikiStore(this.storage);
     this.wikiCompiler = new WikiCompiler(this.storage, this.wikiStore);
     this.sourceIngestion = new SourceIngestion(this.storage, config.storageDir);
+    this.hybridSearch = new HybridSearch(this.storage, this.wikiStore, this.graphStore);
     this.profileCompiler = new ProfileCompiler(this.storage, this.graphStore);
     this.retrieval = new RetrievalEngine(this.storage, this.graphStore);
     this.identityCore = new IdentityCoreManager(this.storage);
@@ -525,6 +528,9 @@ export class MemoryService {
   async ingestYouTube(url: string, sessionId: string) { return this.sourceIngestion.ingestYouTube(url, sessionId); }
   async ingestText(text: string, title: string, sessionId: string, sourceType?: string) { return this.sourceIngestion.ingestText(text, title, sessionId, sourceType); }
   listSources() { return this.storage.read((db: any) => db.prepare('SELECT * FROM sources ORDER BY created_at DESC').all()); }
+
+  // --- Hybrid search ---
+  hybridSearchQuery(query: string, options?: { limit?: number; include_turns?: boolean; include_memories?: boolean; include_wiki?: boolean; include_graph?: boolean }) { return this.hybridSearch.search(query, options); }
 
   // Storage access for tests
   getStorage() {
