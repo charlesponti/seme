@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Essay: Hybrid Search — Cross-Layer Retrieval & Scoring</title>
+  <link rel="stylesheet" href="../shared.css">
+  <style>
+    .essay { max-width: 800px; margin: 0 auto; padding: 40px 24px; }
+    .essay h1 { font-size: 36px; font-weight: 700; letter-spacing: -1px; margin-bottom: 8px; }
+    .essay h2 { font-size: 24px; font-weight: 600; margin: 32px 0 12px; border-bottom: 1px solid #d0d7de; padding-bottom: 8px; }
+    .essay h3 { font-size: 18px; font-weight: 600; margin: 24px 0 8px; }
+    .essay p { font-size: 16px; line-height: 1.7; color: #24292f; margin-bottom: 16px; }
+    .essay ul, .essay ol { margin: 0 0 16px 24px; }
+    .essay li { font-size: 16px; line-height: 1.7; color: #24292f; margin-bottom: 8px; }
+    .essay .callout { background: #f6f8fa; border-left: 3px solid #0969da; padding: 16px 20px; margin: 20px 0; border-radius: 0 6px 6px 0; }
+    .essay .callout p { margin: 0; font-size: 14px; }
+    .essay code { font-family: var(--font-mono); font-size: 13px; background: #f6f8fa; padding: 2px 6px; border-radius: 4px; }
+    .essay pre { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; overflow-x: auto; font-size: 13px; line-height: 1.5; margin: 16px 0; }
+    .essay .meta { font-size: 14px; color: #6e7781; margin-bottom: 24px; }
+    .back-link { display: inline-block; margin-bottom: 24px; color: #0969da; text-decoration: none; font-size: 14px; }
+    .back-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="essay">
+    <a href="../index.html" class="back-link">← Back to Seme</a>
+    <h1>Hybrid Search: Cross-Layer Retrieval & Scoring</h1>
+    <p class="meta">How Seme combines keyword, semantic, and graph search into one LLM-ready context block</p>
+
+    <h2>1. The Problem with Single-Layer Search</h2>
+    <p>Traditional memory systems search one layer at a time. A keyword search finds memories containing "TypeScript" but misses the wiki page about TypeScript, the graph entity "TypeScript", and the conversation turn where it was mentioned. The user gets fragmented results and the LLM has to piece them together.</p>
+    <p>Hybrid search queries all layers simultaneously and returns a unified, LLM-ready context block. One search call returns memories, wiki pages, graph entities, and relevant turns — ranked and formatted for the LLM to consume.</p>
+
+    <h2>2. Search Layers</h2>
+    <p>Seme's hybrid search operates across four layers:</p>
+
+    <h3>2.1 Memory Layer (FTS5)</h3>
+    <p>Full-text search over memory value_text, subject, and predicate using SQLite's FTS5 virtual table. FTS5 supports BM25 ranking, prefix matching, and phrase queries. The search sanitizes the query to remove FTS5 special characters (?, *, quotes) that would cause syntax errors.</p>
+    <p>Fallback: if FTS5 fails (syntax error), the system falls back to exact keyword matching — splitting the query into words and checking if any word appears in the memory text.</p>
+
+    <h3>2.2 Wiki Layer</h3>
+    <p>LIKE-based search over wiki page titles, content, and entity names. Wiki pages contain compiled knowledge about entities, so searching them surfaces structured information that raw memories don't capture.</p>
+
+    <h3>2.3 Graph Layer</h3>
+    <p>Entity name matching (LIKE query on entity names and aliases) followed by 2-hop traversal. If the user searches "TypeScript", the system finds the TypeScript entity, then traverses to related entities (React, Node.js, Ponti Studios) and includes them in the results.</p>
+
+    <h3>2.4 Turn Layer (FTS5)</h3>
+    <p>Full-text search over conversation turns. This surfaces the original conversation context where a topic was discussed, providing provenance and nuance that extracted memories might lose.</p>
+
+    <h2>3. Scoring and Ranking</h2>
+    <p>Each layer produces results with a score between 0 and 1:</p>
+    <ul>
+      <li><strong>FTS5 results</strong>: Ranked by BM25 (SQLite's built-in relevance scoring)</li>
+      <li><strong>Keyword fallback</strong>: Score = 1 - (position / total), linear decay</li>
+      <li><strong>Wiki results</strong>: Score = 1 - (position / total), linear decay</li>
+      <li><strong>Graph results</strong>: All matched entities get score 1.0 (binary match)</li>
+    </ul>
+    <p>Results from all layers are combined into a single context block, ordered by layer priority: Memories → Wiki → Graph → Turns. This ordering reflects the information density of each layer — memories are atomic facts, wiki pages are compiled knowledge, graph entities are structural, and turns are raw conversation.</p>
+
+    <h2>4. Temporal Filtering</h2>
+    <p>The hybrid search supports temporal parameters (since, before, asOf) that filter memories by their observed_at timestamp. This enables "as of" queries: "What did we know about TypeScript before March 2026?"</p>
+    <p>The temporal filter is applied at the SQL level: <code>WHERE observed_at >= ? AND observed_at <= ?</code>. This is efficient because observed_at is indexed.</p>
+
+    <h2>5. Abstention Logic</h2>
+    <p>If no results are found across all layers (total_results = 0), the system returns <code>abstain: true</code>. This signals to the LLM that it should not answer from parametric knowledge — the system has no relevant information.</p>
+    <p>Abstention is critical for preventing hallucination. Without it, the LLM would generate plausible-sounding but potentially incorrect answers for topics the user never discussed.</p>
+
+    <h2>6. LLM-Ready Context Format</h2>
+    <p>The search result includes a <code>context</code> string formatted as markdown:</p>
+    <pre>## Memories
+- [fact] The user uses TypeScript for both frontend and backend.
+- [preference] The user prefers dark mode.
+
+## Knowledge Graph
+- TypeScript (tool)
+- React (tool)
+
+## Relevant Turns
+- [Source: TS Facts] TypeScript is a typed superset of JavaScript.</pre>
+    <p>This format is designed for direct injection into an LLM prompt. The LLM can parse the sections and use the information to generate a contextual response.</p>
+
+    <h2>7. Design Decisions</h2>
+    <ul>
+      <li><strong>Four layers, one call</strong>: Instead of making the client query each layer separately, the hybrid search does it in one call. This reduces latency and ensures consistent results.</li>
+      <li><strong>SQL-level filtering</strong>: Temporal and status filters are applied in SQL, not in application code. This is faster and more reliable.</li>
+      <li><strong>Graceful degradation</strong>: If FTS5 fails, keyword fallback kicks in. If graph has no matches, the other layers still return results. The system never fails completely.</li>
+      <li><strong>Abstention over hallucination</strong>: Returning no results is better than returning wrong results. The LLM is told to abstain when the system has no relevant information.</li>
+    </ul>
+
+    <div class="callout">
+      <p><strong>Performance:</strong> Hybrid search completes in <1ms for typical queries (p50: 0.35ms). The four layers are queried sequentially but each is a fast indexed SQL query. The total latency is dominated by the slowest layer, not the sum.</p>
+    </div>
+  </div>
+</body>
+</html>

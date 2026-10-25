@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Essay: KB Intelligence — Pattern Emergence & Contradiction Detection</title>
+  <link rel="stylesheet" href="../shared.css">
+  <style>
+    .essay { max-width: 800px; margin: 0 auto; padding: 40px 24px; }
+    .essay h1 { font-size: 36px; font-weight: 700; letter-spacing: -1px; margin-bottom: 8px; }
+    .essay h2 { font-size: 24px; font-weight: 600; margin: 32px 0 12px; border-bottom: 1px solid #d0d7de; padding-bottom: 8px; }
+    .essay h3 { font-size: 18px; font-weight: 600; margin: 24px 0 8px; }
+    .essay p { font-size: 16px; line-height: 1.7; color: #24292f; margin-bottom: 16px; }
+    .essay ul, .essay ol { margin: 0 0 16px 24px; }
+    .essay li { font-size: 16px; line-height: 1.7; color: #24292f; margin-bottom: 8px; }
+    .essay .callout { background: #f6f8fa; border-left: 3px solid #0969da; padding: 16px 20px; margin: 20px 0; border-radius: 0 6px 6px 0; }
+    .essay .callout p { margin: 0; font-size: 14px; }
+    .essay code { font-family: var(--font-mono); font-size: 13px; background: #f6f8fa; padding: 2px 6px; border-radius: 4px; }
+    .essay pre { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; overflow-x: auto; font-size: 13px; line-height: 1.5; margin: 16px 0; }
+    .essay .meta { font-size: 14px; color: #6e7781; margin-bottom: 24px; }
+    .back-link { display: inline-block; margin-bottom: 24px; color: #0969da; text-decoration: none; font-size: 14px; }
+    .back-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="essay">
+    <a href="../index.html" class="back-link">← Back to Seme</a>
+    <h1>KB Intelligence: Pattern Emergence & Contradiction Detection</h1>
+    <p class="meta">Higher-order reasoning over accumulated knowledge</p>
+
+    <h2>1. From Storage to Intelligence</h2>
+    <p>A memory system that only stores and retrieves is a database. Intelligence requires <em>reasoning</em> over stored knowledge: challenging claims, surfacing patterns, finding connections, and detecting contradictions. KB Intelligence provides these higher-order operations.</p>
+
+    <h2>2. Challenge: Claim Verification</h2>
+    <p>Given a claim ("The user uses Python"), the challenge operation checks it against existing knowledge. It finds supporting memories (those that mention Python or related terms) and contradicting memories (those that mention a different language without Python).</p>
+    <p>The algorithm uses keyword overlap: memories sharing ≥2 words with the claim are considered relevant. Among relevant memories, those with negation indicators ("not", "don't", "never") that differ from the claim's negation status are flagged as contradicting.</p>
+    <pre>function challenge(claim) {
+  const words = claim.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+  for (const memory of activeMemories) {
+    const overlap = words.filter(w => memory.text.includes(w)).length;
+    if (overlap >= 2) {
+      const isNegation = memory.text.includes('not') || memory.text.includes("don't");
+      const claimNegation = claim.includes('not') || claim.includes("don't");
+      if (isNegation !== claimNegation) contradicting.push(memory);
+      else supporting.push(memory);
+    }
+  }
+  return { verdict: supporting.length > 0 ? 'supported' : contradicting.length > 0 ? 'contradicted' : 'insufficient' };
+}</pre>
+
+    <h2>3. Emerge: Pattern Surfacing</h2>
+    <p>The emerge operation finds patterns across the memory store by clustering memories along three dimensions:</p>
+    <ul>
+      <li><strong>By kind</strong>: Groups memories by their kind (fact, preference, decision, etc.). If 5+ facts exist, that's a pattern.</li>
+      <li><strong>By slot</strong>: Groups memories by their slot (home_city, name, etc.). Multiple memories for the same slot indicate evolution or contradiction.</li>
+      <li><strong>By subject</strong>: Groups memories by subject (user, Ponti Studios, etc.). A subject with 3+ memories has a rich knowledge profile.</li>
+    </ul>
+    <p>Each pattern includes the memory IDs involved, enabling drill-down into the supporting evidence.</p>
+
+    <h2>4. Connect: Topic Bridging</h2>
+    <p>The connect operation finds how two topics are connected in the knowledge graph. Given "TypeScript" and "Edinburgh", it:</p>
+    <ol>
+      <li>Finds entities matching each topic</li>
+      <li>Computes shortest paths between all pairs (BFS)</li>
+      <li>Finds bridge entities (entities connected to both topics within 2 hops)</li>
+    </ol>
+    <p>Bridge entities are the "glue" that connects disparate topics. For example, "Ponti Studios" might bridge "TypeScript" and "Edinburgh" if the user uses TypeScript at Ponti Studios in Edinburgh.</p>
+
+    <h2>5. Contradictions: Detection</h2>
+    <p>Contradictions are detected when two active memories share the same slot but have different value_text. For example:</p>
+    <ul>
+      <li>Memory A: "The user lives in London" (slot: home_city)</li>
+      <li>Memory B: "The user lives in Edinburgh" (slot: home_city)</li>
+    </ul>
+    <p>These are flagged as contradictions with severity based on confidence: high (both ≥0.8), medium (one ≥0.5), or low.</p>
+    <p>Contradictions are surfaced in the review queue for human resolution (confirm, dismiss, or edit).</p>
+
+    <h2>6. Lint: Knowledge Base Health</h2>
+    <p>The lint operation checks the knowledge base for quality issues:</p>
+    <ul>
+      <li><strong>Low confidence</strong>: Active memories with confidence < 0.5</li>
+      <li><strong>Missing slots</strong>: Active memories without a slot (when 5+ exist)</li>
+      <li><strong>Duplicates</strong>: Memories with identical value_text</li>
+      <li><strong>Orphaned entities</strong>: Entities with no relationships</li>
+      <li><strong>Deprecated pages</strong>: Wiki pages marked as deprecated</li>
+    </ul>
+    <p>The health score is <code>1 - (issues * 0.1)</code>, capped at 0-1. Each issue reduces health by 10%.</p>
+
+    <h2>7. Design Decisions</h2>
+    <ul>
+      <li><strong>Keyword-based challenge</strong>: Uses keyword overlap instead of LLM calls. Faster and cheaper, but less nuanced than semantic comparison.</li>
+      <li><strong>Slot-based contradictions</strong>: Only checks contradictions within the same slot. This is efficient but misses cross-slot contradictions (e.g., "lives in London" vs "workplace is in Edinburgh" when they should be the same city).</li>
+      <li><strong>Simple lint checks</strong>: Rule-based checks, not LLM-based. Fast and deterministic, but might miss subtle quality issues.</li>
+      <li><strong>Review queue integration</strong>: Contradictions are surfaced for human resolution rather than auto-resolved. This prevents the system from making incorrect decisions about conflicting information.</li>
+    </ul>
+
+    <div class="callout">
+      <p><strong>Trade-off:</strong> KB Intelligence uses rule-based heuristics instead of LLM reasoning. This is fast and free (no API calls) but less sophisticated than LLM-based analysis. For production use, the challenge and emerge operations could be enhanced with LLM calls for deeper semantic understanding.</p>
+    </div>
+  </div>
+</body>
+</html>

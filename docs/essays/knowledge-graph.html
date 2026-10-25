@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Essay: Knowledge Graph — Entity Resolution & Graph Traversal</title>
+  <link rel="stylesheet" href="../shared.css">
+  <style>
+    .essay { max-width: 800px; margin: 0 auto; padding: 40px 24px; }
+    .essay h1 { font-size: 36px; font-weight: 700; letter-spacing: -1px; margin-bottom: 8px; }
+    .essay h2 { font-size: 24px; font-weight: 600; margin: 32px 0 12px; border-bottom: 1px solid #d0d7de; padding-bottom: 8px; }
+    .essay h3 { font-size: 18px; font-weight: 600; margin: 24px 0 8px; }
+    .essay p { font-size: 16px; line-height: 1.7; color: #24292f; margin-bottom: 16px; }
+    .essay ul, .essay ol { margin: 0 0 16px 24px; }
+    .essay li { font-size: 16px; line-height: 1.7; color: #24292f; margin-bottom: 8px; }
+    .essay .callout { background: #f6f8fa; border-left: 3px solid #0969da; padding: 16px 20px; margin: 20px 0; border-radius: 0 6px 6px 0; }
+    .essay .callout p { margin: 0; font-size: 14px; }
+    .essay code { font-family: var(--font-mono); font-size: 13px; background: #f6f8fa; padding: 2px 6px; border-radius: 4px; }
+    .essay pre { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; overflow-x: auto; font-size: 13px; line-height: 1.5; margin: 16px 0; }
+    .essay .meta { font-size: 14px; color: #6e7781; margin-bottom: 24px; }
+    .back-link { display: inline-block; margin-bottom: 24px; color: #0969da; text-decoration: none; font-size: 14px; }
+    .back-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="essay">
+    <a href="../index.html" class="back-link">← Back to Seme</a>
+    <h1>Knowledge Graph: Entity Resolution & Graph Traversal</h1>
+    <p class="meta">How Seme builds and queries a knowledge graph from unstructured conversation text</p>
+
+    <h2>1. The Problem</h2>
+    <p>Traditional memory systems store facts as flat key-value pairs or text snippets. When a user says "I work at Ponti Studios in Edinburgh," the system might store two separate facts: "works at Ponti Studios" and "lives in Edinburgh." But it loses the <em>relationship</em> between these facts — Ponti Studios is in Edinburgh, the user works there, and the user lives there too.</p>
+    <p>A knowledge graph captures these relationships as a directed graph: nodes (entities) and edges (relationships). This enables traversal queries like "What's connected to Edinburgh?" or "How is Charles related to Ponti Studios?" that flat memory stores cannot answer.</p>
+
+    <h2>2. Entity Resolution</h2>
+    <p>Entity resolution is the process of determining whether two mentions refer to the same real-world entity. When the user says "Ponti Studios" in one turn and "Ponti" in another, the system must decide: are these the same entity?</p>
+
+    <h3>2.1 Resolution Algorithm</h3>
+    <p>Seme uses a multi-stage resolution pipeline:</p>
+    <ol>
+      <li><strong>Name matching</strong>: Exact match (case-insensitive) against canonical names and aliases. "Ponti Studios" matches "Ponti Studios".</li>
+      <li><strong>Alias matching</strong>: Check if the mention is in the entity's alias list. "Ponti" matches an entity with alias "Ponti".</li>
+      <li><strong>Fuzzy matching</strong>: Levenshtein distance for near-misses. "Ponti Studois" (typo) matches "Ponti Studios" with distance 1.</li>
+      <li><strong>Type disambiguation</strong>: If two entities have the same name but different types (e.g., "Apple" the company vs. "apple" the fruit), use context to disambiguate.</li>
+    </ol>
+
+    <h3>2.2 Canonicalization</h3>
+    <p>When a new entity is resolved to an existing one, the canonical name is preserved and the new mention is added as an alias. This ensures the graph doesn't accumulate duplicate nodes for the same entity.</p>
+    <div class="callout">
+      <p><strong>Key insight:</strong> Entity resolution is the hardest part of knowledge graph construction. A false merge (combining two different entities) is worse than a false split (keeping them separate), because it corrupts the graph structure. Seme errs on the side of splitting.</p>
+    </div>
+
+    <h2>3. Graph Traversal</h2>
+    <p>Once entities and relationships are stored, the system needs to traverse the graph to answer queries. Seme implements two traversal algorithms:</p>
+
+    <h3>3.1 N-Hop Neighborhood</h3>
+    <p>Given a starting entity, find all entities and relationships within N hops. This uses a recursive CTE (Common Table Expression) in SQLite:</p>
+    <pre>WITH RECURSIVE traversal(entity_id, depth, path) AS (
+  SELECT id, 0, id FROM entities WHERE id = ?
+  UNION ALL
+  SELECT r.target_id, t.depth + 1, t.path || ',' || r.target_id
+  FROM traversal t
+  JOIN relationships r ON r.source_id = t.entity_id
+  WHERE t.depth < ? AND t.path NOT LIKE '%' || r.target_id || '%'
+)
+SELECT DISTINCT entity_id, depth FROM traversal</pre>
+    <p>The `path NOT LIKE` clause prevents cycles — the traversal won't revisit an entity it's already seen. This is critical for graph queries on cyclic graphs.</p>
+
+    <h3>3.2 Shortest Path (BFS)</h3>
+    <p>Finding the shortest path between two entities uses BFS (Breadth-First Search) implemented as a recursive CTE. BFS guarantees the shortest path in an unweighted graph:</p>
+    <pre>WITH RECURSIVE path_search(entity_id, depth, path, rel_path) AS (
+  SELECT id, 0, id, '' FROM entities WHERE id = ?
+  UNION ALL
+  SELECT r.target_id, ps.depth + 1, ps.path || ',' || r.target_id, ps.rel_path || ',' || r.id
+  FROM path_search ps
+  JOIN relationships r ON r.source_id = ps.entity_id
+  WHERE ps.depth < 10 AND ps.path NOT LIKE '%' || r.target_id || '%'
+)
+SELECT path, rel_path FROM path_search WHERE entity_id = ? ORDER BY depth LIMIT 1</pre>
+    <p>The `depth < 10` limit prevents infinite loops. The `ORDER BY depth LIMIT 1` ensures we get the shortest path.</p>
+
+    <h2>4. Graph-Augmented Retrieval</h2>
+    <p>The graph isn't just for display — it's used during retrieval. When a user asks "Where does Charles work?", the system:</p>
+    <ol>
+      <li>Matches "Charles" to an entity in the graph</li>
+      <li>Traverses 2 hops from Charles to find related entities (Ponti Studios, Edinburgh, TypeScript)</li>
+      <li>Includes these related entities in the retrieval context</li>
+      <li>The LLM uses this graph context to provide a richer answer</li>
+    </ol>
+    <p>This is "graph-augmented retrieval" — combining keyword/vector search with graph traversal to provide more context than flat memory search alone.</p>
+
+    <h2>5. Storage Model</h2>
+    <p>The graph is stored in SQLite with four tables:</p>
+    <ul>
+      <li><strong>entities</strong>: Nodes with name, type, aliases, description, confidence, source provenance</li>
+      <li><strong>relationships</strong>: Directed edges with relation_type, description, weight, source turn/episode</li>
+      <li><strong>entity_memory_links</strong>: Links entities to memories (subject, object, context, mentioned)</li>
+      <li><strong>entity_turn_links</strong>: Links entities to turns where they were mentioned</li>
+    </ul>
+    <p>Every entity and relationship has source provenance (source_turn_id, source_episode_id), enabling "why does the system know this?" queries and deletion cascades.</p>
+
+    <h2>6. Performance Characteristics</h2>
+    <ul>
+      <li><strong>Entity lookup by name</strong>: O(1) via index on name column</li>
+      <li><strong>N-hop traversal</strong>: O(V + E) where V = vertices, E = edges within N hops. Recursive CTE is efficient for small N (≤3).</li>
+      <li><strong>Shortest path</strong>: O(V + E) BFS. Limited to depth 10 to prevent runaway queries.</li>
+      <li><strong>Graph snapshot</strong>: O(V + E) — returns entire graph. Used for visualization and export.</li>
+    </ul>
+
+    <h2>7. Design Decisions</h2>
+    <ul>
+      <li><strong>SQLite over graph databases</strong>: SQLite is already the storage layer. Recursive CTEs provide graph traversal without adding a new database. Simpler deployment, single file.</li>
+      <li><strong>Free-form entity types</strong>: No hardcoded type dictionary. The LLM determines the type. This allows the graph to adapt to any domain.</li>
+      <li><strong>Directed relationships</strong>: Relationships are directed (source → target). "Charles works_at Ponti Studios" is different from "Ponti Studios employs Charles" even though they describe the same fact.</li>
+      <li><strong>Provenance on everything</strong>: Every entity and relationship links to a source turn and episode. This enables audit trails and cascade deletion.</li>
+    </ul>
+
+    <div class="callout">
+      <p><strong>Trade-off:</strong> SQLite recursive CTEs are less efficient than dedicated graph databases (Neo4j, etc.) for deep traversal on large graphs. But for a personal memory system with hundreds to thousands of entities, SQLite is more than sufficient and dramatically simpler to deploy.</p>
+    </div>
+  </div>
+</body>
+</html>

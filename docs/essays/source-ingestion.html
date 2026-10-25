@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Essay: Source Ingestion — Content Extraction & Chunking</title>
+  <link rel="stylesheet" href="../shared.css">
+  <style>
+    .essay { max-width: 800px; margin: 0 auto; padding: 40px 24px; }
+    .essay h1 { font-size: 36px; font-weight: 700; letter-spacing: -1px; margin-bottom: 8px; }
+    .essay h2 { font-size: 24px; font-weight: 600; margin: 32px 0 12px; border-bottom: 1px solid #d0d7de; padding-bottom: 8px; }
+    .essay h3 { font-size: 18px; font-weight: 600; margin: 24px 0 8px; }
+    .essay p { font-size: 16px; line-height: 1.7; color: #24292f; margin-bottom: 16px; }
+    .essay ul, .essay ol { margin: 0 0 16px 24px; }
+    .essay li { font-size: 16px; line-height: 1.7; color: #24292f; margin-bottom: 8px; }
+    .essay .callout { background: #f6f8fa; border-left: 3px solid #0969da; padding: 16px 20px; margin: 20px 0; border-radius: 0 6px 6px 0; }
+    .essay .callout p { margin: 0; font-size: 14px; }
+    .essay code { font-family: var(--font-mono); font-size: 13px; background: #f6f8fa; padding: 2px 6px; border-radius: 4px; }
+    .essay pre { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; overflow-x: auto; font-size: 13px; line-height: 1.5; margin: 16px 0; }
+    .essay .meta { font-size: 14px; color: #6e7781; margin-bottom: 24px; }
+    .back-link { display: inline-block; margin-bottom: 24px; color: #0969da; text-decoration: none; font-size: 14px; }
+    .back-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="essay">
+    <a href="../index.html" class="back-link">← Back to Seme</a>
+    <h1>Source Ingestion: Content Extraction & Chunking</h1>
+    <p class="meta">How Seme ingests URLs, PDFs, YouTube videos, and text into the memory system</p>
+
+    <h2>1. From External Content to Memory</h2>
+    <p>Seme's memory system was designed for conversation turns. But users also have knowledge in external sources: documentation, articles, PDFs, YouTube videos. Source ingestion bridges this gap by extracting text from external sources and converting it into conversation turns that the extraction pipeline can process.</p>
+    <p>The key insight is that we don't need a separate extraction path. By converting external content into turns, the existing extraction pipeline handles it automatically. The only new concern is provenance: tracking where each memory came from.</p>
+
+    <h2>2. Content Extraction</h2>
+    <p>Each source type requires a different extraction strategy:</p>
+
+    <h3>2.1 URLs</h3>
+    <p>Fetch the HTML, strip script/style tags, remove HTML tags, decode entities, and normalize whitespace. The title is extracted from the <code>&lt;title&gt;</code> tag. This is a simple HTML-to-text conversion — not as sophisticated as Readability or similar algorithms, but sufficient for extracting factual content.</p>
+
+    <h3>2.2 PDFs</h3>
+    <p>Uses <code>pdftotext -layout</code> (from the poppler-utils package) to extract text with layout preservation. The layout flag maintains the visual structure (columns, tables) which helps the LLM understand the document structure.</p>
+
+    <h3>2.3 YouTube</h3>
+    <p>Uses <code>yt-dlp</code> to download auto-generated subtitles (VTT format), then strips VTT timestamps and HTML tags to get plain text. Falls back to a placeholder if transcripts are unavailable.</p>
+
+    <h3>2.4 Plain Text</h3>
+    <p>No extraction needed — the text is used as-is. This is useful for pasting notes, documentation, or any text content.</p>
+
+    <h2>3. Chunking Algorithm</h2>
+    <p>External content is often too long for a single LLM call. The chunking algorithm splits content into manageable pieces:</p>
+    <ol>
+      <li>Split content by paragraph boundaries (<code>\n\n</code>)</li>
+      <li>Accumulate paragraphs into a chunk until it reaches ~2000 characters</li>
+      <li>When a chunk is full, start a new one</li>
+      <li>If no paragraph boundaries exist, fall back to character-based chunking</li>
+    </ol>
+    <pre>function chunkText(text, maxChunkSize) {
+  const chunks = [];
+  const paragraphs = text.split(/\n\n+/);
+  let current = '';
+  for (const para of paragraphs) {
+    if (current.length + para.length > maxChunkSize && current.length > 0) {
+      chunks.push(current.trim());
+      current = para;
+    } else {
+      current += (current ? '\n\n' : '') + para;
+    }
+  }
+  if (current.trim()) chunks.push(current.trim());
+  return chunks;
+}</pre>
+    <p>Each chunk is wrapped with source provenance: <code>[Source: Title (URL)] chunk text</code>. This ensures the LLM knows the content comes from an external source and can attribute memories accordingly.</p>
+
+    <h2>4. Turn Creation</h2>
+    <p>Each chunk becomes a user turn in a new or existing session. The turn content includes the source prefix, so the extraction pipeline treats it as user-stated content. The extraction pipeline then processes these turns normally, extracting memories, entities, and relationships.</p>
+    <p>This means source ingestion reuses the entire existing pipeline — no new extraction logic needed. The only difference is the source provenance prefix.</p>
+
+    <h2>5. Provenance Tracking</h2>
+    <p>A <code>sources</code> table records metadata about each ingested source:</p>
+    <ul>
+      <li><strong>id</strong>: Unique source ID</li>
+      <li><strong>title</strong>: Source title (from HTML title tag, filename, or user-provided)</li>
+      <li><strong>url</strong>: Source URL (null for text/PDF)</li>
+      <li><strong>source_type</strong>: url, pdf, youtube, text, file</li>
+      <li><strong>content_length</strong>: Total characters extracted</li>
+      <li><strong>created_at</strong>: Ingestion timestamp</li>
+    </ul>
+    <p>This enables "where did this memory come from?" queries. A memory extracted from a URL will have the URL in its evidence quote, and the source record provides additional metadata.</p>
+
+    <h2>6. Design Decisions</h2>
+    <ul>
+      <li><strong>Reuse existing pipeline</strong>: Instead of building a separate extraction path for external content, we convert it to turns. This means source ingestion automatically benefits from all memory extraction improvements.</li>
+      <li><strong>Paragraph-based chunking</strong>: Splitting on paragraph boundaries preserves semantic coherence. A fact that spans two sentences stays in the same chunk.</li>
+      <li><strong>Source prefix</strong>: The <code>[Source: ...]</code> prefix tells the LLM the content is from an external source, which affects modality tagging (quoted vs. stated).</li>
+      <li><strong>External tools</strong>: Uses <code>pdftotext</code> and <code>yt-dlp</code> instead of JavaScript libraries. This avoids adding heavy dependencies and leverages battle-tested tools.</li>
+    </ul>
+
+    <div class="callout">
+      <p><strong>Trade-off:</strong> The HTML-to-text conversion is naive (strips tags, decodes entities). It doesn't handle JavaScript-rendered content, complex layouts, or paywalled articles. For production use, a more sophisticated extraction tool (like Readability.js or Firecrawl) would be better.</p>
+    </div>
+  </div>
+</body>
+</html>

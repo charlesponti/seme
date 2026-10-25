@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Seme Essays — Deep Dives into Memory System Architecture</title>
+  <link rel="stylesheet" href="../shared.css">
+  <style>
+    .essay-index { max-width: 900px; margin: 0 auto; padding: 40px 24px; }
+    .essay-index h1 { font-size: 36px; font-weight: 700; letter-spacing: -1px; margin-bottom: 8px; }
+    .essay-index .subtitle { font-size: 18px; color: #57606a; margin-bottom: 32px; }
+    .essay-card { background: #ffffff; border: 1px solid #d0d7de; border-radius: 6px; padding: 20px; margin-bottom: 16px; transition: box-shadow 0.15s; }
+    .essay-card:hover { box-shadow: 0 3px 6px rgba(140,149,159,0.15); }
+    .essay-card h2 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+    .essay-card h2 a { color: #24292f; text-decoration: none; }
+    .essay-card h2 a:hover { color: #0969da; }
+    .essay-card p { font-size: 14px; color: #57606a; line-height: 1.5; margin: 0; }
+    .essay-card .tags { margin-top: 8px; }
+    .essay-card .tag { display: inline-block; background: #ddf4ff; color: #0969da; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; margin-right: 4px; }
+    .back-link { display: inline-block; margin-bottom: 24px; color: #0969da; text-decoration: none; font-size: 14px; }
+    .back-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="essay-index">
+    <a href="../index.html" class="back-link">← Back to Seme</a>
+    <h1>Essays: Deep Dives into Memory System Architecture</h1>
+    <p class="subtitle">Long-form technical essays on the computer science, mechanisms, and architecture behind each Seme feature.</p>
+
+    <div class="essay-card">
+      <h2><a href="knowledge-graph.html">Knowledge Graph: Entity Resolution & Graph Traversal</a></h2>
+      <p>How Seme builds and queries a knowledge graph from unstructured conversation text. Covers entity resolution, graph traversal (BFS/DFS), shortest path, graph-augmented retrieval, and storage model.</p>
+      <div class="tags"><span class="tag">graph theory</span><span class="tag">entity resolution</span><span class="tag">SQLite CTEs</span></div>
+    </div>
+
+    <div class="essay-card">
+      <h2><a href="hybrid-search.html">Hybrid Search: Cross-Layer Retrieval & Scoring</a></h2>
+      <p>How Seme combines keyword, semantic, and graph search into one LLM-ready context block. Covers four search layers, scoring/ranking, temporal filtering, abstention logic, and LLM-ready context format.</p>
+      <div class="tags"><span class="tag">information retrieval</span><span class="tag">FTS5</span><span class="tag">scoring</span></div>
+    </div>
+
+    <div class="essay-card">
+      <h2><a href="entity-extraction.html">Entity Extraction: LLM-Based NER & Chunking</a></h2>
+      <p>How Seme extracts named entities and relationships from conversation text using LLMs. Covers chunking for scale, open-ended entity types, entity resolution, relationship extraction, and markdown fence stripping.</p>
+      <div class="tags"><span class="tag">NLP</span><span class="tag">LLM</span><span class="tag">chunking</span></div>
+    </div>
+
+    <div class="essay-card">
+      <h2><a href="auto-deprecation.html">Auto-Deprecation: Decay Classes & Staleness Detection</a></h2>
+      <p>How Seme detects and archives stale facts using configurable decay thresholds. Covers decay classes, reinforcement tracking, threshold-based archiving, and sleep job integration.</p>
+      <div class="tags"><span class="tag">decay</span><span class="tag">staleness</span><span class="tag">archival</span></div>
+    </div>
+
+    <div class="essay-card">
+      <h2><a href="source-ingestion.html">Source Ingestion: Content Extraction & Chunking</a></h2>
+      <p>How Seme ingests URLs, PDFs, YouTube videos, and text into the memory system. Covers content extraction, paragraph-based chunking, turn creation, and provenance tracking.</p>
+      <div class="tags"><span class="tag">extraction</span><span class="tag">chunking</span><span class="tag">provenance</span></div>
+    </div>
+
+    <div class="essay-card">
+      <h2><a href="kb-intelligence.html">KB Intelligence: Pattern Emergence & Contradiction Detection</a></h2>
+      <p>Higher-order reasoning over accumulated knowledge. Covers claim verification, pattern surfacing, topic bridging, contradiction detection, and knowledge base linting.</p>
+      <div class="tags"><span class="tag">reasoning</span><span class="tag">patterns</span><span class="tag">contradictions</span></div>
+    </div>
+
+    <div class="essay-card">
+      <h2><a href="temporal-queries.html">Temporal Queries: Bi-Temporal Memory & As-Of Snapshots</a></h2>
+      <p>How Seme supports time-based filtering and historical reconstruction. Covers since/before/asOf parameters, SQL-level filtering, as-of snapshots, and bi-temporal modeling.</p>
+      <div class="tags"><span class="tag">temporal</span><span class="tag">bi-temporal</span><span class="tag">snapshots</span></div>
+    </div>
+  </div>
+</body>
+</html>

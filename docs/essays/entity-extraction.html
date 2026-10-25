@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Essay: Entity Extraction — LLM-Based NER & Chunking</title>
+  <link rel="stylesheet" href="../shared.css">
+  <style>
+    .essay { max-width: 800px; margin: 0 auto; padding: 40px 24px; }
+    .essay h1 { font-size: 36px; font-weight: 700; letter-spacing: -1px; margin-bottom: 8px; }
+    .essay h2 { font-size: 24px; font-weight: 600; margin: 32px 0 12px; border-bottom: 1px solid #d0d7de; padding-bottom: 8px; }
+    .essay h3 { font-size: 18px; font-weight: 600; margin: 24px 0 8px; }
+    .essay p { font-size: 16px; line-height: 1.7; color: #24292f; margin-bottom: 16px; }
+    .essay ul, .essay ol { margin: 0 0 16px 24px; }
+    .essay li { font-size: 16px; line-height: 1.7; color: #24292f; margin-bottom: 8px; }
+    .essay .callout { background: #f6f8fa; border-left: 3px solid #0969da; padding: 16px 20px; margin: 20px 0; border-radius: 0 6px 6px 0; }
+    .essay .callout p { margin: 0; font-size: 14px; }
+    .essay code { font-family: var(--font-mono); font-size: 13px; background: #f6f8fa; padding: 2px 6px; border-radius: 4px; }
+    .essay pre { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; overflow-x: auto; font-size: 13px; line-height: 1.5; margin: 16px 0; }
+    .essay .meta { font-size: 14px; color: #6e7781; margin-bottom: 24px; }
+    .back-link { display: inline-block; margin-bottom: 24px; color: #0969da; text-decoration: none; font-size: 14px; }
+    .back-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="essay">
+    <a href="../index.html" class="back-link">← Back to Seme</a>
+    <h1>Entity Extraction: LLM-Based NER & Chunking</h1>
+    <p class="meta">How Seme extracts named entities and relationships from conversation text using LLMs</p>
+
+    <h2>1. From Text to Knowledge Graph</h2>
+    <p>Entity extraction is the bridge between unstructured conversation text and the structured knowledge graph. Given "I have a dog named Cyndi," the system must identify that "Cyndi" is an entity of type "animal" and that the user "has" this entity.</p>
+    <p>Traditional NER (Named Entity Recognition) uses trained models to identify entity spans. Seme uses an LLM instead, which provides richer extraction: not just entity identification but also type classification, alias tracking, and relationship extraction.</p>
+
+    <h2>2. The Extraction Pipeline</h2>
+    <p>Entity extraction runs as part of the extraction pipeline, after memory extraction. The pipeline:</p>
+    <ol>
+      <li>Builds a prompt from all turns in the episode</li>
+      <li>Sends the prompt to the LLM with a system prompt defining the schema</li>
+      <li>Parses the JSON response</li>
+      <li>Validates each candidate against the schema</li>
+      <li>Resolves entities (merge or create)</li>
+      <li>Resolves relationships (link entities)</li>
+    </ol>
+
+    <h2>3. Chunking for Scale</h2>
+    <p>A single LLM call can only produce a limited amount of structured output. For conversations with 10+ turns, the entity list becomes too large, causing JSON truncation or invalid output.</p>
+    <p>Seme chunks the turns into groups of 6 and makes parallel LLM calls:</p>
+    <pre>const CHUNK_SIZE = 6;
+const chunks = [];
+for (let i = 0; i < turns.length; i += CHUNK_SIZE) {
+  chunks.push(turns.slice(i, i + CHUNK_SIZE));
+}
+const results = await Promise.all(chunks.map(chunk => extract(chunk)));
+// Deduplicate entities by name
+const seen = new Set();
+const unique = results.flatMap(r => r.entities).filter(e => {
+  if (seen.has(e.name.toLowerCase())) return false;
+  seen.add(e.name.toLowerCase());
+  return true;
+});</pre>
+    <p>Parallel chunking reduces extraction time from O(n) to O(n/6) — a 6x speedup for large conversations. The deduplication step ensures the same entity mentioned in multiple chunks is only created once.</p>
+
+    <h2>4. Open-Ended Entity Types</h2>
+    <p>Early versions used a hardcoded list of valid entity types (person, place, organization, etc.). This caused failures when the LLM returned types not in the list (e.g., "animal" for a pet name).</p>
+    <p>The current approach accepts any type string from the LLM, normalizes it (lowercase, trim), and stores it. No validation dictionary. New types emerge naturally from the LLM's understanding of the context.</p>
+    <div class="callout">
+      <p><strong>Key insight:</strong> The LLM is better at type classification than a hardcoded dictionary. By letting the LLM decide the type, the system adapts to any domain without code changes. "Tesla Model 3" becomes "other" or "vehicle" depending on context, and the system handles it gracefully.</p>
+    </div>
+
+    <h2>5. Entity Resolution</h2>
+    <p>When the LLM extracts "Cyndi" as an entity, the entity resolver checks if an entity with that name already exists:</p>
+    <ol>
+      <li><strong>Exact match</strong>: Does an entity named "Cyndi" exist? If yes, reuse it.</li>
+      <li><strong>Alias match</strong>: Is "Cyndi" in any entity's alias list? If yes, reuse that entity.</li>
+      <li><strong>Create new</strong>: If no match, create a new entity with the LLM-provided type and description.</li>
+    </ol>
+    <p>This ensures the graph doesn't accumulate duplicate nodes for the same entity mentioned across multiple conversations.</p>
+
+    <h2>6. Relationship Extraction</h2>
+    <p>Relationships are extracted alongside entities. The LLM identifies pairs of entities and their relationship type (works_at, lives_in, uses, etc.). Each relationship is validated:</p>
+    <ul>
+      <li>Both source and target entities must exist in the entity list</li>
+      <li>The relationship type must be from the known set (or "related_to" as fallback)</li>
+      <li>Source turn and episode IDs must be valid</li>
+    </ul>
+    <p>Invalid relationships (referencing non-existent entities) are silently dropped. This prevents graph corruption from hallucinated relationships.</p>
+
+    <h2>7. Markdown Fence Stripping</h2>
+    <p>LLMs sometimes wrap JSON responses in markdown code fences (<code>```json ... ```</code>). Both the memory and entity extractors now strip these fences before parsing:</p>
+    <pre>let jsonStr = content.trim();
+if (jsonStr.startsWith('```')) {
+  jsonStr = jsonStr.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+}
+const parsed = JSON.parse(jsonStr);</pre>
+    <p>This prevents "invalid_output" errors from otherwise valid JSON responses.</p>
+
+    <h2>8. Performance Characteristics</h2>
+    <ul>
+      <li><strong>Single turn (1-6 sentences)</strong>: ~5-10s (one LLM call)</li>
+      <li><strong>Medium conversation (7-12 turns)</strong>: ~10-15s (2 parallel LLM calls)</li>
+      <li><strong>Long conversation (50+ turns)</strong>: ~15-20s (9 parallel LLM calls, limited by API rate limits)</li>
+    </ul>
+    <p>The parallel chunking makes entity extraction scale linearly with conversation length, but the actual wall-clock time is bounded by the slowest chunk (since they run in parallel).</p>
+
+    <div class="callout">
+      <p><strong>Trade-off:</strong> Chunking loses cross-chunk context. An entity mentioned in chunk 1 and referenced in chunk 3 might not be linked. This is acceptable for entity extraction (each chunk is self-contained) but could miss relationships that span chunk boundaries. A future improvement could add a "merge pass" that links entities across chunks.</p>
+    </div>
+  </div>
+</body>
+</html>

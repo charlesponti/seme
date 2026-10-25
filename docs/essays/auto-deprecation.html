@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Essay: Auto-Deprecation — Decay Classes & Staleness Detection</title>
+  <link rel="stylesheet" href="../shared.css">
+  <style>
+    .essay { max-width: 800px; margin: 0 auto; padding: 40px 24px; }
+    .essay h1 { font-size: 36px; font-weight: 700; letter-spacing: -1px; margin-bottom: 8px; }
+    .essay h2 { font-size: 24px; font-weight: 600; margin: 32px 0 12px; border-bottom: 1px solid #d0d7de; padding-bottom: 8px; }
+    .essay h3 { font-size: 18px; font-weight: 600; margin: 24px 0 8px; }
+    .essay p { font-size: 16px; line-height: 1.7; color: #24292f; margin-bottom: 16px; }
+    .essay ul, .essay ol { margin: 0 0 16px 24px; }
+    .essay li { font-size: 16px; line-height: 1.7; color: #24292f; margin-bottom: 8px; }
+    .essay .callout { background: #f6f8fa; border-left: 3px solid #0969da; padding: 16px 20px; margin: 20px 0; border-radius: 0 6px 6px 0; }
+    .essay .callout p { margin: 0; font-size: 14px; }
+    .essay code { font-family: var(--font-mono); font-size: 13px; background: #f6f8fa; padding: 2px 6px; border-radius: 4px; }
+    .essay pre { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; overflow-x: auto; font-size: 13px; line-height: 1.5; margin: 16px 0; }
+    .essay .meta { font-size: 14px; color: #6e7781; margin-bottom: 24px; }
+    .back-link { display: inline-block; margin-bottom: 24px; color: #0969da; text-decoration: none; font-size: 14px; }
+    .back-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="essay">
+    <a href="../index.html" class="back-link">← Back to Seme</a>
+    <h1>Auto-Deprecation: Decay Classes & Staleness Detection</h1>
+    <p class="meta">How Seme detects and archives stale facts using configurable decay thresholds</p>
+
+    <h2>1. The Problem of Stale Facts</h2>
+    <p>Memory systems accumulate facts over time. "The user lives in London" was true when stated, but the user moved to Edinburgh six months ago. The system still has the London fact as "active" because the user never explicitly corrected it. Stale facts pollute retrieval and cause the LLM to give outdated answers.</p>
+    <p>Auto-deprecation is the process of detecting facts that haven't been reinforced in a configurable time window and marking them as archived (not deleted — archived for audit trail). This keeps the active memory store clean while preserving history.</p>
+
+    <h2>2. Decay Classes</h2>
+    <p>Not all facts decay at the same rate. Seme assigns each memory a decay class:</p>
+    <table class="table">
+      <tr><th>Decay Class</th><th>Threshold (days)</th><th>Example</th></tr>
+      <tr><td>exempt</td><td>365</td><td>Name, identity core facts</td></tr>
+      <tr><td>slow</td><td>90</td><td>Home city, dietary restrictions</td></tr>
+      <tr><td>medium</td><td>30</td><td>Preferences, interests</td></tr>
+      <tr><td>fast</td><td>7</td><td>Transient states, current mood</td></tr>
+      <tr><td>session</td><td>1</td><td>Session-specific context</td></tr>
+    </table>
+    <p>The threshold is the number of days since the memory was last reinforced (or observed, if never reinforced) before it becomes eligible for deprecation.</p>
+
+    <h2>3. Staleness Detection Algorithm</h2>
+    <p>The auto-deprecation process runs as follows:</p>
+    <ol>
+      <li>Query all active memories from SQLite</li>
+      <li>For each memory, compute <code>daysSince = now - last_reinforced_at (or observed_at)</code></li>
+      <li>Look up the threshold for the memory's decay class</li>
+      <li>If <code>daysSince > threshold</code>, mark the memory as <code>archived</code> with a deprecation reason</li>
+      <li>Log the deprecation in the healing_log for audit</li>
+    </ol>
+    <pre>for (const memory of activeMemories) {
+  const threshold = thresholds[memory.decay_class] || 30;
+  const lastDate = new Date(memory.last_reinforced_at || memory.observed_at);
+  const daysSince = (now - lastDate) / (1000 * 60 * 60 * 24);
+  if (daysSince > threshold) {
+    archive(memory, `Not reinforced in ${daysSince} days`);
+  }
+}</pre>
+
+    <h2>4. Reinforcement Tracking</h2>
+    <p>Memories are "reinforced" when:
+    <ul>
+      <li>The user mentions the fact again (reinforcement_count++)</li>
+      <li>The user gives positive feedback (compliment_specific, re_engagement)</li>
+      <li>The sleep job finds corroborating evidence</li>
+    </ul>
+    <p>Each reinforcement updates <code>last_reinforced_at</code>, extending the memory's active lifetime. A fact that's mentioned weekly will never be deprecated.</p>
+
+    <h2>5. Configurable Thresholds</h2>
+    <p>Thresholds are configurable per decay class via the API:</p>
+    <pre>GET /deprecation/thresholds
+→ { "session": 1, "fast": 7, "medium": 30, "slow": 90, "exempt": 365 }
+
+POST /deprecation/run
+→ { "deprecated": [...], "total_deprecated": 5 }</pre>
+    <p>This allows tuning the system for different use cases. A high-frequency conversation app might use shorter thresholds; a long-term knowledge base might use longer ones.</p>
+
+    <h2>6. Integration with Sleep Job</h2>
+    <p>Auto-deprecation runs as part of the sleep/consolidation job, alongside memory dedup, entity dedup, and contradiction detection. The sleep job is triggered manually, on idle, or on session count thresholds.</p>
+
+    <h2>7. Design Decisions</h2>
+    <ul>
+      <li><strong>Archive, not delete</strong>: Deprecated memories are marked as "archived", not removed. This preserves audit history and allows "undo" if the deprecation was wrong.</li>
+      <li><strong>Per-decay-class thresholds</strong>: Different facts have different lifespans. A user's name should last forever; a "I'm tired today" fact should decay in hours.</li>
+      <li><strong>Reinforcement extends life</strong>: A fact that's repeatedly mentioned or confirmed never decays. This naturally keeps important facts active.</li>
+      <li><strong>No hard deletion</strong>: Even after deprecation, the memory exists in the database. The profile compiler excludes archived memories, but they can be restored.</li>
+    </ul>
+
+    <div class="callout">
+      <p><strong>Trade-off:</strong> Auto-deprecation uses a simple time-based threshold. It doesn't consider whether the fact is still relevant (e.g., "I live in London" might be stale even if recently reinforced, if the user moved). A more sophisticated approach would use semantic contradiction detection, but that requires an LLM call per memory, which is expensive.</p>
+    </div>
+  </div>
+</body>
+</html>
