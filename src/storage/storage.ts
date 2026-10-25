@@ -2,7 +2,7 @@
 
 import Database from 'better-sqlite3';
 import * as sqliteVec from 'sqlite-vec';
-import { getSchemaSql, getSchemaSqlV2, getSchemaSqlV3, getSchemaSqlV4, getSchemaSqlV5 } from '../schema/schema.js';
+import { getSchemaSql, getSchemaSqlV2, getSchemaSqlV3, getSchemaSqlV4, getSchemaSqlV5, getSchemaSqlV6 } from '../schema/schema.js';
 import { uuid, nowUtc } from '../types/common.js';
 import { createHash } from 'node:crypto';
 
@@ -168,12 +168,14 @@ export class Storage {
     const v3Sql = getSchemaSqlV3();
     const v4Sql = getSchemaSqlV4();
     const v5Sql = getSchemaSqlV5();
+    const v6Sql = getSchemaSqlV6();
     return [
       { version: 1, name: 'initial_schema', sql: v1Sql, checksum: createHash('sha256').update(v1Sql).digest('hex') },
       { version: 2, name: 'expand_memory_kinds', sql: v2Sql, checksum: createHash('sha256').update(v2Sql).digest('hex'), disableForeignKeys: true },
       { version: 3, name: 'knowledge_graph_tables', sql: v3Sql, checksum: createHash('sha256').update(v3Sql).digest('hex') },
       { version: 4, name: 'knowledge_wiki_tables', sql: v4Sql, checksum: createHash('sha256').update(v4Sql).digest('hex') },
       { version: 5, name: 'source_ingestion_table', sql: v5Sql, checksum: createHash('sha256').update(v5Sql).digest('hex') },
+      { version: 6, name: 'kb_tasks_table', sql: v6Sql, checksum: createHash('sha256').update(v6Sql).digest('hex') },
     ];
   }
 

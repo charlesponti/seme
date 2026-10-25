@@ -464,6 +464,55 @@ app.post('/kb/lint', async (c) => {
   return c.json(service.kbLint());
 });
 
+// KB Tasks
+app.post('/tasks', async (c) => {
+  const body = await c.req.json();
+  try {
+    const id = service.createTask(body);
+    return c.json({ id }, 201);
+  } catch (e: any) {
+    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'create_task' } }, 400);
+  }
+});
+
+app.get('/tasks', (c) => {
+  const status = c.req.query('status') || undefined;
+  const priority = c.req.query('priority') || undefined;
+  const limit = parseInt(c.req.query('limit') || '50');
+  const offset = parseInt(c.req.query('offset') || '0');
+  return c.json(service.listTasks({ status, priority, limit, offset }));
+});
+
+app.get('/tasks/:id', (c) => {
+  const id = c.req.param('id');
+  const result = service.getTask(id);
+  if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Task not found', operation: 'get_task' } }, 404);
+  return c.json(result);
+});
+
+app.patch('/tasks/:id', async (c) => {
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  try {
+    const result = service.updateTask(id, body);
+    if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Task not found', operation: 'update_task' } }, 404);
+    return c.json(result);
+  } catch (e: any) {
+    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'update_task' } }, 400);
+  }
+});
+
+app.delete('/tasks/:id', async (c) => {
+  const id = c.req.param('id');
+  try {
+    const result = service.deleteTask(id);
+    if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Task not found', operation: 'delete_task' } }, 404);
+    return c.json({ deleted: true });
+  } catch (e: any) {
+    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'delete_task' } }, 400);
+  }
+});
+
 function parseErrorCode(msg: string): string {
   if (msg.includes('ERR_VALIDATION')) return 'ERR_VALIDATION';
   if (msg.includes('ERR_NOT_FOUND')) return 'ERR_NOT_FOUND';

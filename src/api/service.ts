@@ -20,6 +20,7 @@ import { WikiCompiler } from '../wiki/wiki-compiler.js';
 import { SourceIngestion } from '../ingestion/source-ingestion.js';
 import { HybridSearch } from '../search/hybrid-search.js';
 import { KBIntelligence } from '../kb/kb-intelligence.js';
+import { TaskStore } from '../tasks/task-store.js';
 import { uuid, nowUtc } from '../types/common.js';
 import { getDecayClass } from '../confidence/confidence.js';
 
@@ -42,6 +43,7 @@ export class MemoryService {
   private sourceIngestion: SourceIngestion;
   private hybridSearch: HybridSearch;
   private kbIntelligence: KBIntelligence;
+  private taskStore: TaskStore;
 
   constructor(config: StorageConfig) {
     this.storage = new Storage(config);
@@ -54,6 +56,7 @@ export class MemoryService {
     this.sourceIngestion = new SourceIngestion(this.storage, config.storageDir);
     this.hybridSearch = new HybridSearch(this.storage, this.wikiStore, this.graphStore);
     this.kbIntelligence = new KBIntelligence(this.storage, this.wikiStore, this.graphStore);
+    this.taskStore = new TaskStore(this.storage);
     this.profileCompiler = new ProfileCompiler(this.storage, this.graphStore);
     this.retrieval = new RetrievalEngine(this.storage, this.graphStore);
     this.identityCore = new IdentityCoreManager(this.storage);
@@ -541,6 +544,13 @@ export class MemoryService {
   kbConnect(topicA: string, topicB: string) { return this.kbIntelligence.connect(topicA, topicB); }
   kbContradictions() { return this.kbIntelligence.contradictions(); }
   kbLint() { return this.kbIntelligence.lint(); }
+
+  // --- KB Tasks ---
+  createTask(params: { title: string; description?: string; priority?: string; due_date?: string; memory_ids?: string[]; entity_ids?: string[] }) { return this.taskStore.create(params); }
+  getTask(id: string) { return this.taskStore.get(id); }
+  listTasks(params?: { status?: string; priority?: string; limit?: number; offset?: number }) { return this.taskStore.list(params); }
+  updateTask(id: string, params: { title?: string; description?: string; status?: string; priority?: string; due_date?: string; memory_ids?: string[]; entity_ids?: string[] }) { return this.taskStore.update(id, params); }
+  deleteTask(id: string) { return this.taskStore.delete(id); }
 
   // Storage access for tests
   getStorage() {

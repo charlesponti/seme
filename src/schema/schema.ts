@@ -229,7 +229,7 @@ export function getVecTableSql(dim: number): string {
   return `CREATE VIRTUAL TABLE IF NOT EXISTS memories_vec USING vec0(memory_id TEXT PRIMARY KEY, embedding FLOAT[${dim}])`;
 }
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 export const SCHEMA_NAME = 'self-healing-memory/3';
 
 export function getSchemaSql(embeddingDim: number): string {
@@ -456,5 +456,29 @@ CREATE TABLE IF NOT EXISTS sources (
 );
 CREATE INDEX IF NOT EXISTS idx_sources_type ON sources(source_type);
 CREATE INDEX IF NOT EXISTS idx_sources_created ON sources(created_at);
+`;
+}
+
+/**
+ * Migration v6: KB Tasks table.
+ */
+export function getSchemaSqlV6(): string {
+  return `
+CREATE TABLE IF NOT EXISTS kb_tasks (
+    id              TEXT PRIMARY KEY,
+    title           TEXT NOT NULL,
+    description     TEXT,
+    status          TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'done', 'cancelled')),
+    priority        TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
+    due_date        TEXT,
+    memory_ids      TEXT NOT NULL DEFAULT '[]',
+    entity_ids      TEXT NOT NULL DEFAULT '[]',
+    created_at      TEXT NOT NULL,
+    updated_at      TEXT NOT NULL,
+    completed_at    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_kb_tasks_status ON kb_tasks(status);
+CREATE INDEX IF NOT EXISTS idx_kb_tasks_priority ON kb_tasks(priority);
+CREATE INDEX IF NOT EXISTS idx_kb_tasks_due ON kb_tasks(due_date);
 `;
 }
