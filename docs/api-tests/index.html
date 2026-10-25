@@ -3,118 +3,260 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Seme API Test Suite — Index</title>
+  <title>Seme API Dashboard</title>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="shared.css">
+  <style>
+    .dashboard { display: grid; grid-template-columns: 280px 1fr; min-height: 100vh; }
+    .sidebar { background: #fafafa; border-right: 1px solid #ebebeb; padding: 24px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+    .sidebar-title { font-size: 14px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+    .sidebar-nav { list-style: none; }
+    .sidebar-nav li { margin-bottom: 4px; }
+    .sidebar-nav a { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 6px; font-size: 14px; color: #4d4d4d; text-decoration: none; transition: background 0.15s; }
+    .sidebar-nav a:hover { background: #ebebeb; color: #171717; }
+    .sidebar-nav a.active { background: #171717; color: #ffffff; }
+    .sidebar-nav .badge { font-size: 10px; padding: 2px 6px; }
+    .main { padding: 40px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 40px; }
+    .stat-card { background: #ffffff; border-radius: 8px; box-shadow: 0px 0px 0px 1px rgba(0,0,0,0.08), 0px 2px 2px rgba(0,0,0,0.04), 0px 0px 0px 1px #fafafa; padding: 20px; }
+    .stat-value { font-size: 32px; font-weight: 600; letter-spacing: -1.28px; color: #171717; }
+    .stat-label { font-size: 12px; font-weight: 500; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+    .stat-sub { font-size: 12px; color: #4d4d4d; margin-top: 8px; }
+    .test-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .test-card { background: #ffffff; border-radius: 8px; box-shadow: 0px 0px 0px 1px rgba(0,0,0,0.08), 0px 2px 2px rgba(0,0,0,0.04), 0px 0px 0px 1px #fafafa; padding: 20px; text-decoration: none; color: inherit; transition: box-shadow 0.15s; display: block; }
+    .test-card:hover { box-shadow: 0px 0px 0px 1px rgba(0,0,0,0.12), 0px 4px 8px rgba(0,0,0,0.06), 0px 0px 0px 1px #fafafa; }
+    .test-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .test-card-title { font-size: 16px; font-weight: 600; letter-spacing: -0.32px; }
+    .test-card-desc { font-size: 14px; color: #4d4d4d; line-height: 1.5; }
+    .test-card-meta { display: flex; gap: 8px; margin-top: 12px; }
+    .category-header { font-size: 14px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin: 32px 0 16px; padding-bottom: 8px; border-bottom: 1px solid #ebebeb; }
+    .code-preview { background: #fafafa; border-radius: 6px; padding: 12px; font-family: 'Geist Mono', monospace; font-size: 12px; color: #4d4d4d; margin-top: 12px; overflow: hidden; max-height: 80px; position: relative; }
+    .code-preview::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 30px; background: linear-gradient(transparent, #fafafa); }
+    .syntax-key { color: #0a72ef; }
+    .syntax-str { color: #de1d8d; }
+    .syntax-num { color: #ff5b4f; }
+    @media (max-width: 1024px) { .dashboard { grid-template-columns: 1fr; } .sidebar { position: relative; height: auto; } .stats-grid { grid-template-columns: repeat(2, 1fr); } .test-grid { grid-template-columns: 1fr; } }
+  </style>
 </head>
 <body>
-  <nav class="nav">
-    <div class="container nav-inner">
-      <a href="index.html" class="nav-brand">Seme API Tests</a>
-    </div>
-  </nav>
+  <div class="dashboard">
+    <aside class="sidebar">
+      <a href="index.html" class="nav-brand" style="display:block;margin-bottom:24px;">Seme API</a>
+      <div class="sidebar-title">Tests</div>
+      <ul class="sidebar-nav">
+        <li><a href="api-01.html"><span class="badge">1</span> Conversation Lifecycle</a></li>
+        <li><a href="api-02.html"><span class="badge">2</span> Multi-Session</a></li>
+        <li><a href="api-03.html"><span class="badge">3</span> Graph CRUD</a></li>
+        <li><a href="api-04.html"><span class="badge">4</span> Graph Search</a></li>
+        <li><a href="api-05.html"><span class="badge">5</span> Memory Lifecycle</a></li>
+        <li><a href="api-06.html"><span class="badge">6</span> Filter by Kind</a></li>
+        <li><a href="api-07.html"><span class="badge">7</span> Export Data</a></li>
+        <li><a href="api-08.html"><span class="badge">8</span> Review Queue</a></li>
+        <li><a href="api-09.html"><span class="badge">9</span> Adaptation</a></li>
+        <li><a href="api-10.html"><span class="badge">10</span> Sleep Job</a></li>
+        <li><a href="api-11.html"><span class="badge">11</span> ERR_NOT_FOUND</a></li>
+        <li><a href="api-12.html"><span class="badge">12</span> ERR_VALIDATION</a></li>
+        <li><a href="api-13.html"><span class="badge">13</span> ERR_PAUSED</a></li>
+        <li><a href="api-14.html"><span class="badge">14</span> Invalid Type</a></li>
+        <li><a href="api-15.html"><span class="badge">15</span> Pagination</a></li>
+        <li><a href="api-16.html"><span class="badge">16</span> Entity Search</a></li>
+      </ul>
+    </aside>
+    <main class="main">
+      <h1 style="font-size:48px;font-weight:600;letter-spacing:-2.4px;margin-bottom:8px;">Seme API Dashboard</h1>
+      <p style="font-size:20px;color:#4d4d4d;margin-bottom:40px;">16 complex API request patterns, all verified. 100% pass rate.</p>
 
-  <div class="container">
-    <div class="hero">
-      <h1>Seme API Test Suite</h1>
-      <p>16 complex API request patterns, each tested and verified. Click any card to learn how it works in depth.</p>
-    </div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value">16/16</div>
+          <div class="stat-label">Tests Passing</div>
+          <div class="stat-sub">100% pass rate</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">52s</div>
+          <div class="stat-label">Total Time</div>
+          <div class="stat-sub">Including 50s extraction waits</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">4</div>
+          <div class="stat-label">Categories</div>
+          <div class="stat-sub">Lifecycle, Graph, Memory, Safety</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">0</div>
+          <div class="stat-label">Failures</div>
+          <div class="stat-sub">All patterns verified</div>
+        </div>
+      </div>
 
-    <div class="section">
-      <h2 class="section-title">Conversation Lifecycle</h2>
-      <div class="card">
-        <div class="card-title"><a href="api-01.html" style="color: inherit; text-decoration: none;">API-1: Record → End → Extract → Retrieve → Profile</a></div>
-        <div class="card-body">The complete conversation lifecycle: from raw turns to structured memories, profile, and retrieval. <span class="badge">20,033ms</span></div>
+      <div class="category-header">Conversation Lifecycle</div>
+      <div class="test-grid">
+        <a href="api-01.html" class="test-card">
+          <div class="test-card-header">
+            <span class="test-card-title">API-1: Record → End → Extract → Retrieve → Profile</span>
+            <span class="badge">20s</span>
+          </div>
+          <div class="test-card-desc">The complete conversation lifecycle: from raw turns to structured memories, profile, and retrieval.</div>
+          <div class="code-preview">
+<span class="syntax-key">const</span> ctx = seme.retrieveContext(<span class="syntax-str">'s2'</span>, <span class="syntax-str">'What does the user prefer?'</span>);
+          </div>
+        </a>
+        <a href="api-02.html" class="test-card">
+          <div class="test-card-header">
+            <span class="test-card-title">API-2: Multi-Session Accumulation</span>
+            <span class="badge">30s</span>
+          </div>
+          <div class="test-card-desc">Memories accumulate across separate conversations, building a comprehensive user profile over time.</div>
+          <div class="code-preview">
+<span class="syntax-key">for</span> (let i = <span class="syntax-num">0</span>; i &lt; <span class="syntax-num">5</span>; i++) { seme.recordTurn(...); }
+          </div>
+        </a>
       </div>
-      <div class="card">
-        <div class="card-title"><a href="api-02.html" style="color: inherit; text-decoration: none;">API-2: Multi-Session Accumulation</a></div>
-        <div class="card-body">Memories accumulate across separate conversations, building a comprehensive user profile over time. <span class="badge">30,010ms</span></div>
-      </div>
-    </div>
 
-    <div class="section">
-      <h2 class="section-title">Knowledge Graph</h2>
-      <div class="card">
-        <div class="card-title"><a href="api-03.html" style="color: inherit; text-decoration: none;">API-3: Create Entity → Relationship → Traverse → Search</a></div>
-        <div class="card-body">The Knowledge Graph in action: create entities, link them with relationships, traverse the graph, and search across it. <span class="badge">4ms</span></div>
+      <div class="category-header">Knowledge Graph</div>
+      <div class="test-grid">
+        <a href="api-03.html" class="test-card">
+          <div class="test-card-header">
+            <span class="test-card-title">API-3: Create Entity → Relationship → Traverse → Search</span>
+            <span class="badge">4ms</span>
+          </div>
+          <div class="test-card-desc">The Knowledge Graph in action: create entities, link them with relationships, traverse the graph.</div>
+          <div class="code-preview">
+<span class="syntax-key">const</span> neigh = seme.getNeighborhood(charles, <span class="syntax-num">2</span>);
+          </div>
+        </a>
+        <a href="api-04.html" class="test-card">
+          <div class="test-card-header">
+            <span class="test-card-title">API-4: Graph Search Returns Graph Summary</span>
+            <span class="badge">3ms</span>
+          </div>
+          <div class="test-card-desc">Retrieval searches the knowledge graph and returns relevant entities and relationships.</div>
+          <div class="code-preview">
+ctx.graph_summary.entities.length &gt; <span class="syntax-num">0</span>
+          </div>
+        </a>
+        <a href="api-10.html" class="test-card">
+          <div class="test-card-header">
+            <span class="test-card-title">API-10: Sleep Job with Graph Data</span>
+            <span class="badge">5ms</span>
+          </div>
+          <div class="test-card-desc">Consolidation: deduplicate entities, detect contradictions, merge graph data.</div>
+          <div class="code-preview">
+<span class="syntax-key">const</span> result = <span class="syntax-key">await</span> seme.runSleepJob(<span class="syntax-str">'manual'</span>);
+          </div>
+        </a>
       </div>
-      <div class="card">
-        <div class="card-title"><a href="api-04.html" style="color: inherit; text-decoration: none;">API-4: Graph Search Returns Graph Summary</a></div>
-        <div class="card-body">When retrieving context, the system also searches the knowledge graph and returns relevant entities and relationships. <span class="badge">3ms</span></div>
-      </div>
-      <div class="card">
-        <div class="card-title"><a href="api-10.html" style="color: inherit; text-decoration: none;">API-10: Sleep Job with Graph Data → Dedup + Contradiction</a></div>
-        <div class="card-body">The consolidation process: deduplicate entities, detect contradictions, and merge graph data. <span class="badge">5ms</span></div>
-      </div>
-    </div>
 
-    <div class="section">
-      <h2 class="section-title">Memory Lifecycle</h2>
-      <div class="card">
-        <div class="card-title"><a href="api-05.html" style="color: inherit; text-decoration: none;">API-5: Remember → Correct → Forget → Verify</a></div>
-        <div class="card-body">The memory lifecycle: create, edit, and delete memories with full provenance and audit trail. <span class="badge">3ms</span></div>
+      <div class="category-header">Memory Lifecycle</div>
+      <div class="test-grid">
+        <a href="api-05.html" class="test-card">
+          <div class="test-card-header">
+            <span class="test-card-title">API-5: Remember → Correct → Forget → Verify</span>
+            <span class="badge">3ms</span>
+          </div>
+          <div class="test-card-desc">Create, edit, and delete memories with full provenance and audit trail.</div>
+          <div class="code-preview">
+<span class="syntax-key">await</span> seme.correctMemory(memId, <span class="syntax-str">'I live in Edinburgh.'</span>);
+          </div>
+        </a>
+        <a href="api-06.html" class="test-card">
+          <div class="test-card-header">
+            <span class="test-card-title">API-6: Remember → List → Filter by Kind</span>
+            <span class="badge">2ms</span>
+          </div>
+          <div class="test-card-desc">Query memories by status, kind, slot, and search text with flexible filtering.</div>
+          <div class="code-preview">
+seme.listMemories(<span class="syntax-str">'active'</span>, <span class="syntax-str">'decision'</span>);
+          </div>
+        </a>
+        <a href="api-07.html" class="test-card">
+          <div class="test-card-header">
+            <span class="test-card-title">API-7: Remember → Export → Verify Bundle</span>
+            <span class="badge">2s</span>
+          </div>
+          <div class="test-card-desc">Export all user data as a portable JSON bundle for backup and compliance.</div>
+          <div class="code-preview">
+<span class="syntax-key">const</span> exp = <span class="syntax-key">await</span> seme.exportData();
+          </div>
+        </a>
+        <a href="api-15.html" class="test-card">
+          <div class="test-card-header">
+            <span class="test-card-title">API-15: List Memories with Pagination</span>
+            <span class="badge">11ms</span>
+          </div>
+          <div class="test-card-desc">Paginated memory listing with limit and offset for large datasets.</div>
+          <div class="code-preview">
+seme.listMemories(<span class="syntax-str">'active'</span>, undefined, undefined, undefined, <span class="syntax-num">5</span>, <span class="syntax-num">0</span>);
+          </div>
+        </a>
+        <a href="api-16.html" class="test-card">
+          <div class="test-card-header">
+            <span class="test-card-title">API-16: List Entities with Search Filter</span>
+            <span class="badge">0ms</span>
+          </div>
+          <div class="test-card-desc">Entity listing with type and text filters for graph exploration.</div>
+          <div class="code-preview">
+seme.listEntities(<span class="syntax-str">'tool'</span>, <span class="syntax-str">'Type'</span>);
+          </div>
+        </a>
       </div>
-      <div class="card">
-        <div class="card-title"><a href="api-06.html" style="color: inherit; text-decoration: none;">API-6: Remember → List → Filter by Kind</a></div>
-        <div class="card-body">Query memories by status, kind, slot, and search text with flexible filtering. <span class="badge">2ms</span></div>
-      </div>
-      <div class="card">
-        <div class="card-title"><a href="api-07.html" style="color: inherit; text-decoration: none;">API-7: Remember → Export → Verify Bundle</a></div>
-        <div class="card-body">Export all user data as a portable JSON bundle for backup, migration, or compliance. <span class="badge">2,004ms</span></div>
-      </div>
-      <div class="card">
-        <div class="card-title"><a href="api-15.html" style="color: inherit; text-decoration: none;">API-15: List Memories with Pagination</a></div>
-        <div class="card-body">Paginated memory listing: navigate large memory sets efficiently with limit and offset. <span class="badge">11ms</span></div>
-      </div>
-      <div class="card">
-        <div class="card-title"><a href="api-16.html" style="color: inherit; text-decoration: none;">API-16: List Entities with Search Filter</a></div>
-        <div class="card-body">Entity listing with type and text filters: find entities by type, name, or alias. <span class="badge">0ms</span></div>
-      </div>
-    </div>
 
-    <div class="section">
-      <h2 class="section-title">Review & Adaptation</h2>
-      <div class="card">
-        <div class="card-title"><a href="api-08.html" style="color: inherit; text-decoration: none;">API-8: Create Contradiction → List → Resolve → Verify</a></div>
-        <div class="card-body">The review queue: when the system detects contradictions, it queues them for human review. <span class="badge">1ms</span></div>
+      <div class="category-header">Review & Adaptation</div>
+      <div class="test-grid">
+        <a href="api-08.html" class="test-card">
+          <div class="test-card-header">
+            <span class="test-card-title">API-8: Create Contradiction → Resolve</span>
+            <span class="badge">1ms</span>
+          </div>
+          <div class="test-card-desc">Review queue: detect contradictions and queue for human resolution.</div>
+          <div class="code-preview">
+<span class="syntax-key">await</span> seme.resolveReviewItem(<span class="syntax-str">'ri-1'</span>, <span class="syntax-str">'confirm'</span>);
+          </div>
+        </a>
+        <a href="api-09.html" class="test-card">
+          <div class="test-card-header">
+            <span class="test-card-title">API-9: Feedback → Aggregate → Propose → Lock</span>
+            <span class="badge">2ms</span>
+          </div>
+          <div class="test-card-desc">Adaptation system: learn from feedback and propose style changes.</div>
+          <div class="code-preview">
+<span class="syntax-key">await</span> seme.aggregateAdaptations(<span class="syntax-num">2</span>, <span class="syntax-num">2</span>);
+          </div>
+        </a>
       </div>
-      <div class="card">
-        <div class="card-title"><a href="api-09.html" style="color: inherit; text-decoration: none;">API-9: Feedback → Aggregate → Propose → Lock → Verify</a></div>
-        <div class="card-body">The adaptation system: learn from user feedback and propose personality/style changes. <span class="badge">2ms</span></div>
-      </div>
-    </div>
 
-    <div class="section">
-      <h2 class="section-title">Error Handling & Safety</h2>
-      <div class="card">
-        <div class="card-title"><a href="api-11.html" style="color: inherit; text-decoration: none;">API-11: Invalid Memory ID → ERR_NOT_FOUND</a></div>
-        <div class="card-body">Error handling: when a memory doesn't exist, the system returns a clear ERR_NOT_FOUND error. <span class="badge">0ms</span></div>
+      <div class="category-header">Error Handling & Safety</div>
+      <div class="test-grid">
+        <a href="api-11.html" class="test-card">
+          <div class="test-card-header">
+            <span class="test-card-title">API-11: Invalid Memory ID → ERR_NOT_FOUND</span>
+            <span class="badge">0ms</span>
+          </div>
+          <div class="test-card-desc">Clear error handling for non-existent resources.</div>
+        </a>
+        <a href="api-12.html" class="test-card">
+          <div class="test-card-header">
+            <span class="test-card-title">API-12: Delete All Without Confirmation → ERR_VALIDATION</span>
+            <span class="badge">2ms</span>
+          </div>
+          <div class="test-card-desc">Safety guard: bulk delete requires explicit confirmation.</div>
+        </a>
+        <a href="api-13.html" class="test-card">
+          <div class="test-card-header">
+            <span class="test-card-title">API-13: Pause Blocks Remember → ERR_PAUSED</span>
+            <span class="badge">1ms</span>
+          </div>
+          <div class="test-card-desc">Pause/resume learning for privacy and maintenance.</div>
+        </a>
+        <a href="api-14.html" class="test-card">
+          <div class="test-card-header">
+            <span class="test-card-title">API-14: Invalid Entity Type → Error</span>
+            <span class="badge">0ms</span>
+          </div>
+          <div class="test-card-desc">Strict type validation for graph consistency.</div>
+        </a>
       </div>
-      <div class="card">
-        <div class="card-title"><a href="api-12.html" style="color: inherit; text-decoration: none;">API-12: Delete All Without Confirmation → ERR_VALIDATION</a></div>
-        <div class="card-body">Safety guard: bulk delete requires explicit confirmation to prevent accidental data loss. <span class="badge">2ms</span></div>
-      </div>
-      <div class="card">
-        <div class="card-title"><a href="api-13.html" style="color: inherit; text-decoration: none;">API-13: Pause Blocks Remember → ERR_PAUSED</a></div>
-        <div class="card-body">Pause/resume learning: temporarily disable memory operations without losing data. <span class="badge">1ms</span></div>
-      </div>
-      <div class="card">
-        <div class="card-title"><a href="api-14.html" style="color: inherit; text-decoration: none;">API-14: Invalid Entity Type → Error</a></div>
-        <div class="card-body">Input validation: entity types are strictly enforced to maintain graph consistency. <span class="badge">0ms</span></div>
-      </div>
-    </div>
-
-    <div class="section">
-      <h2 class="section-title">Summary</h2>
-      <div class="card">
-        <div class="card-title">16/16 Tests Passing (100%)</div>
-        <div class="card-body">Total execution time: 52,082ms (including 50s of async extraction waits). All complex API request patterns verified.</div>
-      </div>
-    </div>
+    </main>
   </div>
-
-  <footer class="footer">
-    <div class="container">Seme Memory System — API Test Suite</div>
-  </footer>
 </body>
 </html>
