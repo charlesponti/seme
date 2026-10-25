@@ -397,6 +397,33 @@ app.get('/wiki/conflicts/:entityId', (c) => {
   return c.json({ conflicts: service.detectWikiConflicts(entityId) });
 });
 
+// Source ingestion
+app.post('/ingest/source', async (c) => {
+  const body = await c.req.json();
+  const sessionId = body.session_id || 'default';
+  try {
+    let result;
+    if (body.url && body.url.includes('youtube.com') || body.url?.includes('youtu.be')) {
+      result = await service.ingestYouTube(body.url, sessionId);
+    } else if (body.url) {
+      result = await service.ingestUrl(body.url, sessionId);
+    } else if (body.pdf_path) {
+      result = await service.ingestPdf(body.pdf_path, sessionId);
+    } else if (body.text) {
+      result = await service.ingestText(body.text, body.title || 'Untitled', sessionId, body.source_type);
+    } else {
+      return c.json({ error: { code: 'ERR_VALIDATION', message: 'Must provide url, pdf_path, or text', operation: 'ingest_source' } }, 400);
+    }
+    return c.json(result, 201);
+  } catch (e: any) {
+    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'ingest_source' } }, 400);
+  }
+});
+
+app.get('/sources', (c) => {
+  return c.json(service.listSources());
+});
+
 function parseErrorCode(msg: string): string {
   if (msg.includes('ERR_VALIDATION')) return 'ERR_VALIDATION';
   if (msg.includes('ERR_NOT_FOUND')) return 'ERR_NOT_FOUND';

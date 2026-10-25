@@ -17,6 +17,7 @@ import { AdaptationStore } from '../adaptation/adaptation-store.js';
 import { GraphStore } from '../graph/graph-store.js';
 import { WikiStore } from '../wiki/wiki-store.js';
 import { WikiCompiler } from '../wiki/wiki-compiler.js';
+import { SourceIngestion } from '../ingestion/source-ingestion.js';
 import { uuid, nowUtc } from '../types/common.js';
 import { getDecayClass } from '../confidence/confidence.js';
 
@@ -36,6 +37,7 @@ export class MemoryService {
   private graphStore: GraphStore;
   private wikiStore: WikiStore;
   private wikiCompiler: WikiCompiler;
+  private sourceIngestion: SourceIngestion;
 
   constructor(config: StorageConfig) {
     this.storage = new Storage(config);
@@ -45,6 +47,7 @@ export class MemoryService {
     this.graphStore = new GraphStore(this.storage);
     this.wikiStore = new WikiStore(this.storage);
     this.wikiCompiler = new WikiCompiler(this.storage, this.wikiStore);
+    this.sourceIngestion = new SourceIngestion(this.storage, config.storageDir);
     this.profileCompiler = new ProfileCompiler(this.storage, this.graphStore);
     this.retrieval = new RetrievalEngine(this.storage, this.graphStore);
     this.identityCore = new IdentityCoreManager(this.storage);
@@ -515,6 +518,13 @@ export class MemoryService {
   compileWikiForEntity(entityId: string, entityName: string) { return this.wikiCompiler.compileForEntity(entityId, entityName); }
   compileAllWiki() { return this.wikiCompiler.compileAll(); }
   detectWikiConflicts(entityId: string) { return this.wikiCompiler.detectConflicts(entityId); }
+
+  // --- Source ingestion methods ---
+  async ingestUrl(url: string, sessionId: string) { return this.sourceIngestion.ingestUrl(url, sessionId); }
+  async ingestPdf(pdfPath: string, sessionId: string) { return this.sourceIngestion.ingestPdf(pdfPath, sessionId); }
+  async ingestYouTube(url: string, sessionId: string) { return this.sourceIngestion.ingestYouTube(url, sessionId); }
+  async ingestText(text: string, title: string, sessionId: string, sourceType?: string) { return this.sourceIngestion.ingestText(text, title, sessionId, sourceType); }
+  listSources() { return this.storage.read((db: any) => db.prepare('SELECT * FROM sources ORDER BY created_at DESC').all()); }
 
   // Storage access for tests
   getStorage() {

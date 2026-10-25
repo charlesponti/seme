@@ -229,7 +229,7 @@ export function getVecTableSql(dim: number): string {
   return `CREATE VIRTUAL TABLE IF NOT EXISTS memories_vec USING vec0(memory_id TEXT PRIMARY KEY, embedding FLOAT[${dim}])`;
 }
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 export const SCHEMA_NAME = 'self-healing-memory/3';
 
 export function getSchemaSql(embeddingDim: number): string {
@@ -438,5 +438,23 @@ CREATE TABLE IF NOT EXISTS wiki_page_versions (
     created_by  TEXT NOT NULL CHECK (created_by IN ('system', 'user'))
 );
 CREATE INDEX IF NOT EXISTS idx_wiki_versions_page ON wiki_page_versions(page_id, version);
+`;
+}
+
+/**
+ * Migration v5: Source ingestion table.
+ */
+export function getSchemaSqlV5(): string {
+  return `
+CREATE TABLE IF NOT EXISTS sources (
+    id              TEXT PRIMARY KEY,
+    title           TEXT NOT NULL,
+    url             TEXT,
+    source_type     TEXT NOT NULL CHECK (source_type IN ('url', 'pdf', 'youtube', 'text', 'file')),
+    content_length  INTEGER NOT NULL,
+    created_at      TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sources_type ON sources(source_type);
+CREATE INDEX IF NOT EXISTS idx_sources_created ON sources(created_at);
 `;
 }
