@@ -48,7 +48,7 @@
           <h3>Forget All Operation</h3>
           <p><code>POST /forget</code> with <code>{ target: "all" }</code> deletes all memories. This is a destructive operation that requires <code>confirm: true</code>.</p>
           <div class="code-block">// Without confirmation:
-await svc.forgetCommand('all', undefined, undefined, undefined, undefined, false);
+await seme.forgetCommand('all', undefined, undefined, undefined, undefined, false);
 // Throws: ERR_VALIDATION: Confirmation required for delete-all</div>
         </div>
       </div>
@@ -58,7 +58,7 @@ await svc.forgetCommand('all', undefined, undefined, undefined, undefined, false
           <h3>With Confirmation</h3>
           <p>When <code>confirm: true</code> is passed, all memories are soft-deleted and logged to the deletion_log. This is irreversible (except via restore from backup).</p>
           <div class="code-block">// With confirmation:
-await svc.forgetCommand('all', undefined, undefined, undefined, undefined, true);
+await seme.forgetCommand('all', undefined, undefined, undefined, undefined, true);
 // All memories: status = 'deleted'
 // deletion_log: entries for each deleted memory</div>
         </div>

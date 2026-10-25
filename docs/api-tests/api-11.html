@@ -60,7 +60,7 @@
           <h3>Lookup</h3>
           <p>The system queries the database for the memory ID. If no row is returned, it throws an <code>ERR_NOT_FOUND</code> error with a descriptive message.</p>
           <div class="code-block">try {
-  svc.getMemory('nonexistent-id');
+  seme.getMemory('nonexistent-id');
 } catch (e) {
   // e.message === "ERR_NOT_FOUND: Memory not found"
 }</div>

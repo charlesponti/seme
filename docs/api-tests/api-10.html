@@ -51,8 +51,8 @@
         <div class="step-content">
           <h3>Create Duplicate Entities</h3>
           <p>Create "Ponti Studios" twice with slightly different descriptions. The sleep job should detect these as duplicates and merge them.</p>
-          <div class="code-block">const ponti1 = svc.createEntity('Ponti Studios', 'organization', [], 'Company', 'user_stated', 0.9);
-const ponti2 = svc.createEntity('Ponti Studios', 'organization', ['Ponti'], 'Duplicate', 'user_stated', 0.8);</div>
+          <div class="code-block">const ponti1 = seme.createEntity('Ponti Studios', 'organization', [], 'Company', 'user_stated', 0.9);
+const ponti2 = seme.createEntity('Ponti Studios', 'organization', ['Ponti'], 'Duplicate', 'user_stated', 0.8);</div>
         </div>
       </div>
       <div class="step">
@@ -60,8 +60,8 @@ const ponti2 = svc.createEntity('Ponti Studios', 'organization', ['Ponti'], 'Dup
         <div class="step-content">
           <h3>Create Contradictory Relationships</h3>
           <p>Create two relationships with the same relation type but different targets: "Charles lives in London" and "Charles lives in Edinburgh". The sleep job detects this as a contradiction.</p>
-          <div class="code-block">svc.createRelationship(charles, london, 'lives_in', 'Lives in London', turnId, episodeId);
-svc.createRelationship(charles, edinburgh, 'lives_in', 'Lives in Edinburgh', turnId, episodeId);</div>
+          <div class="code-block">seme.createRelationship(charles, london, 'lives_in', 'Lives in London', turnId, episodeId);
+seme.createRelationship(charles, edinburgh, 'lives_in', 'Lives in Edinburgh', turnId, episodeId);</div>
         </div>
       </div>
       <div class="step">

@@ -54,8 +54,8 @@
           <h3>Record Turns per Session</h3>
           <p>Each session is independent — different session_id, different episode. But all memories are stored in the same memory database, linked to the same user identity.</p>
           <div class="code-block">for (let i = 0; i < 5; i++) {
-  await svc.recordTurn(`s${i}`, 'user', `I like language ${i}.`);
-  await svc.endSession(`s${i}`);
+  await seme.recordTurn(`s${i}`, 'user', `I like language ${i}.`);
+  await seme.endSession(`s${i}`);
 }</div>
         </div>
       </div>
@@ -78,7 +78,7 @@
         <div class="step-content">
           <h3>Cross-Session Retrieval</h3>
           <p>When retrieving in a new session, the system searches across ALL memories from ALL sessions. The user doesn't need to repeat information from previous conversations.</p>
-          <div class="code-block">const ctx = svc.retrieveContext('s5', 'programming');
+          <div class="code-block">const ctx = seme.retrieveContext('s5', 'programming');
 // Returns memories from sessions 0-4</div>
         </div>
       </div>

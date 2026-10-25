@@ -58,13 +58,13 @@
         <div class="step-content">
           <h3>Blocked Operations</h3>
           <p>Any write operation during pause throws <code>ERR_PAUSED</code>. This includes explicit remember, correction, deletion, and the async extraction pipeline (which checks the flag before processing).</p>
-          <div class="code-block">await svc.pauseLearning();
+          <div class="code-block">await seme.pauseLearning();
 try {
-  await svc.rememberCommand('s1', 'Test.', turnId, 'fact');
+  await seme.rememberCommand('s1', 'Test.', turnId, 'fact');
 } catch (e) {
   // e.message === "ERR_PAUSED: Learning is paused"
 }
-await svc.resumeLearning();</div>
+await seme.resumeLearning();</div>
         </div>
       </div>
       <div class="step">

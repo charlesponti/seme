@@ -51,7 +51,7 @@
         <div class="step-content">
           <h3>Ingest Feedback</h3>
           <p>When the user compliments or corrects the assistant, <code>POST /feedback</code> records the signal. Types: compliment_specific, compliment_general, correction, rejection, engagement, disengagement.</p>
-          <div class="code-block">await svc.ingestFeedback({
+          <div class="code-block">await seme.ingestFeedback({
   signal_type: 'compliment_specific',
   target: 'register',
   detail_json: '{"aspect":"tone"}',

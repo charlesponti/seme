@@ -49,7 +49,7 @@
         <div class="step-content">
           <h3>Remember (Explicit)</h3>
           <p>The user explicitly tells the system to remember something. <code>POST /remember</code> creates a memory with <code>source_type: user_edited</code> and high confidence. This bypasses the extraction pipeline.</p>
-          <div class="code-block">const r = await svc.rememberCommand('s1', 'I live in London.', turnId, 'fact');
+          <div class="code-block">const r = await seme.rememberCommand('s1', 'I live in London.', turnId, 'fact');
 // Creates memory: { kind: "fact", slot: "home_city", value_text: "..." }</div>
         </div>
       </div>
@@ -58,7 +58,7 @@
         <div class="step-content">
           <h3>Correct (Edit)</h3>
           <p>The user corrects a memory. <code>POST /memories/:id/correct</code> creates a NEW memory with the corrected value, marks the old one as superseded, and links them. The new memory has <code>source_type: user_edited</code>.</p>
-          <div class="code-block">const corrected = await svc.correctMemory(memId, 'I live in Edinburgh.');
+          <div class="code-block">const corrected = await seme.correctMemory(memId, 'I live in Edinburgh.');
 // Old memory: status = 'superseded', superseded_by_id = newId
 // New memory: status = 'active', supersedes_id = oldId, source_type = 'user_edited'</div>
         </div>
@@ -68,7 +68,7 @@
         <div class="step-content">
           <h3>Forget (Soft Delete)</h3>
           <p>The user deletes a memory. <code>POST /forget</code> soft-deletes (marks as deleted, doesn't remove from DB). Also logs to <code>deletion_log</code> for audit. Cascades to graph links.</p>
-          <div class="code-block">await svc.forgetCommand('memory', memId);
+          <div class="code-block">await seme.forgetCommand('memory', memId);
 // Memory: status = 'deleted'
 // deletion_log: entry created with reason and timestamp</div>
         </div>

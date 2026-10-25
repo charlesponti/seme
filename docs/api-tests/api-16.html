@@ -49,11 +49,11 @@
         <div class="step-content">
           <h3>Filter by Type</h3>
           <p><code>listEntities(type)</code> returns only entities of the specified type. Types: person, organization, place, tool, concept, event, preference, habit, goal, skill, identity.</p>
-          <div class="code-block">svc.createEntity('TypeScript', 'tool', [], 'Language', 'user_stated', 0.9);
-svc.createEntity('React', 'tool', [], 'Framework', 'user_stated', 0.9);
-svc.createEntity('Ponti Studios', 'organization', [], 'Company', 'user_stated', 0.9);
+          <div class="code-block">seme.createEntity('TypeScript', 'tool', [], 'Language', 'user_stated', 0.9);
+seme.createEntity('React', 'tool', [], 'Framework', 'user_stated', 0.9);
+seme.createEntity('Ponti Studios', 'organization', [], 'Company', 'user_stated', 0.9);
 
-const tools = svc.listEntities('tool');
+const tools = seme.listEntities('tool');
 // Returns: 2 entities (TypeScript, React)</div>
         </div>
       </div>
@@ -62,7 +62,7 @@ const tools = svc.listEntities('tool');
         <div class="step-content">
           <h3>Filter by Search Text</h3>
           <p><code>listEntities(undefined, search)</code> searches entity names and aliases. Returns entities whose name or alias contains the search text.</p>
-          <div class="code-block">const search = svc.listEntities(undefined, 'Type');
+          <div class="code-block">const search = seme.listEntities(undefined, 'Type');
 // Returns: 1 entity (TypeScript)</div>
         </div>
       </div>

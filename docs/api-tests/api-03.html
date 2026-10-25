@@ -51,9 +51,9 @@
         <div class="step-content">
           <h3>Create Entities</h3>
           <p>Entities are nodes in the knowledge graph. Each has a name, type, aliases, description, source type, and confidence. Types include: person, organization, place, tool, concept, event, preference, habit, goal, skill.</p>
-          <div class="code-block">const charles = svc.createEntity('Charles', 'person', [], 'User', 'user_stated', 0.9);
-const ponti = svc.createEntity('Ponti Studios', 'organization', [], 'Company', 'user_stated', 0.9);
-const edinburgh = svc.createEntity('Edinburgh', 'place', [], 'City', 'user_stated', 0.9);</div>
+          <div class="code-block">const charles = seme.createEntity('Charles', 'person', [], 'User', 'user_stated', 0.9);
+const ponti = seme.createEntity('Ponti Studios', 'organization', [], 'Company', 'user_stated', 0.9);
+const edinburgh = seme.createEntity('Edinburgh', 'place', [], 'City', 'user_stated', 0.9);</div>
         </div>
       </div>
       <div class="step">
@@ -61,8 +61,8 @@ const edinburgh = svc.createEntity('Edinburgh', 'place', [], 'City', 'user_state
         <div class="step-content">
           <h3>Create Relationships</h3>
           <p>Relationships are directed edges between entities. Each has a relation type (works_at, lives_in, uses, etc.), description, source turn/episode, source type, and confidence.</p>
-          <div class="code-block">svc.createRelationship(charles, ponti, 'works_at', 'works at', turnId, episodeId);
-svc.createRelationship(ponti, edinburgh, 'located_in', 'located in', turnId, episodeId);</div>
+          <div class="code-block">seme.createRelationship(charles, ponti, 'works_at', 'works at', turnId, episodeId);
+seme.createRelationship(ponti, edinburgh, 'located_in', 'located in', turnId, episodeId);</div>
         </div>
       </div>
       <div class="step">
@@ -70,7 +70,7 @@ svc.createRelationship(ponti, edinburgh, 'located_in', 'located in', turnId, epi
         <div class="step-content">
           <h3>Get Neighborhood (N-hop)</h3>
           <p>Traverse the graph from an entity up to N hops. Returns all entities and relationships within the neighborhood. Used for "tell me everything about Charles" queries.</p>
-          <div class="code-block">const neigh = svc.getNeighborhood(charles, 2);
+          <div class="code-block">const neigh = seme.getNeighborhood(charles, 2);
 // Returns: Charles, Ponti Studios, Edinburgh + 2 relationships</div>
         </div>
       </div>
@@ -79,7 +79,7 @@ svc.createRelationship(ponti, edinburgh, 'located_in', 'located in', turnId, epi
         <div class="step-content">
           <h3>Find Path</h3>
           <p>BFS shortest path between two entities. Used for "how is Charles connected to Edinburgh?" queries. Returns the path as an array of entities and relationships.</p>
-          <div class="code-block">const path = svc.findPath(charles, edinburgh);
+          <div class="code-block">const path = seme.findPath(charles, edinburgh);
 // Returns: Charles → works_at → Ponti Studios → located_in → Edinburgh</div>
         </div>
       </div>
@@ -88,7 +88,7 @@ svc.createRelationship(ponti, edinburgh, 'located_in', 'located in', turnId, epi
         <div class="step-content">
           <h3>Graph Snapshot</h3>
           <p>Returns the entire graph: all entities and all relationships. Used for visualization, export, and debugging.</p>
-          <div class="code-block">const snap = svc.getGraphSnapshot();
+          <div class="code-block">const snap = seme.getGraphSnapshot();
 // Returns: { entities: [...], relationships: [...] }</div>
         </div>
       </div>
