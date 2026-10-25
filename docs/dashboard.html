@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Seme Memory Dashboard</title>
+  <link rel="stylesheet" href="shared.css">
+  <style>
+    .dashboard-layout { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
+    .sidebar { background: #f6f8fa; border-right: 1px solid #d0d7de; padding: 20px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+    .sidebar-title { font-size: 12px; font-weight: 600; color: #6e7781; text-transform: uppercase; letter-spacing: 0.5px; margin: 16px 0 8px; }
+    .sidebar-nav { list-style: none; }
+    .sidebar-nav li { margin-bottom: 2px; }
+    .sidebar-nav a { display: block; padding: 6px 12px; border-radius: 6px; font-size: 14px; color: #24292f; text-decoration: none; }
+    .sidebar-nav a:hover { background: #eaeef2; }
+    .sidebar-nav a.active { background: #0969da; color: #ffffff; }
+    .main { padding: 24px; }
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: #ffffff; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+    .stat-value { font-size: 28px; font-weight: 600; color: #24292f; }
+    .stat-label { font-size: 12px; color: #57606a; margin-top: 4px; }
+    .section-card { background: #ffffff; border: 1px solid #d0d7de; border-radius: 6px; margin-bottom: 16px; }
+    .section-header { padding: 12px 16px; border-bottom: 1px solid #d0d7de; font-weight: 600; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+    .section-body { padding: 16px; }
+    .memory-item { padding: 12px; border-bottom: 1px solid #d8dee4; }
+    .memory-item:last-child { border-bottom: none; }
+    .memory-kind { display: inline-block; background: #ddf4ff; color: #0969da; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; font-family: var(--font-mono); }
+    .memory-text { font-size: 14px; color: #24292f; margin: 4px 0; }
+    .memory-meta { font-size: 12px; color: #6e7781; }
+    .filter-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .filter-btn { padding: 4px 12px; border: 1px solid #d0d7de; border-radius: 6px; background: #ffffff; font-size: 13px; cursor: pointer; }
+    .filter-btn:hover { background: #f6f8fa; }
+    .filter-btn.active { background: #0969da; color: #ffffff; border-color: #0969da; }
+    .submit-box { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; margin-bottom: 24px; }
+    .submit-box textarea { width: 100%; min-height: 120px; border: 1px solid #d0d7de; border-radius: 6px; padding: 12px; font-family: var(--font-sans); font-size: 14px; resize: vertical; }
+    .submit-box textarea:focus { outline: none; border-color: #0969da; box-shadow: 0 0 0 3px rgba(9,105,218,0.3); }
+    .submit-actions { display: flex; gap: 8px; margin-top: 8px; }
+    .btn { padding: 6px 16px; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; border: 1px solid #d0d7de; }
+    .btn-primary { background: #2da44e; color: #ffffff; border-color: #2da44e; }
+    .btn-primary:hover { background: #2c974b; }
+    .btn-secondary { background: #f6f8fa; color: #24292f; }
+    .btn-secondary:hover { background: #eaeef2; }
+    .entity-tag { display: inline-block; background: #f6f8fa; border: 1px solid #d0d7de; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin: 2px; }
+    .empty-state { text-align: center; padding: 40px; color: #6e7781; }
+    .loading { text-align: center; padding: 20px; color: #6e7781; }
+    .tab-bar { display: flex; border-bottom: 1px solid #d0d7de; margin-bottom: 16px; }
+    .tab { padding: 8px 16px; cursor: pointer; border-bottom: 2px solid transparent; font-size: 14px; color: #57606a; }
+    .tab:hover { color: #24292f; }
+    .tab.active { color: #24292f; border-bottom-color: #fd8c73; font-weight: 600; }
+    @media (max-width: 768px) { .dashboard-layout { grid-template-columns: 1fr; } .sidebar { position: relative; height: auto; } .stats-row { grid-template-columns: repeat(2, 1fr); } }
+  </style>
+</head>
+<body>
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <a href="dashboard.html" class="nav-brand" style="display:block;margin-bottom:16px;font-size:18px;font-weight:600;">Seme Dashboard</a>
+      <div class="sidebar-title">Navigation</div>
+      <ul class="sidebar-nav">
+        <li><a href="#" onclick="showTab('memories')" class="active" id="nav-memories">Memories</a></li>
+        <li><a href="#" onclick="showTab('entities')" id="nav-entities">Entities</a></li>
+        <li><a href="#" onclick="showTab('wiki')" id="nav-wiki">Wiki Pages</a></li>
+        <li><a href="#" onclick="showTab('submit')" id="nav-submit">Submit Text</a></li>
+        <li><a href="#" onclick="showTab('stats')" id="nav-stats">Stats</a></li>
+      </ul>
+      <div class="sidebar-title">API</div>
+      <ul class="sidebar-nav">
+        <li><a href="index.html">API Docs</a></li>
+      </ul>
+    </aside>
+    <main class="main">
+      <div class="stats-row" id="stats-row">
+        <div class="stat-card"><div class="stat-value" id="stat-memories">-</div><div class="stat-label">Memories</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-entities">-</div><div class="stat-label">Entities</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-wiki">-</div><div class="stat-label">Wiki Pages</div></div>
+        <div class="stat-card"><div class="stat-value" id="stat-tasks">-</div><div class="stat-label">Tasks</div></div>
+      </div>
+
+      <!-- Memories Tab -->
+      <div id="tab-memories">
+        <div class="section-card">
+          <div class="section-header">
+            <span>Memories</span>
+            <div class="filter-bar" style="margin:0;">
+              <button class="filter-btn active" onclick="filterMemories('all')">All</button>
+              <button class="filter-btn" onclick="filterMemories('active')">Active</button>
+              <button class="filter-btn" onclick="filterMemories('superseded')">Superseded</button>
+              <button class="filter-btn" onclick="filterMemories('deleted')">Deleted</button>
+            </div>
+          </div>
+          <div class="section-body" id="memories-list"><div class="loading">Loading...</div></div>
+        </div>
+      </div>
+
+      <!-- Entities Tab -->
+      <div id="tab-entities" style="display:none;">
+        <div class="section-card">
+          <div class="section-header"><span>Entities</span></div>
+          <div class="section-body" id="entities-list"><div class="loading">Loading...</div></div>
+        </div>
+      </div>
+
+      <!-- Wiki Tab -->
+      <div id="tab-wiki" style="display:none;">
+        <div class="section-card">
+          <div class="section-header"><span>Wiki Pages</span></div>
+          <div class="section-body" id="wiki-list"><div class="loading">Loading...</div></div>
+        </div>
+      </div>
+
+      <!-- Submit Tab -->
+      <div id="tab-submit" style="display:none;">
+        <div class="submit-box">
+          <h3 style="margin-bottom:12px;">Submit Text for Extraction</h3>
+          <textarea id="submit-text" placeholder="Paste a block of text, conversation, or notes here. The system will extract memories, entities, and relationships."></textarea>
+          <div class="submit-actions">
+            <button class="btn btn-primary" onclick="submitText()">Extract &amp; Save</button>
+            <button class="btn btn-secondary" onclick="document.getElementById('submit-text').value=''">Clear</button>
+          </div>
+          <div id="submit-result" style="margin-top:12px;"></div>
+        </div>
+      </div>
+
+      <!-- Stats Tab -->
+      <div id="tab-stats" style="display:none;">
+        <div class="section-card">
+          <div class="section-header"><span>System Health</span></div>
+          <div class="section-body" id="stats-detail"><div class="loading">Loading...</div></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:3000';
+    let currentFilter = 'all';
+    let memories = [];
+
+    async function api(path, opts = {}) {
+      const res = await fetch(API_BASE + path, { headers: { 'Content-Type': 'application/json' }, ...opts });
+      return res.json();
+    }
+
+    function showTab(tab) {
+      document.querySelectorAll('[id^="tab-"]').forEach(el => el.style.display = 'none');
+      document.getElementById('tab-' + tab).style.display = 'block';
+      document.querySelectorAll('.sidebar-nav a').forEach(a => a.classList.remove('active'));
+      document.getElementById('nav-' + tab).classList.add('active');
+      if (tab === 'memories') loadMemories();
+      if (tab === 'entities') loadEntities();
+      if (tab === 'wiki') loadWiki();
+      if (tab === 'stats') loadStats();
+    }
+
+    async function loadStats() {
+      try {
+        const mems = await api('/memories?limit=1000');
+        const ents = await api('/entities?limit=1000');
+        const wiki = await api('/wiki?limit=1000');
+        const tasks = await api('/tasks?limit=1000');
+        document.getElementById('stat-memories').textContent = mems.total || 0;
+        document.getElementById('stat-entities').textContent = ents.total || 0;
+        document.getElementById('stat-wiki').textContent = wiki.total || 0;
+        document.getElementById('stat-tasks').textContent = tasks.total || 0;
+
+        const health = await api('/kb/lint', { method: 'POST' });
+        const healthHtml = '<p>Health Score: <strong>' + (health.health_score * 100).toFixed(0) + '%</strong></p>' +
+          '<p>Issues: ' + health.total_issues + '</p>' +
+          (health.issues || []).map(i => '<div class="memory-item"><strong>' + i.type + '</strong> (' + i.severity + '): ' + i.description + '</div>').join('');
+        document.getElementById('stats-detail').innerHTML = healthHtml || '<div class="empty-state">No issues found</div>';
+      } catch (e) {
+        document.getElementById('stats-detail').innerHTML = '<div class="empty-state">API not connected. Start the Seme server on port 3000.</div>';
+      }
+    }
+
+    async function loadMemories() {
+      try {
+        const status = currentFilter === 'all' ? undefined : currentFilter;
+        const data = await api('/memories' + (status ? '?status=' + status : '') + '&limit=100');
+        memories = data.memories || [];
+        const html = memories.map(m =>
+          '<div class="memory-item">' +
+          '<span class="memory-kind">' + m.kind + '</span> ' +
+          '<span class="memory-kind" style="background:#f6f8fa;color:#57606a;">' + m.status + '</span>' +
+          '<div class="memory-text">' + escapeHtml(m.value_text) + '</div>' +
+          '<div class="memory-meta">slot: ' + (m.slot || 'none') + ' | confidence: ' + m.confidence + ' | source: ' + m.source_type + '</div>' +
+          '</div>'
+        ).join('');
+        document.getElementById('memories-list').innerHTML = html || '<div class="empty-state">No memories found</div>';
+      } catch (e) {
+        document.getElementById('memories-list').innerHTML = '<div class="empty-state">API not connected. Start the Seme server on port 3000.</div>';
+      }
+    }
+
+    function filterMemories(filter) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+      loadMemories();
+    }
+
+    async function loadEntities() {
+      try {
+        const data = await api('/entities?limit=100');
+        const html = (data.entities || []).map(e =>
+          '<div class="memory-item">' +
+          '<span class="memory-kind">' + e.type + '</span>' +
+          '<div class="memory-text">' + escapeHtml(e.name) + '</div>' +
+          '<div class="memory-meta">aliases: ' + (e.aliases || []).join(', ') + ' | mentions: ' + e.mention_count + ' | confidence: ' + e.confidence + '</div>' +
+          '</div>'
+        ).join('');
+        document.getElementById('entities-list').innerHTML = html || '<div class="empty-state">No entities found</div>';
+      } catch (e) {
+        document.getElementById('entities-list').innerHTML = '<div class="empty-state">API not connected.</div>';
+      }
+    }
+
+    async function loadWiki() {
+      try {
+        const data = await api('/wiki?limit=100');
+        const html = (data.pages || []).map(p =>
+          '<div class="memory-item">' +
+          '<span class="memory-kind">' + p.page_type + '</span> ' +
+          '<span class="memory-kind" style="background:#dafbe1;color:#1a7f37;">' + p.maturity + '</span>' +
+          '<div class="memory-text"><strong>' + escapeHtml(p.title) + '</strong></div>' +
+          '<div class="memory-meta">v' + p.version + ' | ' + p.status + '</div>' +
+          '<pre style="background:#f6f8fa;padding:8px;border-radius:6px;font-size:12px;margin-top:8px;overflow-x:auto;">' + escapeHtml(p.content.substring(0, 300)) + '</pre>' +
+          '</div>'
+        ).join('');
+        document.getElementById('wiki-list').innerHTML = html || '<div class="empty-state">No wiki pages found. Compile from entities first.</div>';
+      } catch (e) {
+        document.getElementById('wiki-list').innerHTML = '<div class="empty-state">API not connected.</div>';
+      }
+    }
+
+    async function submitText() {
+      const text = document.getElementById('submit-text').value.trim();
+      if (!text) return;
+      const resultDiv = document.getElementById('submit-result');
+      resultDiv.innerHTML = '<div class="loading">Submitting and extracting...</div>';
+      try {
+        // Ingest as text source
+        const ingestResult = await api('/ingest/source', {
+          method: 'POST',
+          body: JSON.stringify({ text: text, title: 'Dashboard Submission', session_id: 'dashboard' })
+        });
+        // End session to trigger extraction
+        await api('/sessions/dashboard/end', { method: 'POST', body: JSON.stringify({}) });
+        resultDiv.innerHTML = '<div style="color:#1a7f37;font-weight:600;">Submitted! ' + ingestResult.chunks + ' chunk(s) created. Extraction running in background. Check Memories tab in ~20s.</div>';
+        // Refresh stats
+        loadStats();
+      } catch (e) {
+        resultDiv.innerHTML = '<div style="color:#cf222e;">Error: ' + e.message + '</div>';
+      }
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    // Init
+    loadStats();
+    loadMemories();
+  </script>
+</body>
+</html>
