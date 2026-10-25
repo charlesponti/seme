@@ -327,7 +327,7 @@ CREATE TABLE IF NOT EXISTS entities (
     name            TEXT NOT NULL,
     type            TEXT NOT NULL CHECK (type IN (
                         'person', 'place', 'organization', 'project',
-                        'tool', 'concept', 'topic', 'preference', 'other')),
+                        'tool', 'concept', 'topic', 'preference', 'animal', 'other')),
     aliases         TEXT,
     description     TEXT,
     first_seen_at   TEXT NOT NULL,
