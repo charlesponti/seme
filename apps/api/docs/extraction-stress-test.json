@@ -1,7 +1,7 @@
 {
   "test_name": "Extraction Stress Test: Long Rambling Message",
   "timestamp": "2026-10-25",
-  "model": "OpenRouter (Gemini Flash / Haiku)",
+  "model": "OpenRouter (Claude Haiku 5.5)",
   "message_stats": {
     "length_chars": 2780,
     "word_count": 412,

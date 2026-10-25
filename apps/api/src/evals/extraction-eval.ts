@@ -189,7 +189,7 @@ async function main() {
     process.exit(1);
   }
 
-  const models = ['google/gemini-3.8-flash', 'anthropic/claude-haiku-5.5'];
+  const models = ['anthropic/claude-haiku-5.5'];
 
   for (const model of models) {
     console.log(`\n${'='.repeat(60)}`);

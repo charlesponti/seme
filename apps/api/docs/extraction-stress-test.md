@@ -9,7 +9,7 @@
 | Memories extracted | 31 |
 | Coverage | 31/31 (100%) |
 | Missed facts | 0 |
-| Model | OpenRouter (Gemini Flash / Haiku) |
+| Model | OpenRouter (Claude Haiku 5.5) |
 | Extraction time | ~45 seconds (async) |
 | Entity extraction | Failed (model unavailable) |
 | Profile compiled | Yes (2,847 chars) |
