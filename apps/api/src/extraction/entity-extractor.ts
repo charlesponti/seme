@@ -77,7 +77,7 @@ export class EntityExtractor {
     const allRelationships: RelationshipCandidate[] = [];
     const seenEntities = new Set<string>();
 
-    for (const chunk of chunks) {
+    const chunkPromises = chunks.map(async (chunk) => {
       const chunkInput = { episode_id: input.episode_id, turns: chunk };
       const prompt = this.buildPrompt(chunkInput);
 
@@ -101,12 +101,12 @@ export class EntityExtractor {
 
         if (!response.ok) {
           console.error('Entity extractor unavailable for chunk');
-          continue;
+          return { entities: [], relationships: [] };
         }
 
         const data = await response.json();
         const content = data.choices?.[0]?.message?.content;
-        if (!content) continue;
+        if (!content) return { entities: [], relationships: [] };
 
         // Strip markdown code fences if present
         let jsonStr = content.trim();
@@ -116,18 +116,24 @@ export class EntityExtractor {
 
         const parsed = JSON.parse(jsonStr);
         const validated = this.validateOutput(parsed, input.episode_id);
-
-        for (const e of validated.entity_candidates) {
-          const key = e.name.toLowerCase();
-          if (!seenEntities.has(key)) {
-            seenEntities.add(key);
-            allEntities.push(e);
-          }
-        }
-        allRelationships.push(...validated.relationship_candidates);
+        return { entities: validated.entity_candidates, relationships: validated.relationship_candidates };
       } catch (e: any) {
         console.error('Entity extraction chunk failed:', e.message);
+        return { entities: [], relationships: [] };
       }
+    });
+
+    const results = await Promise.all(chunkPromises);
+
+    for (const r of results) {
+      for (const e of r.entities) {
+        const key = e.name.toLowerCase();
+        if (!seenEntities.has(key)) {
+          seenEntities.add(key);
+          allEntities.push(e);
+        }
+      }
+      allRelationships.push(...r.relationships);
     }
 
     return {

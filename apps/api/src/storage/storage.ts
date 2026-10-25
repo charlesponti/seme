@@ -73,6 +73,7 @@ export class Storage {
     this.db.pragma('busy_timeout = 5000');
     this.db.pragma('temp_store = MEMORY');
     this.db.pragma('wal_autocheckpoint = 1000');
+    this.db.pragma('cache_size = -64000'); // 64MB page cache (negative = KB)
   }
 
   private verifyExtensions(): void {

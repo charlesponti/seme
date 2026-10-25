@@ -277,14 +277,12 @@ tests.push({
 });
 
 tests.push({
-  name: 'KG-Types: invalid entity type rejected',
+  name: 'KG-Types: entity type normalization',
   fn: async (svc) => {
-    try {
-      svc.createEntity('Test', 'invalid_type', [], 'Test', 'user_stated', 0.9);
-      return { passed: false, details: 'Invalid type was accepted' };
-    } catch (e: any) {
-      return { passed: true, details: 'Invalid type rejected' };
-    }
+    // Types are now free-form strings, normalized to lowercase
+    const id = svc.createEntity('Test', 'invalid_type', [], 'Test', 'user_stated', 0.9);
+    const entity = svc.getEntity(id);
+    return { passed: entity !== null && entity.type === 'invalid_type', details: `Type stored: ${entity?.type}` };
   },
 });
 
