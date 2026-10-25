@@ -15,6 +15,8 @@ import { ReviewQueue } from '../review/review-queue.js';
 import { DeletionManager } from '../deletion/deletion.js';
 import { AdaptationStore } from '../adaptation/adaptation-store.js';
 import { GraphStore } from '../graph/graph-store.js';
+import { WikiStore } from '../wiki/wiki-store.js';
+import { WikiCompiler } from '../wiki/wiki-compiler.js';
 import { uuid, nowUtc } from '../types/common.js';
 import { getDecayClass } from '../confidence/confidence.js';
 
@@ -32,6 +34,8 @@ export class MemoryService {
   private deletionManager: DeletionManager;
   private adaptationStore: AdaptationStore;
   private graphStore: GraphStore;
+  private wikiStore: WikiStore;
+  private wikiCompiler: WikiCompiler;
 
   constructor(config: StorageConfig) {
     this.storage = new Storage(config);
@@ -39,6 +43,8 @@ export class MemoryService {
     this.gate = new ValidationGate(this.storage);
     this.resolver = new Resolver(this.storage);
     this.graphStore = new GraphStore(this.storage);
+    this.wikiStore = new WikiStore(this.storage);
+    this.wikiCompiler = new WikiCompiler(this.storage, this.wikiStore);
     this.profileCompiler = new ProfileCompiler(this.storage, this.graphStore);
     this.retrieval = new RetrievalEngine(this.storage, this.graphStore);
     this.identityCore = new IdentityCoreManager(this.storage);
@@ -495,6 +501,20 @@ export class MemoryService {
   getNeighborhood(entityId: string, depth?: number) { return this.graphStore.getNeighborhood(entityId, depth); }
   findPath(fromId: string, toId: string) { return this.graphStore.findPath(fromId, toId); }
   getGraphSnapshot() { return this.graphStore.getGraphSnapshot(); }
+
+  // --- Wiki methods ---
+  getWikiPage(id: string) { return this.wikiStore.getPage(id); }
+  getWikiPageByEntity(entityId: string, pageType?: string) { return this.wikiStore.getPageByEntity(entityId, pageType); }
+  listWikiPages(params?: { entity_id?: string; page_type?: string; maturity?: string; status?: string; search?: string; limit?: number; offset?: number }) { return this.wikiStore.listPages(params); }
+  createWikiPage(params: { entity_id?: string | null; entity_name?: string | null; title: string; content: string; page_type: string; maturity?: string; source_memory_ids?: string[]; updated_by?: 'system' | 'user' }) { return this.wikiStore.createPage(params); }
+  updateWikiPage(id: string, params: { title?: string; content?: string; maturity?: string; status?: string; updated_by?: 'system' | 'user'; reason?: string }) { return this.wikiStore.updatePage(id, params); }
+  deprecateWikiPage(id: string, reason: string) { return this.wikiStore.deprecatePage(id, reason); }
+  deleteWikiPage(id: string) { return this.wikiStore.deletePage(id); }
+  getWikiVersions(pageId: string) { return this.wikiStore.getVersions(pageId); }
+  searchWikiPages(query: string, limit?: number) { return this.wikiStore.searchPages(query, limit); }
+  compileWikiForEntity(entityId: string, entityName: string) { return this.wikiCompiler.compileForEntity(entityId, entityName); }
+  compileAllWiki() { return this.wikiCompiler.compileAll(); }
+  detectWikiConflicts(entityId: string) { return this.wikiCompiler.detectConflicts(entityId); }
 
   // Storage access for tests
   getStorage() {

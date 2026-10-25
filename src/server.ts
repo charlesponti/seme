@@ -299,6 +299,104 @@ app.post('/graph/search', async (c) => {
   }
 });
 
+// Wiki pages
+app.get('/wiki', (c) => {
+  const entityId = c.req.query('entity_id') || undefined;
+  const pageType = c.req.query('page_type') || undefined;
+  const maturity = c.req.query('maturity') || undefined;
+  const status = c.req.query('status') || undefined;
+  const search = c.req.query('search') || undefined;
+  const limit = parseInt(c.req.query('limit') || '50');
+  const offset = parseInt(c.req.query('offset') || '0');
+  return c.json(service.listWikiPages({ entity_id: entityId, page_type: pageType, maturity, status, search, limit, offset }));
+});
+
+app.get('/wiki/:id', (c) => {
+  const id = c.req.param('id');
+  const result = service.getWikiPage(id);
+  if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Wiki page not found', operation: 'get_wiki_page' } }, 404);
+  return c.json(result);
+});
+
+app.get('/wiki/entity/:entityId', (c) => {
+  const entityId = c.req.param('entityId');
+  const pageType = c.req.query('page_type') || undefined;
+  const result = service.getWikiPageByEntity(entityId, pageType);
+  if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Wiki page not found', operation: 'get_wiki_page' } }, 404);
+  return c.json(result);
+});
+
+app.post('/wiki', async (c) => {
+  const body = await c.req.json();
+  try {
+    const result = service.createWikiPage(body);
+    return c.json({ id: result }, 201);
+  } catch (e: any) {
+    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'create_wiki_page' } }, 400);
+  }
+});
+
+app.put('/wiki/:id', async (c) => {
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  try {
+    const result = service.updateWikiPage(id, body);
+    if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Wiki page not found', operation: 'update_wiki_page' } }, 404);
+    return c.json(result);
+  } catch (e: any) {
+    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'update_wiki_page' } }, 400);
+  }
+});
+
+app.delete('/wiki/:id', async (c) => {
+  const id = c.req.param('id');
+  try {
+    const result = service.deleteWikiPage(id);
+    if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Wiki page not found', operation: 'delete_wiki_page' } }, 404);
+    return c.json({ deleted: true });
+  } catch (e: any) {
+    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'delete_wiki_page' } }, 400);
+  }
+});
+
+app.get('/wiki/:id/versions', (c) => {
+  const id = c.req.param('id');
+  return c.json(service.getWikiVersions(id));
+});
+
+app.get('/wiki/search/:query', (c) => {
+  const query = c.req.param('query');
+  const limit = parseInt(c.req.query('limit') || '20');
+  return c.json(service.searchWikiPages(query, limit));
+});
+
+app.post('/wiki/compile/:entityId', async (c) => {
+  const entityId = c.req.param('entityId');
+  const body = await c.req.json().catch(() => ({}));
+  const entityName = body.entity_name || entityId;
+  try {
+    const result = service.compileWikiForEntity(entityId, entityName);
+    if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'No memories found for entity', operation: 'compile_wiki' } }, 404);
+    return c.json(result);
+  } catch (e: any) {
+    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'compile_wiki' } }, 400);
+  }
+});
+
+app.post('/wiki/compile-all', async (c) => {
+  try {
+    const results = service.compileAllWiki();
+    return c.json({ compiled: results.length, pages: results });
+  } catch (e: any) {
+    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'compile_all_wiki' } }, 400);
+  }
+});
+
+app.get('/wiki/conflicts/:entityId', (c) => {
+  const entityId = c.req.param('entityId');
+  return c.json({ conflicts: service.detectWikiConflicts(entityId) });
+});
+
 function parseErrorCode(msg: string): string {
   if (msg.includes('ERR_VALIDATION')) return 'ERR_VALIDATION';
   if (msg.includes('ERR_NOT_FOUND')) return 'ERR_NOT_FOUND';

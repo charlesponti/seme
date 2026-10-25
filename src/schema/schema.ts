@@ -229,7 +229,7 @@ export function getVecTableSql(dim: number): string {
   return `CREATE VIRTUAL TABLE IF NOT EXISTS memories_vec USING vec0(memory_id TEXT PRIMARY KEY, embedding FLOAT[${dim}])`;
 }
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 export const SCHEMA_NAME = 'self-healing-memory/3';
 
 export function getSchemaSql(embeddingDim: number): string {
@@ -389,5 +389,54 @@ CREATE TABLE IF NOT EXISTS entity_turn_links (
 );
 CREATE INDEX IF NOT EXISTS idx_e_t_links_entity ON entity_turn_links(entity_id);
 CREATE INDEX IF NOT EXISTS idx_e_t_links_turn ON entity_turn_links(turn_id);
+`;
+}
+
+/**
+ * Migration v4: Knowledge Wiki tables (wiki_pages).
+ * Creates wiki_pages table with maturity levels, versioning, and status.
+ * Does not modify existing tables.
+ */
+export function getSchemaSqlV4(): string {
+  return `
+-- wiki_pages
+CREATE TABLE IF NOT EXISTS wiki_pages (
+    id                TEXT PRIMARY KEY,
+    entity_id         TEXT REFERENCES entities(id),
+    entity_name       TEXT,
+    title             TEXT NOT NULL,
+    content           TEXT NOT NULL,
+    page_type         TEXT NOT NULL CHECK (page_type IN (
+                          'fact', 'decision', 'reference', 'playbook',
+                          'anti_pattern', 'episode', 'observation', 'preference')),
+    maturity          TEXT NOT NULL DEFAULT 'draft' CHECK (maturity IN (
+                          'draft', 'stable', 'canonical')),
+    version           INTEGER NOT NULL DEFAULT 1 CHECK (version >= 1),
+    source_memory_ids  TEXT NOT NULL DEFAULT '[]',
+    status            TEXT NOT NULL DEFAULT 'active' CHECK (status IN (
+                          'active', 'deprecated', 'archived')),
+    conflict_ids       TEXT NOT NULL DEFAULT '[]',
+    created_at        TEXT NOT NULL,
+    updated_at        TEXT NOT NULL,
+    updated_by        TEXT NOT NULL CHECK (updated_by IN ('system', 'user'))
+);
+CREATE INDEX IF NOT EXISTS idx_wiki_entity ON wiki_pages(entity_id);
+CREATE INDEX IF NOT EXISTS idx_wiki_type ON wiki_pages(page_type);
+CREATE INDEX IF NOT EXISTS idx_wiki_maturity ON wiki_pages(maturity);
+CREATE INDEX IF NOT EXISTS idx_wiki_status ON wiki_pages(status);
+CREATE INDEX IF NOT EXISTS idx_wiki_entity_name ON wiki_pages(entity_name);
+
+-- wiki_page_versions
+CREATE TABLE IF NOT EXISTS wiki_page_versions (
+    id          TEXT PRIMARY KEY,
+    page_id     TEXT NOT NULL REFERENCES wiki_pages(id),
+    version     INTEGER NOT NULL,
+    content     TEXT NOT NULL,
+    maturity    TEXT NOT NULL,
+    reason      TEXT NOT NULL,
+    created_at  TEXT NOT NULL,
+    created_by  TEXT NOT NULL CHECK (created_by IN ('system', 'user'))
+);
+CREATE INDEX IF NOT EXISTS idx_wiki_versions_page ON wiki_page_versions(page_id, version);
 `;
 }
