@@ -27,6 +27,10 @@ npm run build
 node dist/index.js
 ```
 
+## Storage
+
+Data is stored at `~/.hominem/memory.db` by default. Override with the `SEME_STORAGE_DIR` environment variable.
+
 ## V1-tonight operations
 
 1. `record_turn` — append a turn to a session

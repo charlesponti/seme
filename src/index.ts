@@ -3,7 +3,7 @@
 import { MemoryService } from './api/service.js';
 import * as fs from 'node:fs';
 
-const STORAGE_DIR = '/tmp/scratchpad/seme-test';
+const STORAGE_DIR = process.env.SEME_STORAGE_DIR || '/tmp/scratchpad/seme-demo';
 const EMBEDDING_DIM = 4;
 
 if (fs.existsSync(STORAGE_DIR)) {
