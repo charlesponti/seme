@@ -2,6 +2,7 @@
 
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
+import { cors } from 'hono/cors';
 import { MemoryService } from './api/service.js';
 import { uuid } from './types/common.js';
 
@@ -18,8 +19,43 @@ service.seedIdentityCore(
 
 const app = new Hono();
 
+// CORS for web dashboard (restricted to known hosts)
+const ALLOWED_ORIGINS = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:5173',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:3001',
+  'http://127.0.0.1:5173',
+];
+
+app.use('*', async (c, next) => {
+  const origin = c.req.header('origin');
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    c.header('Access-Control-Allow-Origin', origin);
+    c.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    c.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    c.header('Access-Control-Allow-Credentials', 'true');
+  }
+  if (c.req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: { 'Access-Control-Allow-Origin': origin || '', 'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Credentials': 'true' } });
+  }
+  await next();
+});
+
 // Health check
 app.get('/health', (c) => c.json({ status: 'ok', version: '0.1.0' }));
+
+// List memories
+app.get('/memories', (c) => {
+  const status = c.req.query('status') || undefined;
+  const kind = c.req.query('kind') || undefined;
+  const slot = c.req.query('slot') || undefined;
+  const search = c.req.query('search') || undefined;
+  const limit = parseInt(c.req.query('limit') || '50');
+  const offset = parseInt(c.req.query('offset') || '0');
+  return c.json(service.listMemories(status, kind, slot, search, limit, offset));
+});
 
 // 1. record_turn
 app.post('/sessions/:sessionId/turns', async (c) => {
