@@ -1,30 +1,11 @@
 {
-  "name": "seme",
-  "version": "1.0.0",
-  "description": "Self-healing memory system for AI companions. Local-first, single-user, SQLite-backed.",
-  "keywords": [],
-  "license": "ISC",
-  "author": "",
-  "type": "commonjs",
-  "main": "index.js",
+  "name": "seme-monorepo",
+  "private": true,
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/server.js",
-    "demo": "node dist/index.js",
-    "dev": "npm run build && npm run start",
-    "bench": "node dist/benchmarks/perf.js"
-  },
-  "dependencies": {
-    "@hono/node-server": "^2.1.5",
-    "better-sqlite3": "^13.0.3",
-    "hono": "^4.13.13",
-    "sqlite-vec": "^0.1.9",
-    "uuid": "^14.0.3"
-  },
-  "devDependencies": {
-    "@types/better-sqlite3": "^9.6.0",
-    "@types/node": "^26.6.5",
-    "@types/uuid": "^11.0.0",
-    "typescript": "^7.0.2"
+    "dev:api": "cd apps/api && npm run dev",
+    "dev:web": "cd apps/web && npm run dev",
+    "build:api": "cd apps/api && npm run build",
+    "build:web": "cd apps/web && npm run build",
+    "build": "npm run build:api && npm run build:web"
   }
 }

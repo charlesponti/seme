@@ -1,0 +1,18 @@
+{
+  "projectName": "seme-web",
+  "mode": "file-router",
+  "bundler": "vite",
+  "typescript": true,
+  "tailwind": false,
+  "packageManager": "npm",
+  "git": false,
+  "install": false,
+  "intent": false,
+  "addOnOptions": {},
+  "projectPreset": "blank",
+  "routerOnly": false,
+  "includeExamples": false,
+  "version": 1,
+  "framework": "react",
+  "chosenAddOns": []
+}
