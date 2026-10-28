@@ -16,18 +16,32 @@ export const Route = createRootRoute({
 
 function RootLayout() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
+    <div className="min-h-screen bg-background">
+      <header className="border-b border-border px-6 py-4 backdrop-blur bg-background/80 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900">Seme</h1>
-          <nav className="flex gap-4 text-sm">
-            <Link to="/" className="text-gray-600 hover:text-gray-900">Dashboard</Link>
-            <Link to="/memories" className="text-gray-600 hover:text-gray-900">Memories</Link>
-            <Link to="/entities" className="text-gray-600 hover:text-gray-900">Entities</Link>
-            <Link to="/wiki" className="text-gray-600 hover:text-gray-900">Wiki</Link>
-            <Link to="/search" className="text-gray-600 hover:text-gray-900">Search</Link>
-            <Link to="/tasks" className="text-gray-600 hover:text-gray-900">Tasks</Link>
-            <Link to="/submit" className="text-gray-600 hover:text-gray-900">Submit</Link>
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">S</div>
+            <h1 className="text-xl font-bold">Seme</h1>
+          </div>
+          <nav className="flex gap-1 text-sm">
+            {[
+              { to: '/', label: 'Dashboard' },
+              { to: '/memories', label: 'Memories' },
+              { to: '/entities', label: 'Entities' },
+              { to: '/wiki', label: 'Wiki' },
+              { to: '/search', label: 'Search' },
+              { to: '/tasks', label: 'Tasks' },
+              { to: '/submit', label: 'Submit' },
+            ].map(({ to, label }) => (
+              <Link
+                key={to}
+                to={to}
+                className="px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                activeProps={{ className: 'px-3 py-1.5 rounded-md text-foreground bg-accent' }}
+              >
+                {label}
+              </Link>
+            ))}
           </nav>
         </div>
       </header>
@@ -40,7 +54,7 @@ function RootLayout() {
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <head><HeadContent /></head>
       <body>{children}<Scripts /></body>
     </html>
