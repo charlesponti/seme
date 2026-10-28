@@ -19,8 +19,10 @@ service.seedIdentityCore(
 
 const app = new Hono();
 
-// CORS for web dashboard (restricted to known hosts)
-const ALLOWED_ORIGINS = [
+// CORS for the web dashboard. Local dev origins are always allowed; extra
+// origins (e.g. a deployed dashboard) come from SEME_ALLOWED_ORIGINS as a
+// comma-separated list. Nothing else is ever echoed back.
+const LOCAL_ORIGINS = [
   'http://localhost:3000',
   'http://localhost:3001',
   'http://localhost:5173',
@@ -28,18 +30,40 @@ const ALLOWED_ORIGINS = [
   'http://127.0.0.1:3001',
   'http://127.0.0.1:5173',
 ];
+const EXTRA_ORIGINS = (process.env.SEME_ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+const ALLOWED_ORIGINS = new Set([...LOCAL_ORIGINS, ...EXTRA_ORIGINS]);
+
+const CORS_METHODS = 'GET, POST, PUT, PATCH, DELETE, OPTIONS';
+const CORS_HEADERS = 'Content-Type, Authorization';
 
 app.use('*', async (c, next) => {
   const origin = c.req.header('origin');
-  if (origin && ALLOWED_ORIGINS.includes(origin)) {
-    c.header('Access-Control-Allow-Origin', origin);
-    c.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    c.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  const allowed = !!origin && ALLOWED_ORIGINS.has(origin);
+
+  if (allowed) {
+    c.header('Access-Control-Allow-Origin', origin!);
+    c.header('Vary', 'Origin');
+    c.header('Access-Control-Allow-Methods', CORS_METHODS);
+    c.header('Access-Control-Allow-Headers', CORS_HEADERS);
     c.header('Access-Control-Allow-Credentials', 'true');
   }
+
   if (c.req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: { 'Access-Control-Allow-Origin': origin || '', 'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Credentials': 'true' } });
+    // Preflight: only advertise the origin when it is on the allowlist.
+    const headers: Record<string, string> = { Vary: 'Origin' };
+    if (allowed) {
+      headers['Access-Control-Allow-Origin'] = origin!;
+      headers['Access-Control-Allow-Methods'] = CORS_METHODS;
+      headers['Access-Control-Allow-Headers'] = CORS_HEADERS;
+      headers['Access-Control-Allow-Credentials'] = 'true';
+      headers['Access-Control-Max-Age'] = '600';
+    }
+    return new Response(null, { status: 204, headers });
   }
+
   await next();
 });
 
