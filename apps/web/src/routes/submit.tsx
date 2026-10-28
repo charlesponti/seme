@@ -1,52 +1,101 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { semeApi } from '../lib/api'
+import { Tabs } from '../components/ui/tabs'
+import { useToast } from '../components/ui/toast'
 
 export const Route = createFileRoute('/submit')({
   component: SubmitPage,
 })
 
 function SubmitPage() {
+  const [mode, setMode] = useState('text')
   const [text, setText] = useState('')
-  const [result, setResult] = useState<any>(null)
+  const [url, setUrl] = useState('')
+  const [title, setTitle] = useState('')
   const [loading, setLoading] = useState(false)
+  const { toast } = useToast()
 
   async function submit() {
-    if (!text.trim()) return
+    if (mode === 'text' && !text.trim()) return
+    if (mode === 'url' && !url.trim()) return
     setLoading(true)
-    setResult(null)
     try {
-      const ingestResult = await semeApi.submitText(text, 'Web Submission')
-      await semeApi.endSession('web')
-      setResult({ success: true, message: `Submitted ${ingestResult.chunks} chunk(s). Extraction running in background. Check Memories tab in ~20s.` })
+      const res =
+        mode === 'text'
+          ? await semeApi.submitText(text, title || 'Web Submission')
+          : await semeApi.submitUrl(url)
+      if (res?.error) throw new Error(res.error.message ?? 'ingest failed')
+      toast(`Queued ${res.chunks ?? 1} chunk(s) — extraction runs in the background`, 'success')
       setText('')
+      setUrl('')
+      setTitle('')
     } catch (e: any) {
-      setResult({ success: false, message: 'Error: ' + e.message })
+      toast(e.message ?? 'Submit failed', 'error')
     }
     setLoading(false)
   }
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-4">Submit Text for Extraction</h2>
-      <div className="bg-white border border-gray-200 rounded-lg p-4">
-        <textarea value={text} onChange={e => setText(e.target.value)}
-          placeholder="Paste a block of text, conversation, or notes here. The system will extract memories, entities, and relationships."
-          className="w-full min-h-[200px] border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-vertical" />
-        <div className="flex gap-2 mt-3">
-          <button onClick={submit} disabled={loading}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 disabled:opacity-50">
-            {loading ? 'Submitting...' : 'Extract & Save'}
+      <div className="mb-6">
+        <h2 className="text-3xl font-bold tracking-tight">
+          <span className="gradient-text">Submit for Extraction</span>
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Paste text, notes, or a URL. Seme extracts memories, entities, and relationships.
+        </p>
+      </div>
+
+      <Tabs
+        className="mb-4"
+        value={mode}
+        onChange={setMode}
+        tabs={[
+          { id: 'text', label: 'Text' },
+          { id: 'url', label: 'URL' },
+        ]}
+      />
+
+      <div className="rounded-xl border border-border bg-card p-5">
+        {mode === 'text' ? (
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Paste a block of text, conversation, or notes here…"
+            className="min-h-[220px] w-full resize-vertical rounded-lg border border-border bg-background p-3 text-sm outline-none placeholder:text-muted-foreground focus:border-foreground/30"
+          />
+        ) : (
+          <input
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://example.com/article"
+            className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground focus:border-foreground/30"
+          />
+        )}
+
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Title (optional)"
+          className="mt-3 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:border-foreground/30"
+        />
+
+        <div className="mt-4 flex gap-2">
+          <button
+            onClick={submit}
+            disabled={loading}
+            className="rounded-lg bg-foreground px-5 py-2.5 text-sm font-medium text-background hover:opacity-90 disabled:opacity-50"
+          >
+            {loading ? 'Submitting…' : 'Extract & Save'}
           </button>
-          <button onClick={() => setText('')} className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-200">
+          <button
+            onClick={() => { setText(''); setUrl(''); setTitle('') }}
+            className="rounded-lg border border-border px-5 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-accent"
+          >
             Clear
           </button>
         </div>
-        {result && (
-          <div className={`mt-3 p-3 rounded-lg text-sm ${result.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-            {result.message}
-          </div>
-        )}
       </div>
     </div>
   )

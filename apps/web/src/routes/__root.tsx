@@ -1,5 +1,6 @@
 import { HeadContent, Scripts, createRootRoute, Outlet, Link } from '@tanstack/react-router'
 import appCss from '../styles.css?url'
+import { ToastProvider } from '../components/ui/toast'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -28,6 +29,7 @@ function RootLayout() {
               { to: '/', label: 'Dashboard' },
               { to: '/memories', label: 'Memories' },
               { to: '/entities', label: 'Entities' },
+              { to: '/graph', label: 'Graph' },
               { to: '/wiki', label: 'Wiki' },
               { to: '/search', label: 'Search' },
               { to: '/tasks', label: 'Tasks' },
@@ -46,7 +48,9 @@ function RootLayout() {
         </div>
       </header>
       <main className="max-w-7xl mx-auto px-6 py-8">
-        <Outlet />
+        <ToastProvider>
+          <Outlet />
+        </ToastProvider>
       </main>
     </div>
   )

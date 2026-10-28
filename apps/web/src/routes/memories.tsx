@@ -1,6 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
 import { semeApi } from '../lib/api'
+import { Tabs } from '../components/ui/tabs'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
 
 export const Route = createFileRoute('/memories')({
   component: MemoriesPage,
@@ -9,13 +11,14 @@ export const Route = createFileRoute('/memories')({
 function MemoriesPage() {
   const [memories, setMemories] = useState<any[]>([])
   const [filter, setFilter] = useState('all')
+  const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
       setLoading(true)
       try {
-        const params: any = { limit: '100' }
+        const params: any = { limit: '200' }
         if (filter !== 'all') params.status = filter
         const data = await semeApi.memories(params)
         setMemories(data.memories || [])
@@ -25,32 +28,86 @@ function MemoriesPage() {
     load()
   }, [filter])
 
+  const shown = memories.filter((m) =>
+    query.trim() ? `${m.value_text} ${m.slot ?? ''} ${m.kind}`.toLowerCase().includes(query.toLowerCase()) : true
+  )
+
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-4">Memories</h2>
-      <div className="flex gap-2 mb-4">
-        {['all', 'active', 'superseded', 'deleted'].map(f => (
-          <button key={f} onClick={() => setFilter(f)}
-            className={`px-3 py-1 text-sm rounded border ${filter === f ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}>
-            {f}
-          </button>
-        ))}
-      </div>
-      {loading ? <p className="text-gray-500">Loading...</p> :
-        memories.length === 0 ? <p className="text-gray-500">No memories found</p> :
-        <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
-          {memories.map((m: any) => (
-            <div key={m.id} className="p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full font-mono">{m.kind}</span>
-                <span className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">{m.status}</span>
-              </div>
-              <p className="text-gray-800 text-sm mt-1">{m.value_text}</p>
-              <p className="text-xs text-gray-500 mt-1">slot: {m.slot || 'none'} | confidence: {m.confidence} | source: {m.source_type}</p>
-            </div>
-          ))}
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">
+            <span className="gradient-text">Memories</span>
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">{shown.length} of {memories.length} shown</p>
         </div>
-      }
+        <div className="flex items-center gap-2">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Filter…"
+            className="w-52 rounded-md border border-border bg-card px-3 py-1.5 text-sm outline-none placeholder:text-muted-foreground focus:border-foreground/30"
+          />
+          <Tabs
+            value={filter}
+            onChange={setFilter}
+            tabs={[
+              { id: 'all', label: 'All' },
+              { id: 'active', label: 'Active' },
+              { id: 'superseded', label: 'Superseded' },
+              { id: 'deleted', label: 'Deleted' },
+            ]}
+          />
+        </div>
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : shown.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No memories found.</p>
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Kind</TableHead>
+                <TableHead>Value</TableHead>
+                <TableHead>Slot</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Conf.</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {shown.map((m: any) => (
+                <TableRow key={m.id}>
+                  <TableCell>
+                    <span className="rounded-full bg-accent px-2 py-0.5 text-[11px]">{m.kind}</span>
+                  </TableCell>
+                  <TableCell className="max-w-[520px] text-sm">{m.value_text}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{m.slot || '—'}</TableCell>
+                  <TableCell>
+                    <span
+                      className={
+                        'rounded-full px-2 py-0.5 text-[11px] ' +
+                        (m.status === 'active'
+                          ? 'bg-emerald-500/15 text-emerald-300'
+                          : m.status === 'superseded'
+                          ? 'bg-amber-500/15 text-amber-300'
+                          : 'bg-red-500/15 text-red-300')
+                      }
+                    >
+                      {m.status}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right text-xs tabular-nums text-muted-foreground">
+                    {typeof m.confidence === 'number' ? m.confidence.toFixed(2) : '—'}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   )
 }

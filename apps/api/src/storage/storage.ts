@@ -2,7 +2,7 @@
 
 import Database from 'better-sqlite3';
 import * as sqliteVec from 'sqlite-vec';
-import { getSchemaSql, getSchemaSqlV2, getSchemaSqlV3, getSchemaSqlV4, getSchemaSqlV5, getSchemaSqlV6, getSchemaSqlV7, getSchemaSqlV8, getSchemaSqlV9 } from '../schema/schema.js';
+import { SCHEMA_SQL, getVecTableSql, getSchemaSqlV2, getSchemaSqlV3, getSchemaSqlV4, getSchemaSqlV5, getSchemaSqlV6, getSchemaSqlV7, getSchemaSqlV8, getSchemaSqlV9 } from '../schema/schema.js';
 import { uuid, nowUtc } from '../types/common.js';
 import { createHash } from 'node:crypto';
 
@@ -46,6 +46,14 @@ export class Storage {
 
     // Run migrations (placeholder - will be populated)
     this.runMigrations();
+
+    // memories_vec is dimension-dependent, so it lives outside the migration
+    // chain and is ensured idempotently at every open.
+    this.ensureVecTable();
+  }
+
+  private ensureVecTable(): void {
+    this.db.exec(getVecTableSql(this.embeddingDim));
   }
 
   private probeCapabilities(): void {
@@ -164,7 +172,10 @@ export class Storage {
   }
 
   private getMigrations(): Array<{ version: number; name: string; sql: string; checksum: string; disableForeignKeys?: boolean }> {
-    const v1Sql = getSchemaSql(this.embeddingDim);
+    // v1 must be dimension-agnostic so its checksum is stable when the
+    // embedding dimension changes. memories_vec is created separately at
+    // startup with the runtime dimension (see ensureVecTable).
+    const v1Sql = SCHEMA_SQL;
     const v2Sql = getSchemaSqlV2();
     const v3Sql = getSchemaSqlV3();
     const v4Sql = getSchemaSqlV4();
