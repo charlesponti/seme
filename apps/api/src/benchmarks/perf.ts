@@ -4,7 +4,7 @@ import { MemoryService } from '../api/service.js';
 import * as fs from 'node:fs';
 
 const STORAGE_DIR = '/tmp/scratchpad/seme-bench';
-const EMBEDDING_DIM = 4;
+const EMBEDDING_DIM = 1024;
 
 interface TimingResult {
   operation: string;
@@ -109,7 +109,7 @@ async function main() {
   console.log('Benchmarking retrieve_context...');
   for (let i = 0; i < N; i++) {
     const start = performance.now();
-    service.retrieveContext('bench-session', `What about item ${i}?`);
+    await service.retrieveContext('bench-session', `What about item ${i}?`);
     results['retrieve_context'].push(performance.now() - start);
   }
 

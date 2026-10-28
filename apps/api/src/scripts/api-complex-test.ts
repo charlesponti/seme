@@ -4,7 +4,7 @@ import { MemoryService } from '../api/service.js';
 import * as fs from 'node:fs';
 
 const STORAGE_DIR = '/tmp/scratchpad/seme-api-complex';
-const EMBEDDING_DIM = 4;
+const EMBEDDING_DIM = 1024;
 
 function cleanup() {
   if (fs.existsSync(STORAGE_DIR)) fs.rmSync(STORAGE_DIR, { recursive: true });
@@ -51,7 +51,7 @@ tests.push({
     await seme.recordTurn('s1', 'user', 'I also drink coffee every morning.');
     const endResult = await seme.endSession('s1');
     await new Promise(r => setTimeout(r, 20000));
-    const ctx = seme.retrieveContext('s2', 'What does the user prefer?');
+    const ctx = await seme.retrieveContext('s2', 'What does the user prefer?');
     const profile = seme.getProfile();
     return {
       passed: ctx.memories.length > 0 && profile.profile_text.length > 0 && endResult.accepted,
@@ -68,7 +68,7 @@ tests.push({
       await seme.endSession(`s${i}`);
     }
     await new Promise(r => setTimeout(r, 30000));
-    const ctx = seme.retrieveContext('s5', 'programming');
+    const ctx = await seme.retrieveContext('s5', 'programming');
     const profile = seme.getProfile();
     return {
       passed: ctx.memories.length > 0 && profile.profile_text.length > 20,
@@ -111,7 +111,7 @@ tests.push({
     const charles = seme.createEntity('Charles', 'person', [], 'User', 'user_stated', 0.9);
     const ponti = seme.createEntity('Ponti Studios', 'organization', [], 'Company', 'user_stated', 0.9);
     seme.createRelationship(charles, ponti, 'works_at', 'works at', t.turn_id, episode.id);
-    const ctx = seme.retrieveContext('s2', 'Charles');
+    const ctx = await seme.retrieveContext('s2', 'Charles');
     return {
       passed: ctx.graph_summary !== undefined && ctx.graph_summary.entities.length > 0,
       details: `Graph entities: ${ctx.graph_summary?.entities.length}, rels: ${ctx.graph_summary?.relationships.length}`

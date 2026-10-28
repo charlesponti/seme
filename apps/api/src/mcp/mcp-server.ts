@@ -5,7 +5,7 @@ import * as readline from 'node:readline';
 import * as fs from 'node:fs';
 
 const STORAGE_DIR = process.env.SEME_STORAGE_DIR || `${process.env.HOME}/.hominem`;
-const EMBEDDING_DIM = 4;
+const EMBEDDING_DIM = 1024;
 
 interface JsonRpcRequest {
   jsonrpc: '2.0';
@@ -50,11 +50,11 @@ async function handleToolCall(name: string, args: any): Promise<any> {
       return { saved: true, turn_id: turn.turn_id };
     }
     case 'seme_recall': {
-      const ctx = service.retrieveContext(args.session_id || 'mcp-session', args.query);
+      const ctx = await service.retrieveContext(args.session_id || 'mcp-session', args.query);
       return { memories: ctx.memories, abstain: ctx.abstain, profile: ctx.profile_text };
     }
     case 'seme_get_context': {
-      return service.retrieveContext(args.session_id, args.user_message);
+      return await service.retrieveContext(args.session_id, args.user_message);
     }
     case 'seme_correct': {
       const result = service.correctMemory(args.memory_id, args.new_value);

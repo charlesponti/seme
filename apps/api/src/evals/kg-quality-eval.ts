@@ -4,7 +4,7 @@ import { MemoryService } from '../api/service.js';
 import * as fs from 'node:fs';
 
 const STORAGE_DIR = '/tmp/scratchpad/seme-kgq-eval';
-const EMBEDDING_DIM = 4;
+const EMBEDDING_DIM = 1024;
 
 function cleanup(dir: string) {
   if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true });
@@ -290,7 +290,7 @@ tests.push({
       svc.createRelationship(charles, ponti, 'works_at', 'works at', t.turn_id, episode.id);
       return { charles };
     })();
-    const ctx = svc.retrieveContext('s2', 'Where does Charles work?');
+    const ctx = await svc.retrieveContext('s2', 'Where does Charles work?');
     return { passed: ctx.graph_summary !== undefined && ctx.graph_summary.entities.length > 0, details: `Entities: ${ctx.graph_summary?.entities.length}, Rels: ${ctx.graph_summary?.relationships.length}` };
   },
 });
@@ -298,7 +298,7 @@ tests.push({
 tests.push({
   name: 'KGQ-Retrieve: query with no entity match returns no graph summary',
   fn: async (svc) => {
-    const ctx = svc.retrieveContext('s2', 'What is the weather today?');
+    const ctx = await svc.retrieveContext('s2', 'What is the weather today?');
     return { passed: ctx.graph_summary === undefined, details: `Graph summary: ${ctx.graph_summary ? 'present' : 'absent'}` };
   },
 });
@@ -314,7 +314,7 @@ tests.push({
     svc.createRelationship(svc.createEntity('Charles', 'person', [], 'User', 'user_stated', 0.9), entity, 'works_at', 'works at', t.turn_id, episode.id);
     // Link entity to memory
     svc.getStorage().getDb().prepare('INSERT INTO entity_memory_links (entity_id, memory_id, role, created_at) VALUES (?, ?, ?, ?)').run(entity, mem.memory_id, 'mentioned', new Date().toISOString());
-    const ctx = svc.retrieveContext('s2', 'Ponti Studios');
+    const ctx = await svc.retrieveContext('s2', 'Ponti Studios');
     const hasMemory = ctx.memories.some(m => m.value_text.includes('Ponti'));
     return { passed: hasMemory, details: `Memories: ${ctx.memories.length}, Has Ponti memory: ${hasMemory}` };
   },

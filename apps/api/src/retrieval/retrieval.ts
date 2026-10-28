@@ -3,6 +3,7 @@
 import { Storage } from '../storage/storage.js';
 import { effectiveConfidence } from '../confidence/confidence.js';
 import { GraphStore } from '../graph/graph-store.js';
+import { EmbeddingProvider } from '../embeddings/embedding-provider.js';
 
 export interface RetrievalContext {
   identity_core_ref: string;
@@ -26,13 +27,15 @@ const RELEVANCE_FLOOR = 0.15;
 export class RetrievalEngine {
   private storage: Storage;
   private graphStore: GraphStore;
+  private embeddingProvider: EmbeddingProvider | null;
 
-  constructor(storage: Storage, graphStore?: GraphStore) {
+  constructor(storage: Storage, graphStore?: GraphStore, embeddingProvider?: EmbeddingProvider) {
     this.storage = storage;
     this.graphStore = graphStore || new GraphStore(storage);
+    this.embeddingProvider = embeddingProvider || null;
   }
 
-  retrieve(sessionId: string, userMessage: string, timeRangeHint?: { from?: string; to?: string; historical?: boolean; since?: string; before?: string; asOf?: string }): RetrievalContext {
+  async retrieve(sessionId: string, userMessage: string, timeRangeHint?: { from?: string; to?: string; historical?: boolean; since?: string; before?: string; asOf?: string }): Promise<RetrievalContext> {
     const now = new Date().toISOString();
     const isHistorical = timeRangeHint?.historical === true;
 
@@ -89,6 +92,30 @@ export class RetrievalEngine {
       const text = `${m.subject} ${m.predicate} ${m.value_text}`.toLowerCase();
       if (words.some(w => text.includes(w))) {
         candidateIds.add(m.id);
+      }
+    }
+
+    // 2b. Vector search (hybrid): semantic similarity via sqlite-vec
+    if (this.embeddingProvider) {
+      try {
+        const queryEmbedding = await this.embeddingProvider.embed(userMessage);
+        const vecResults = this.storage.read((db: any) => {
+          return db.prepare(`
+            SELECT memory_id, vec_distance_cosine(embedding, ?) as distance
+            FROM memories_vec
+            ORDER BY distance ASC
+            LIMIT 20
+          `).all(new Float32Array(queryEmbedding)) as { memory_id: string; distance: number }[];
+        });
+        for (const r of vecResults) {
+          // Convert cosine distance to similarity (1 - distance)
+          if (r.distance < 0.5) { // Only include reasonably similar results
+            candidateIds.add(r.memory_id);
+          }
+        }
+      } catch (e) {
+        // Graceful degradation: skip vector search
+        console.warn('Vector search failed:', (e as Error).message);
       }
     }
 

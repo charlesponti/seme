@@ -26,6 +26,7 @@ import { ProcedureStore } from '../procedures/procedure-store.js';
 import { DataImport } from '../import/data-import.js';
 import { IntegrationStore } from '../integrations/integration-store.js';
 import { uuid, nowUtc } from '../types/common.js';
+import { createEmbeddingProvider } from '../embeddings/embedding-provider.js';
 import { getDecayClass } from '../confidence/confidence.js';
 
 export class MemoryService {
@@ -57,7 +58,7 @@ export class MemoryService {
     this.storage = new Storage(config);
     this.ingest = new IngestManager(this.storage);
     this.gate = new ValidationGate(this.storage);
-    this.resolver = new Resolver(this.storage);
+    this.resolver = new Resolver(this.storage, createEmbeddingProvider());
     this.graphStore = new GraphStore(this.storage);
     this.wikiStore = new WikiStore(this.storage);
     this.wikiCompiler = new WikiCompiler(this.storage, this.wikiStore);
@@ -70,7 +71,7 @@ export class MemoryService {
     this.dataImport = new DataImport(this.storage);
     this.integrationStore = new IntegrationStore(this.storage);
     this.profileCompiler = new ProfileCompiler(this.storage, this.graphStore);
-    this.retrieval = new RetrievalEngine(this.storage, this.graphStore);
+    this.retrieval = new RetrievalEngine(this.storage, this.graphStore, createEmbeddingProvider());
     this.identityCore = new IdentityCoreManager(this.storage);
     this.extractionPipeline = new ExtractionPipeline(
       this.storage, this.ingest, this.gate, this.resolver, this.profileCompiler
@@ -131,14 +132,14 @@ export class MemoryService {
   }
 
   // 3. retrieve_context
-  retrieveContext(sessionId: string, userMessage: string, timeRangeHint?: { from?: string; to?: string; asOf?: string; historical?: boolean; since?: string; before?: string }) {
+  async retrieveContext(sessionId: string, userMessage: string, timeRangeHint?: { from?: string; to?: string; asOf?: string; historical?: boolean; since?: string; before?: string }) {
     // Normalize temporal params
     const hint = timeRangeHint ? {
       from: timeRangeHint.from || timeRangeHint.since,
       to: timeRangeHint.to || timeRangeHint.before || timeRangeHint.asOf,
       historical: timeRangeHint.historical || !!timeRangeHint.asOf,
     } : undefined;
-    return this.retrieval.retrieve(sessionId, userMessage, hint);
+    return await this.retrieval.retrieve(sessionId, userMessage, hint);
   }
 
   // 4. remember_command

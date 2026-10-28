@@ -4,7 +4,7 @@ import { MemoryService } from '../api/service.js';
 import * as fs from 'node:fs';
 
 const STORAGE_DIR = '/tmp/scratchpad/seme-entity-type-eval';
-const EMBEDDING_DIM = 4;
+const EMBEDDING_DIM = 1024;
 
 function cleanup() {
   if (fs.existsSync(STORAGE_DIR)) fs.rmSync(STORAGE_DIR, { recursive: true });

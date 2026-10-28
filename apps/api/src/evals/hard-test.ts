@@ -4,7 +4,7 @@ import { MemoryService } from '../api/service.js';
 import * as fs from 'node:fs';
 
 const STORAGE_DIR = '/tmp/scratchpad/seme-hard-test';
-const EMBEDDING_DIM = 4;
+const EMBEDDING_DIM = 1024;
 
 function cleanup() {
   if (fs.existsSync(STORAGE_DIR)) fs.rmSync(STORAGE_DIR, { recursive: true });
@@ -57,7 +57,7 @@ const tests: { name: string; fn: (svc: MemoryService) => Promise<{ passed: boole
         await svc.endSession(`s${i}`);
       }
       await new Promise(r => setTimeout(r, 2000));
-      const ctx = svc.retrieveContext('s10', 'coffee');
+      const ctx = await svc.retrieveContext('s10', 'coffee');
       const profile = svc.getProfile();
       const memCount = svc.listMemories('active').total;
       return {
@@ -79,7 +79,7 @@ const tests: { name: string; fn: (svc: MemoryService) => Promise<{ passed: boole
       await svc.rememberCommand('s2', 'Edinburgh', t2.turn_id, 'fact');
       await svc.endSession('s2');
       await new Promise(r => setTimeout(r, 2000));
-      const ctx = svc.retrieveContext('s3', 'where do I live');
+      const ctx = await svc.retrieveContext('s3', 'where do I live');
       const hasLondon = ctx.memories.some((m: any) => m.value_text.toLowerCase().includes('london'));
       const hasEdinburgh = ctx.memories.some((m: any) => m.value_text.toLowerCase().includes('edinburgh'));
       return {
@@ -100,7 +100,7 @@ const tests: { name: string; fn: (svc: MemoryService) => Promise<{ passed: boole
       const queries = ['quantum physics', 'ancient Rome', 'cooking recipes', 'space exploration', 'marine biology'];
       let abstained = 0;
       for (const q of queries) {
-        const ctx = svc.retrieveContext('s2', q);
+        const ctx = await svc.retrieveContext('s2', q);
         if (ctx.abstain || ctx.memories.length === 0) abstained++;
       }
       return {
@@ -191,7 +191,7 @@ const tests: { name: string; fn: (svc: MemoryService) => Promise<{ passed: boole
       await svc.boundaryCommand('s1', 'Never call me Chuck.', t.turn_id);
       await svc.endSession('s1');
       await new Promise(r => setTimeout(r, 2000));
-      const ctx = svc.retrieveContext('s2', 'Chuck');
+      const ctx = await svc.retrieveContext('s2', 'Chuck');
       return {
         passed: ctx.procedural_rules.length > 0,
         details: `Procedural rules: ${ctx.procedural_rules.length}`

@@ -4,7 +4,7 @@ import { MemoryService } from './api/service.js';
 import * as fs from 'node:fs';
 
 const STORAGE_DIR = process.env.SEME_STORAGE_DIR || '/tmp/scratchpad/seme-demo';
-const EMBEDDING_DIM = 4;
+const EMBEDDING_DIM = 1024;
 
 if (fs.existsSync(STORAGE_DIR)) {
   fs.rmSync(STORAGE_DIR, { recursive: true });
@@ -48,7 +48,7 @@ async function main() {
   console.log(profile1?.profile_text || '(empty)');
 
   // Retrieve context
-  const ctx1 = service.retrieveContext('session-1', 'What do you know about me?');
+  const ctx1 = await service.retrieveContext('session-1', 'What do you know about me?');
   console.log('\n  Retrieved memories:', ctx1.memories.length);
   for (const m of ctx1.memories) {
     console.log(`    - ${m.kind}: ${m.value_text} (${m.source_type}, conf=${m.confidence})`);

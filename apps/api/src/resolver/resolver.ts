@@ -5,6 +5,7 @@ import { consultModel, loadApiKey } from './model-resolver.js';
 import { PromotionManager } from './promotion.js';
 import { uuid, nowUtc, Memory } from '../types/common.js';
 import { ValidationGate, Candidate as VGCandidate } from '../validation/validation-gate.js';
+import { createEmbeddingProvider, EmbeddingProvider } from '../embeddings/embedding-provider.js';
 import { effectiveConfidence, initialConfidence, kForSource, reinforceConfidence, getContradictionPenalty, isPromotableToActive } from '../confidence/confidence.js';
 
 export interface Resolution {
@@ -19,10 +20,12 @@ export interface Resolution {
 export class Resolver {
   private storage: Storage;
   private promotionManager: PromotionManager;
+  private embeddingProvider: EmbeddingProvider | null;
 
-  constructor(storage: Storage) {
+  constructor(storage: Storage, embeddingProvider?: EmbeddingProvider) {
     this.storage = storage;
     this.promotionManager = new PromotionManager(storage);
+    this.embeddingProvider = embeddingProvider || null;
   }
 
   async resolve(candidate: VGCandidate): Promise<Resolution> {
@@ -295,6 +298,17 @@ export class Resolver {
       ? 'candidate'
       : 'active';
 
+    // Generate embedding for the candidate (if provider available)
+    let embedding: number[] | null = null;
+    if (this.embeddingProvider && decision !== 'NOOP') {
+      try {
+        embedding = await this.embeddingProvider.embed(candidate.value_text);
+      } catch (e) {
+        // Graceful degradation: skip vector storage
+        console.warn('Embedding generation failed:', (e as Error).message);
+      }
+    }
+
     await this.storage.write((db) => {
       if (decision === 'ADD') {
         // Insert new memory
@@ -318,9 +332,10 @@ export class Resolver {
           newId, candidate.value_text, candidate.subject, candidate.predicate
         );
 
-        // Update vec (placeholder - would need embedding)
-        // db.prepare('INSERT INTO memories_vec (memory_id, embedding) VALUES (?, ?)').run(newId, embedding);
-
+        // Update vec (store embedding if available)
+        if (embedding) {
+          db.prepare('INSERT INTO memories_vec (memory_id, embedding) VALUES (?, ?)').run(newId, new Float32Array(embedding));
+        }
       } else if (decision === 'SUPERSEDE' && targetId) {
         // Supersede: insert new first, then update incumbent (FK order)
         const incumbent = db.prepare('SELECT * FROM memories WHERE id = ?').get(targetId) as any;
@@ -347,6 +362,11 @@ export class Resolver {
           db.prepare('INSERT INTO memories_fts (memory_id, value_text, subject, predicate) VALUES (?, ?, ?, ?)').run(
             newId, candidate.value_text, candidate.subject, candidate.predicate
           );
+
+          // Store embedding for new memory
+          if (embedding) {
+            db.prepare('INSERT INTO memories_vec (memory_id, embedding) VALUES (?, ?)').run(newId, new Float32Array(embedding));
+          }
 
           // Now update incumbent (superseded_by_id references newId, which now exists)
           db.prepare(`

@@ -4,7 +4,7 @@ import { MemoryService } from '../api/service.js';
 import * as fs from 'node:fs';
 
 const STORAGE_DIR = '/tmp/scratchpad/seme-sys-eval';
-const EMBEDDING_DIM = 4;
+const EMBEDDING_DIM = 1024;
 
 interface ScenarioResult {
   passed: boolean;
@@ -72,7 +72,7 @@ const scenarios: { name: string; fn: (svc: MemoryService) => Promise<ScenarioRes
       await svc.recordTurn('s1', 'assistant', 'Sounds great!');
       await svc.endSession('s1');
       await new Promise(r => setTimeout(r, 8000));
-      const ctx = svc.retrieveContext('s1', 'Japan');
+      const ctx = await svc.retrieveContext('s1', 'Japan');
       const db = svc.getStorage();
       const mems = db.read((d: any) => d.prepare('SELECT value_text, modality, source_type FROM memories').all()) as any[];
       const hasJapanStated = mems.some((m: any) => m.value_text.toLowerCase().includes('japan') && m.value_text.toLowerCase().includes('live') && m.modality === 'stated');
@@ -85,7 +85,7 @@ const scenarios: { name: string; fn: (svc: MemoryService) => Promise<ScenarioRes
       await svc.recordTurn('s1', 'user', "I don't drink alcohol.");
       await svc.endSession('s1');
       await new Promise(r => setTimeout(r, 8000));
-      const ctx = svc.retrieveContext('s1', 'drink');
+      const ctx = await svc.retrieveContext('s1', 'drink');
       const hasNegation = ctx.memories.some((m: any) => m.value_text.toLowerCase().includes("don't") || m.value_text.toLowerCase().includes('not'));
       return { passed: ctx.memories.length > 0 && hasNegation, details: hasNegation ? 'Negation preserved' : 'Negation lost' };
     },
@@ -121,7 +121,7 @@ const scenarios: { name: string; fn: (svc: MemoryService) => Promise<ScenarioRes
       const t1 = await svc.recordTurn('s1', 'user', 'I live in London.');
       await svc.rememberCommand('s1', 'London', t1.turn_id, 'fact');
       // Manually create a home_city slot memory via remember (slot=null), then check
-      const ctx = svc.retrieveContext('s1', 'London');
+      const ctx = await svc.retrieveContext('s1', 'London');
       return { passed: ctx.memories.length > 0, details: `Memories: ${ctx.memories.length}` };
     },
   },
@@ -181,7 +181,7 @@ const scenarios: { name: string; fn: (svc: MemoryService) => Promise<ScenarioRes
     fn: async (svc) => {
       const t = await svc.recordTurn('s1', 'user', 'I like Python.');
       await svc.rememberCommand('s1', 'Python', t.turn_id, 'interest');
-      const ctx = svc.retrieveContext('s1', 'quantum physics');
+      const ctx = await svc.retrieveContext('s1', 'quantum physics');
       return { passed: ctx.abstain === true || ctx.memories.length === 0, details: `Abstain: ${ctx.abstain}, memories: ${ctx.memories.length}` };
     },
   },
@@ -190,7 +190,7 @@ const scenarios: { name: string; fn: (svc: MemoryService) => Promise<ScenarioRes
     fn: async (svc) => {
       const t = await svc.recordTurn('s1', 'user', 'I like Python.');
       await svc.rememberCommand('s1', 'Python', t.turn_id, 'interest');
-      const ctx = svc.retrieveContext('s1', 'Python');
+      const ctx = await svc.retrieveContext('s1', 'Python');
       return { passed: ctx.abstain === false && ctx.memories.length > 0, details: `Abstain: ${ctx.abstain}, memories: ${ctx.memories.length}` };
     },
   },
@@ -214,7 +214,7 @@ const scenarios: { name: string; fn: (svc: MemoryService) => Promise<ScenarioRes
       const t = await svc.recordTurn('s1', 'user', 'I like Rust.');
       await svc.rememberCommand('s1', 'Rust', t.turn_id, 'interest');
       await svc.pauseLearning();
-      const ctx = svc.retrieveContext('s1', 'Rust');
+      const ctx = await svc.retrieveContext('s1', 'Rust');
       return { passed: ctx !== null, details: 'Retrieval works while paused' };
     },
   },

@@ -4,7 +4,7 @@ import { Extractor, ExtractInput } from '../extraction/extractor.js';
 import * as fs from 'node:fs';
 
 const STORAGE_DIR = '/tmp/scratchpad/seme-eval';
-const EMBEDDING_DIM = 4;
+const EMBEDDING_DIM = 1024;
 
 // Test cases: conversation → expected extraction behavior
 interface TestCase {

@@ -7,7 +7,7 @@ import { MemoryService } from './api/service.js';
 import { uuid } from './types/common.js';
 
 const STORAGE_DIR = process.env.SEME_STORAGE_DIR || `${process.env.HOME}/.hominem`;
-const EMBEDDING_DIM = parseInt(process.env.SEME_EMBEDDING_DIM || '4');
+const EMBEDDING_DIM = parseInt(process.env.SEME_EMBEDDING_DIM || '1024');
 
 const service = new MemoryService({ storageDir: STORAGE_DIR, embeddingDim: EMBEDDING_DIM });
 
@@ -94,7 +94,7 @@ app.post('/sessions/:sessionId/retrieve', async (c) => {
       to: body.to,
       historical: body.historical,
     } : undefined;
-    const result = service.retrieveContext(sessionId, body.user_message || '', timeRangeHint);
+    const result = await service.retrieveContext(sessionId, body.user_message || '', timeRangeHint);
     return c.json(result);
   } catch (e: any) {
     return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'retrieve_context' } }, 400);
@@ -336,7 +336,7 @@ app.get('/graph/snapshot', (c) => {
 app.post('/graph/search', async (c) => {
   const body = await c.req.json();
   try {
-    const result = service.retrieveContext(body.session_id || 'default', body.user_message || '', body.time_range_hint);
+    const result = await service.retrieveContext(body.session_id || 'default', body.user_message || '', body.time_range_hint);
     return c.json(result);
   } catch (e: any) {
     return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'graph_search' } }, 400);

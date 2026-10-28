@@ -4,7 +4,7 @@ import { MemoryService } from '../api/service.js';
 import * as fs from 'node:fs';
 
 const STORAGE_DIR = '/tmp/scratchpad/seme-kg-eval';
-const EMBEDDING_DIM = 4;
+const EMBEDDING_DIM = 1024;
 
 function cleanup(dir: string) {
   if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true });
@@ -190,7 +190,7 @@ tests.push({
   name: 'KG-Retrieve: graph summary in context',
   fn: async (svc) => {
     const { charles } = await populateGraph(svc);
-    const ctx = svc.retrieveContext('s2', 'Where does Charles work?');
+    const ctx = await svc.retrieveContext('s2', 'Where does Charles work?');
     return { passed: ctx.graph_summary !== undefined && ctx.graph_summary.entities.length > 0, details: `Graph entities: ${ctx.graph_summary?.entities.length}, rels: ${ctx.graph_summary?.relationships.length}` };
   },
 });
