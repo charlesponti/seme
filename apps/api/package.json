@@ -10,9 +10,11 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
+    "mcp": "node dist/mcp/mcp-server.js",
     "demo": "node dist/index.js",
     "dev": "npm run build && npm run start",
-    "bench": "node dist/benchmarks/perf.js"
+    "bench": "node dist/benchmarks/perf.js",
+    "test:mcp": "python3 tests/mcp_protocol_test.py"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.5",
