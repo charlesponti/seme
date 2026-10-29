@@ -15,20 +15,24 @@ import { DetailPanel } from '../components/graph/DetailPanel'
 import { useGraphLayout } from '../components/graph/useGraphLayout'
 
 export const Route = createFileRoute('/graph')({
-  validateSearch: (search: Record<string, unknown>): { entity?: string } => ({
+  validateSearch: (search: Record<string, unknown>): { entity?: string; focus?: string } => ({
     entity: typeof search.entity === 'string' ? search.entity : undefined,
+    focus: typeof search.focus === 'string' ? search.focus : undefined,
   }),
   component: GraphPage,
 })
 
 const INITIAL_NODES = 150
 
-type GraphPageSearch = { entity?: string }
+type GraphPageSearch = { entity?: string; focus?: string }
 
 const EMPTY_INDEX: GraphIndex = buildGraphIndex([], [])
 
 function GraphPage() {
-  const { entity: deepLinkId } = Route.useSearch() as GraphPageSearch
+  const { entity, focus } = Route.useSearch() as GraphPageSearch
+  // /graph?focus=<id> is the canonical deep link (entity page, search results).
+  // /graph?entity=<id> is kept as an alias for older links.
+  const deepLinkId = focus ?? entity
 
   const [snapshot, setSnapshot] = useState<{ entities: GraphEntity[]; relationships: GraphRelationship[] } | null>(null)
   const [loading, setLoading] = useState(true)
@@ -115,7 +119,9 @@ function GraphPage() {
     [ensureVisible],
   )
 
-  // Deep link: /graph?entity=<id> (used by search + entity pages later)
+  // Deep link: /graph?focus=<id> (entity page, search results), with
+  // /graph?entity=<id> as a legacy alias. Selects the entity, centers it,
+  // opens its panel, and expands its ring if it is outside the initial view.
   useEffect(() => {
     if (deepLinkDone.current === deepLinkId) return
     if (!deepLinkId || !points) return

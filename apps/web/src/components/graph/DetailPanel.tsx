@@ -1,5 +1,7 @@
-import { useMemo } from 'react'
-import { groupConnections, type Connection, type GraphEntity } from '../../lib/graphModel'
+import { Link } from '@tanstack/react-router'
+import { type Connection, type GraphEntity } from '../../lib/graphModel'
+import { formatDay } from '../../lib/format'
+import { ConnectionList } from './ConnectionList'
 
 interface Props {
   entity: GraphEntity | null
@@ -10,17 +12,9 @@ interface Props {
   onNavigate: (id: string) => void
 }
 
-function formatDate(value?: string | null): string | null {
-  if (!value) return null
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return value.slice(0, 10)
-  return d.toISOString().slice(0, 10)
-}
-
 export function DetailPanel({ entity, connections, degree, onClose, onExpand, onNavigate }: Props) {
-  const groups = useMemo(() => groupConnections(connections), [connections])
-  const firstSeen = formatDate(entity?.first_seen_at)
-  const lastSeen = formatDate(entity?.last_seen_at)
+  const firstSeen = entity?.first_seen_at ? formatDay(entity.first_seen_at) : null
+  const lastSeen = entity?.last_seen_at ? formatDay(entity.last_seen_at) : null
 
   return (
     <aside
@@ -55,12 +49,13 @@ export function DetailPanel({ entity, connections, degree, onClose, onExpand, on
               >
                 Expand neighbors
               </button>
-              <a
-                href={`/entities?entity=${encodeURIComponent(entity.id)}`}
+              <Link
+                to="/entities"
+                search={{ entity: entity.id }}
                 className="inline-flex h-8 items-center rounded-[6px] border border-[#d4d4d4] bg-white px-3 text-[12px] font-medium text-[#171717] hover:bg-[#f5f5f5]"
               >
                 View entity
-              </a>
+              </Link>
             </div>
           </div>
 
@@ -68,32 +63,7 @@ export function DetailPanel({ entity, connections, degree, onClose, onExpand, on
             <div className="px-2 pb-1 font-mono text-[11px] uppercase tracking-[0.08em] text-[#888888]">
               Connections · {connections.length}
             </div>
-            {groups.length === 0 ? (
-              <p className="px-2 py-2 text-[12px] text-[#888888]">No connections.</p>
-            ) : (
-              groups.map((group) => (
-                <section key={group.type} className="mb-2">
-                  <div className="px-2 py-1 font-mono text-[11px] uppercase leading-[18px] tracking-[0.08em] text-[#888888]">
-                    {group.type} · {group.rows.length}
-                  </div>
-                  {group.rows.map((row) => (
-                    <button
-                      key={row.relationship.id}
-                      type="button"
-                      onClick={() => onNavigate(row.otherId)}
-                      className="group flex w-full items-center justify-between gap-2 rounded-[6px] px-2 py-1.5 text-left hover:bg-[#f5f5f5]"
-                    >
-                      <span className="truncate text-[13px] leading-5 text-[#171717]">
-                        {row.other?.name ?? row.otherId.slice(0, 8)}
-                      </span>
-                      <span aria-hidden className="font-mono text-[12px] text-[#888888] group-hover:text-[#171717]">
-                        →
-                      </span>
-                    </button>
-                  ))}
-                </section>
-              ))
-            )}
+            <ConnectionList connections={connections} onNavigate={onNavigate} />
           </div>
 
           <div className="border-t border-[#eaeaea] px-4 py-3 font-mono text-[11px] leading-[18px] text-[#888888]">
