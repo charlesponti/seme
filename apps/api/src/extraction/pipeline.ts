@@ -55,12 +55,14 @@ export class ExtractionPipeline {
     }
 
     // Build extract input
+    const mode = episode.extraction_mode === 'document' ? 'document' : 'user';
     const recentMessages = turns.slice(-5); // last m turns (m=5 for V1)
     const input: ExtractInput = {
       episode_id: episodeId,
       turns: turns.map(t => ({ id: t.id, role: t.role, content: t.content, ts: t.ts })),
       rolling_summary: episode.summary,
       recent_messages: recentMessages.map(t => ({ id: t.id, role: t.role, content: t.content, ts: t.ts })),
+      mode,
     };
 
     // Extract (with retry on invalid_output)
@@ -243,8 +245,9 @@ export class ExtractionPipeline {
       console.error('Entity extraction failed for episode', episodeId, ':', e.message);
     }
 
-    // Recompile profile if any memories were created
-    if (memoriesCreated > 0) {
+    // Recompile profile if any memories were created. Document episodes skip
+    // this: a news fact must never rewrite the user's profile.
+    if (memoriesCreated > 0 && mode !== 'document') {
       await this.profileCompiler.compile('extraction', triggeringMemoryIds);
     }
 

@@ -564,6 +564,76 @@ CREATE INDEX IF NOT EXISTS idx_entities_type ON entities(type);
  * 'text' | 'file'), which rejects legitimate provenance such as 'rss'. SQLite
  * cannot drop a CHECK in place, so the table is rebuilt preserving all rows.
  */
+/**
+ * Migration v11: document-mode extraction.
+ *
+ * - `episodes.extraction_mode` records how an episode's turns should be read:
+ *   'user' (default, conversation) or 'document' (ingested article/source).
+ * - `memories.source_type` gains 'document_stated' so claims taken from a
+ *   document are never recorded as the user's own statements.
+ * Must run with foreign_keys = OFF (handled by the migration runner).
+ */
+export function getSchemaSqlV11(): string {
+  return `
+ALTER TABLE episodes ADD COLUMN extraction_mode TEXT NOT NULL DEFAULT 'user';
+CREATE INDEX IF NOT EXISTS idx_episodes_mode ON episodes(extraction_mode);
+
+-- Rebuild memories under a new name, then swap: renaming the *old* table would
+-- rewrite the FK clauses of every table that references memories(id).
+CREATE TABLE memories_new (
+    id                  TEXT PRIMARY KEY,
+    kind                TEXT NOT NULL CHECK (kind IN (
+                            'fact', 'preference', 'routine', 'boundary',
+                            'relationship', 'interest', 'trait_inference',
+                            'decision', 'reference', 'anti_pattern', 'observation')),
+    slot                TEXT REFERENCES slot_registry(slot),
+    subject             TEXT NOT NULL,
+    predicate           TEXT NOT NULL,
+    value_text          TEXT NOT NULL,
+    value_json          TEXT,
+    evidence_quote      TEXT NOT NULL,
+    source_turn_id      TEXT NOT NULL REFERENCES turns(id),
+    source_episode_id   TEXT NOT NULL REFERENCES episodes(id),
+    source_type         TEXT NOT NULL CHECK (source_type IN (
+                            'user_stated', 'user_confirmed', 'agent_inferred',
+                            'agent_reflection', 'user_edited', 'document_stated')),
+    modality            TEXT NOT NULL CHECK (modality IN (
+                            'stated', 'hypothetical', 'negated', 'joking', 'quoted')),
+    confidence          REAL NOT NULL CHECK (confidence >= 0.0 AND confidence <= 1.0),
+    importance          REAL NOT NULL CHECK (importance >= 0.0 AND importance <= 1.0),
+    pinned              INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0, 1)),
+    valid_from          TEXT,
+    valid_to            TEXT,
+    observed_at         TEXT NOT NULL,
+    recorded_at         TEXT NOT NULL,
+    superseded_at       TEXT,
+    superseded_by_id    TEXT REFERENCES memories(id),
+    supersedes_id       TEXT REFERENCES memories(id),
+    last_reinforced_at  TEXT,
+    last_accessed_at    TEXT,
+    reinforcement_count INTEGER NOT NULL DEFAULT 0 CHECK (reinforcement_count >= 0),
+    access_count        INTEGER NOT NULL DEFAULT 0 CHECK (access_count >= 0),
+    status              TEXT NOT NULL CHECK (status IN (
+                            'candidate', 'active', 'superseded', 'archived',
+                            'quarantined', 'deleted')),
+    extractor_version   TEXT NOT NULL,
+    decay_class         TEXT NOT NULL CHECK (decay_class IN (
+                            'exempt', 'slow', 'medium', 'fast', 'session'))
+);
+INSERT INTO memories_new SELECT * FROM memories;
+DROP TABLE memories;
+ALTER TABLE memories_new RENAME TO memories;
+
+CREATE INDEX IF NOT EXISTS idx_memories_status_slot   ON memories(status, slot);
+CREATE INDEX IF NOT EXISTS idx_memories_status_decay  ON memories(status, decay_class, last_reinforced_at);
+CREATE INDEX IF NOT EXISTS idx_memories_episode       ON memories(source_episode_id);
+CREATE INDEX IF NOT EXISTS idx_memories_turn          ON memories(source_turn_id);
+CREATE INDEX IF NOT EXISTS idx_memories_slot_valid    ON memories(slot, valid_to);
+CREATE INDEX IF NOT EXISTS idx_memories_superseded_by ON memories(superseded_by_id);
+CREATE INDEX IF NOT EXISTS idx_memories_source_type   ON memories(source_type);
+`;
+}
+
 export function getSchemaSqlV10(): string {
   return `
 CREATE TABLE IF NOT EXISTS sources_new (

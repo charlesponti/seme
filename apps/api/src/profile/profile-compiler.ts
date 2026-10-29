@@ -23,10 +23,13 @@ export class ProfileCompiler {
         SELECT m.* FROM memories m
         LEFT JOIN slot_registry s ON m.slot = s.slot
         WHERE m.status = 'active' AND (s.profile_included = 1 OR m.slot IS NULL)
+          AND m.source_type != 'document_stated'
         ORDER BY m.confidence DESC, m.reinforcement_count DESC
       `).all() as any[];
     });
 
+    // Document memories describe whatever the document is about, not the user.
+    // They still reach retrieval and the wiki; they must not shape the profile.
     // Also get boundary memories (always included)
     const boundaryMemories = this.storage.read((db) => {
       return db.prepare(`

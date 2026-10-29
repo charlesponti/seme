@@ -60,6 +60,15 @@ export class ValidationGate {
             errors.push('User-stated source must cite a user turn');
           }
         }
+        // Rule 4b: Document claims ground only on document-mode episodes
+        if (candidate.source_type === 'document_stated') {
+          const episode = this.storage.read((db) => {
+            return db.prepare('SELECT extraction_mode FROM episodes WHERE id = ?').get(candidate.source_episode_id) as { extraction_mode: string } | undefined;
+          });
+          if (!episode || episode.extraction_mode !== 'document') {
+            errors.push('Document-stated source requires a document episode');
+          }
+        }
         // Rule 3: Evidence must be evidence (verbatim substring)
         if (turn.content && candidate.evidence_quote) {
           const normalized = (s: string) => s.replace(/\s+/g, ' ').trim();
@@ -75,8 +84,20 @@ export class ValidationGate {
       'decision', 'reference', 'anti_pattern', 'observation'];
     if (!validKinds.includes(candidate.kind)) errors.push('Invalid kind');
 
-    const validSourceTypes = ['user_stated', 'user_confirmed', 'agent_inferred', 'agent_reflection', 'user_edited'];
+    const validSourceTypes = ['user_stated', 'user_confirmed', 'agent_inferred', 'agent_reflection', 'user_edited', 'document_stated'];
     if (!validSourceTypes.includes(candidate.source_type)) errors.push('Invalid source_type');
+
+    // Document memories describe the document's entities, never the reader, and
+    // never occupy a user-profile slot.
+    if (candidate.source_type === 'document_stated') {
+      const subject = (candidate.subject || '').trim().toLowerCase();
+      if (['user', 'the user', 'i', 'me', 'my', 'we', 'us'].includes(subject)) {
+        errors.push('Document memory subject must be a document entity, not the user');
+      }
+      if (candidate.slot) {
+        errors.push('Document memory must not use a user slot');
+      }
+    }
 
     const validModalities = ['stated', 'hypothetical', 'negated', 'joking', 'quoted'];
     if (!validModalities.includes(candidate.modality)) errors.push('Invalid modality');

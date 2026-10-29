@@ -1,13 +1,16 @@
 // src/extraction/extractor.ts — Candidate extraction (04-extraction.md)
 
 import { Storage } from '../storage/storage.js';
-import { uuid, nowUtc, Turn, Episode } from '../types/common.js';
+import { uuid, nowUtc, Turn, Episode, ExtractionMode, SourceType } from '../types/common.js';
 
 export interface ExtractInput {
   episode_id: string;
   turns: { id: string; role: string; content: string; ts: string }[];
   rolling_summary: string | null;
   recent_messages: { id: string; role: string; content: string; ts: string }[];
+  /** 'user' (default) reads turns as a conversation about the user;
+   *  'document' reads them as an ingested article and emits entity facts. */
+  mode?: ExtractionMode;
 }
 
 export interface MemoryCandidate {
@@ -20,7 +23,7 @@ export interface MemoryCandidate {
   evidence_quote: string;
   source_turn_id: string;
   source_episode_id: string;
-  source_type: 'user_stated' | 'agent_inferred';
+  source_type: SourceType;
   modality: 'stated' | 'hypothetical' | 'negated' | 'joking' | 'quoted';
   importance: number;
   decay_class: string;
@@ -75,6 +78,7 @@ export class Extractor {
       return { extractor_version: this.version, memory_candidates: [], feedback_event_candidates: [] };
     }
 
+    const mode: ExtractionMode = input.mode === 'document' ? 'document' : 'user';
     const prompt = this.buildPrompt(input);
 
     try {
@@ -87,7 +91,7 @@ export class Extractor {
         body: JSON.stringify({
           model: this.model,
           messages: [
-            { role: 'system', content: this.systemPrompt() },
+            { role: 'system', content: mode === 'document' ? this.documentSystemPrompt() : this.systemPrompt() },
             { role: 'user', content: prompt },
           ],
           temperature: 0.1,
@@ -110,7 +114,7 @@ export class Extractor {
       }
 
       const parsed = JSON.parse(jsonStr);
-      return this.validateOutput(parsed, input.episode_id);
+      return this.validateOutput(parsed, input.episode_id, mode);
     } catch (e: any) {
       if (e.message === 'unavailable' || e.message === 'invalid_output') throw e;
       throw new Error('unavailable');
@@ -191,6 +195,58 @@ OUTPUT FORMAT (strict JSON):
 Return ONLY valid JSON. No markdown, no explanation.`;
   }
 
+  /**
+   * Prompt for document/RSS mode: the turns are an ingested article, not a
+   * conversation. Emits entity-centric facts about named entities in the text.
+   * Kept separate from `systemPrompt()` so user-mode prompting is untouched.
+   */
+  private documentSystemPrompt(): string {
+    return `You are a document memory extraction system. The input is an article or document (news, report, transcript), not a conversation. Your job is to extract entity-centric facts: claims the document itself makes about named entities inside it.
+
+RULES:
+1. Subject is a document entity, never the reader. Every candidate's subject must be a person, organisation or place named in the cited turn. Never use "user", "the user", "I", "we", "the reader" or an unnamed speaker as the subject.
+2. Grounded only in the text. Emit a claim only if the cited turn states it. No outside knowledge, no inference about motives, causes, or consequences the text does not state. If the text does not support a claim, emit nothing for it — abstaining is the correct behaviour.
+3. Evidence is verbatim: evidence_quote must be copied character-for-character from the cited turn's content. No paraphrase, no ellipsis, no joining two sentences. If you cannot copy an exact span, do not emit the candidate.
+4. Atomicity: one candidate = one claim.
+5. source_type is always "document_stated". source_episode_id = the input episode_id.
+6. Subject uses the entity name as the text spells it, canonicalised ("PM" → "Keir Starmer" only if the text names him).
+7. kind: "fact" for a claim about one entity; "relationship" only when the claim links two entities both named in the text.
+8. slot is always null. Slots describe the reader, not the document.
+9. modality: "stated" when the document asserts the claim in its own voice; "quoted" when the claim appears only inside a quotation or attributed speech; "negated" when the text denies it. Keep negations ("not", "no", "denied") in value_text.
+10. Skip publication opinion, unattributed speculation, navigation/boilerplate text, cookie/subscribe prompts, and sentences with no named entity subject.
+11. No feedback events. feedback_event_candidates must be an empty array.
+
+KINDS: fact, relationship
+SOURCE_TYPES: document_stated
+MODALITIES: stated, quoted, negated
+DECAY_CLASSES: slow (stable background such as headquarters or role), medium (current news), fast (today's figures only)
+
+OUTPUT FORMAT (strict JSON):
+{
+  "extractor_version": "string",
+  "memory_candidates": [
+    {
+      "kind": "fact or relationship",
+      "slot": null,
+      "subject": "entity name from the document",
+      "predicate": "short verb phrase, e.g. 'is', 'announced', 'works_at'",
+      "value_text": "atomic claim sentence",
+      "value_json": null,
+      "evidence_quote": "verbatim span copied from the turn",
+      "source_turn_id": "turn id",
+      "source_episode_id": "episode id",
+      "source_type": "document_stated",
+      "modality": "stated|quoted|negated",
+      "importance": 0.0-1.0,
+      "decay_class": "slow|medium|fast"
+    }
+  ],
+  "feedback_event_candidates": []
+}
+
+Return ONLY valid JSON. No markdown, no explanation. Empty memory_candidates is a valid answer.`;
+  }
+
   private buildPrompt(input: ExtractInput): string {
     const turnsText = input.turns.map(t => `[${t.id}] (${t.role}) ${t.content}`).join('\n');
     const recentText = input.recent_messages.map(t => `[${t.id}] (${t.role}) ${t.content}`).join('\n');
@@ -208,11 +264,13 @@ ${recentText}
 Extract memory candidates and feedback event candidates from this episode.`;
   }
 
-  private validateOutput(parsed: any, episodeId: string): ExtractOutput {
+  private validateOutput(parsed: any, episodeId: string, mode: ExtractionMode = 'user'): ExtractOutput {
     if (!parsed || typeof parsed !== 'object') throw new Error('invalid_output');
     if (!parsed.extractor_version || typeof parsed.extractor_version !== 'string') throw new Error('invalid_output');
     if (!Array.isArray(parsed.memory_candidates)) throw new Error('invalid_output');
     if (!Array.isArray(parsed.feedback_event_candidates)) throw new Error('invalid_output');
+
+    if (mode === 'document') return this.validateDocumentOutput(parsed, episodeId);
 
     const validKinds = ['fact', 'preference', 'routine', 'boundary', 'relationship', 'interest', 'trait_inference',
       'decision', 'reference', 'anti_pattern', 'observation'];
@@ -273,6 +331,70 @@ Extract memory candidates and feedback event candidates from this episode.`;
       extractor_version: parsed.extractor_version,
       memory_candidates: memoryCandidates,
       feedback_event_candidates: feedbackCandidates,
+    };
+  }
+
+  /**
+   * Document-mode validation. Unlike user mode this filters per candidate
+   * instead of failing the whole episode: an article is long, and one
+   * malformed claim should not throw away the rest. Verbatim evidence is
+   * still enforced — by the ValidationGate, which sees the stored turns.
+   */
+  private validateDocumentOutput(parsed: any, episodeId: string): ExtractOutput {
+    const validKinds = ['fact', 'relationship'];
+    const validModalities = ['stated', 'quoted', 'negated'];
+    const validDecayClasses = ['slow', 'medium', 'fast', 'session'];
+    const forbiddenSubjects = ['user', 'the user', 'i', 'me', 'my', 'we', 'us', 'reader', 'the reader'];
+    const MAX_CANDIDATES = 25;
+
+    const memoryCandidates: MemoryCandidate[] = [];
+    let dropped = 0;
+
+    for (const c of parsed.memory_candidates) {
+      const subject = typeof c?.subject === 'string' ? c.subject.trim() : '';
+      if (
+        !validKinds.includes(c?.kind) ||
+        !subject ||
+        forbiddenSubjects.includes(subject.toLowerCase()) ||
+        typeof c?.predicate !== 'string' || !c.predicate.trim() ||
+        typeof c?.value_text !== 'string' || !c.value_text.trim() ||
+        typeof c?.evidence_quote !== 'string' || !c.evidence_quote.trim() ||
+        typeof c?.source_turn_id !== 'string' || !c.source_turn_id.trim() ||
+        !validModalities.includes(c?.modality) ||
+        !validDecayClasses.includes(c?.decay_class)
+      ) {
+        dropped++;
+        continue;
+      }
+
+      const importance = typeof c.importance === 'number' && c.importance >= 0 && c.importance <= 1 ? c.importance : 0.5;
+
+      memoryCandidates.push({
+        kind: c.kind,
+        slot: null,
+        subject,
+        predicate: c.predicate.trim(),
+        value_text: c.value_text.trim(),
+        value_json: null,
+        evidence_quote: c.evidence_quote,
+        source_turn_id: c.source_turn_id,
+        source_episode_id: episodeId,
+        source_type: 'document_stated',
+        modality: c.modality as MemoryCandidate['modality'],
+        importance,
+        decay_class: c.decay_class,
+      });
+
+      if (memoryCandidates.length >= MAX_CANDIDATES) break;
+    }
+
+    if (dropped > 0) console.log(`Document extraction: dropped ${dropped} malformed candidate(s)`);
+
+    // Document mode never emits feedback events: an article is not a user reaction.
+    return {
+      extractor_version: parsed.extractor_version,
+      memory_candidates: memoryCandidates,
+      feedback_event_candidates: [],
     };
   }
 }

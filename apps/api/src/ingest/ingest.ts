@@ -133,6 +133,7 @@ export class IngestManager {
         user_affect_tags: row.user_affect_tags,
         agent_behaviour_tags: row.agent_behaviour_tags,
         extractor_version: row.extractor_version,
+        extraction_mode: row.extraction_mode === 'document' ? 'document' : 'user',
       };
     });
   }
@@ -151,6 +152,7 @@ export class IngestManager {
         user_affect_tags: row.user_affect_tags,
         agent_behaviour_tags: row.agent_behaviour_tags,
         extractor_version: row.extractor_version,
+        extraction_mode: row.extraction_mode === 'document' ? 'document' : 'user',
       };
     });
   }
