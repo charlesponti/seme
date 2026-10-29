@@ -3,6 +3,7 @@
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { cors } from 'hono/cors';
+import { timingSafeEqual } from 'node:crypto';
 import { MemoryService } from './api/service.js';
 import { uuid } from './types/common.js';
 
@@ -64,6 +65,35 @@ app.use('*', async (c, next) => {
     return new Response(null, { status: 204, headers });
   }
 
+  await next();
+});
+
+const API_KEY = process.env.SEME_API_KEY || '';
+
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
+}
+
+// Auth gate: when SEME_API_KEY is set, every route (except GET /health) requires
+// `Authorization: Bearer <SEME_API_KEY>`, compared in constant time.
+app.use('*', async (c, next) => {
+  if (!API_KEY) {
+    await next();
+    return;
+  }
+  if (c.req.method === 'GET' && c.req.path === '/health') {
+    await next();
+    return;
+  }
+  const auth = c.req.header('authorization') || '';
+  const prefix = 'Bearer ';
+  const token = auth.startsWith(prefix) ? auth.slice(prefix.length) : '';
+  if (!safeEqual(token, API_KEY)) {
+    return c.json({ error: { code: 'ERR_UNAUTHORIZED', message: 'Unauthorized' } }, 401);
+  }
   await next();
 });
 

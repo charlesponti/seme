@@ -1,11 +1,50 @@
 // src/lib/api.ts — Seme API client
 const API_BASE = import.meta.env.VITE_SEME_API_URL || 'http://localhost:3000'
 
+export const SEME_API_KEY_STORAGE = 'seme_api_key'
+
+export function getApiKey(): string | null {
+  try {
+    return sessionStorage.getItem(SEME_API_KEY_STORAGE)
+  } catch {
+    return null
+  }
+}
+
+export function setApiKey(value: string) {
+  try {
+    sessionStorage.setItem(SEME_API_KEY_STORAGE, value)
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearApiKey() {
+  try {
+    sessionStorage.removeItem(SEME_API_KEY_STORAGE)
+  } catch {
+    /* ignore */
+  }
+}
+
 export async function apiFetch(path: string, options?: RequestInit) {
-  const res = await fetch(API_BASE + path, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  })
+  const key = getApiKey()
+  const headers = new Headers(options?.headers || {})
+  if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+  if (key) headers.set('Authorization', `Bearer ${key}`)
+
+  const res = await fetch(API_BASE + path, { ...options, headers })
+
+  if (res.status === 401) {
+    clearApiKey()
+    try {
+      window.dispatchEvent(new Event('seme:unauthorized'))
+    } catch {
+      /* ignore */
+    }
+    throw new Error('Unauthorized')
+  }
+
   return res.json()
 }
 
@@ -67,3 +106,5 @@ export const semeApi = {
   lint: () => apiFetch('/kb/lint', { method: 'POST' }),
   stats: () => apiFetch('/kb/lint', { method: 'POST' }),
 }
+
+export { API_BASE }

@@ -54,6 +54,7 @@ const WAIT = parseInt(arg('wait', '0')!, 10);
 const DRY = flag('dry-run');
 const OUT = arg('out');
 const FEEDS = args('feed').length ? args('feed') : DEFAULT_FEEDS;
+const API_KEY = process.env.SEME_API_KEY || '';
 
 const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', '#39': "'", '#34': '"' };
 
@@ -134,7 +135,10 @@ async function articleText(url: string): Promise<string | null> {
 async function api(path: string, body?: unknown): Promise<any> {
   const res = await fetch(`${API}${path}`, {
     method: body === undefined ? 'GET' : 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: {
+      'content-type': 'application/json',
+      ...(API_KEY ? { authorization: `Bearer ${API_KEY}` } : {}),
+    },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const text = await res.text();
