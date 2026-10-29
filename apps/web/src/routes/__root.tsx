@@ -65,7 +65,6 @@ function RootLayout() {
               { to: '/entities', label: 'Entities' },
               { to: '/graph', label: 'Graph' },
               { to: '/wiki', label: 'Wiki' },
-              { to: '/search', label: 'Search' },
               { to: '/tasks', label: 'Tasks' },
               { to: '/submit', label: 'Submit' },
             ].map(({ to, label }) => (

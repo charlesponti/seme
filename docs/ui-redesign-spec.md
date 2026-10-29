@@ -6,6 +6,11 @@ history and remaining-features list still stand; its aesthetic (ricord.ai, dark
 theme, gradient hero, gradient stat cards) is DEAD and must not be preserved
 or carried forward. If this spec and any existing code disagree, this spec wins.
 
+Amended 2026-10-29 (later, Charlie's rulings): Search is folded into the
+Dashboard — there is no /search route or nav link. The Entities route is
+expanded into a full entity browser (§3). The Tasks section is corrected:
+kb_tasks are knowledge-base action items, NOT a review queue.
+
 Scope: `apps/web` only. No backend or API changes.
 
 ## 0. What this is
@@ -79,8 +84,9 @@ ease-out, opacity/transform only; no bounce, no spring, no parallax.
 
 Top bar only, no sidebar: white, 1px bottom hairline. Left: wordmark "Seme"
 (Geist Pixel, 18px) + nav links (Dashboard, Memories, Entities, Graph, Wiki,
-Search, Tasks, Submit) in 14px sans, `#666` inactive, `#000` + weight 500
-active. Right: API status (small gray dot + "API" label; unreachable = hollow
+Tasks, Submit) in 14px sans, `#666` inactive, `#000` + weight 500
+active. There is NO Search nav link — search lives on the Dashboard (§3).
+Right: API status (small gray dot + "API" label; unreachable = hollow
 dot + "API offline" text — grayscale, never red) and total memory/entity
 counts in mono. The bar is 48px tall, not sticky-blurred — plain white,
 sticky position allowed.
@@ -184,8 +190,18 @@ of 4 cells divided by hairlines (Memories, Entities, Relationships, Wiki
 pages) — numeral Geist Mono 28px `#171717`, label 12px `#888` uppercase
 letterspaced. Below: two hairline tables side by side (stacked on narrow):
 Recent memories and Recent entities (name, type mono, time mono). Quick
-actions as plain bordered buttons (Submit memory, Run search, Open graph).
+actions as plain bordered buttons (Submit memory, Open graph).
 No hero, no gradient cards, no feature sections.
+
+**Search lives on the Dashboard** (Charlie's ruling, 2026-10-29 — there is
+no separate Search page): a full-width hybrid-search block directly under
+the stat band. Query input large (16px) with hairline border, black Search
+button. Results render inline below the input with the real hybrid
+retrieval shape kept exactly: tabs Memories / Profile / Graph / Rules,
+hairline-divided result lists, mono metadata, the answered/abstained state
+shown as mono text. A Graph-tab entity result opens /graph with that
+entity selected and centered. Recent memories / recent entities tables sit
+below the search block.
 
 **Memories** — Table: content excerpt (sans 14, truncated 1 line), type,
 confidence (mono, as a plain number), created (mono), source (mono).
@@ -194,23 +210,40 @@ d definition list, provenance shown verbatim (Seme's validation gate is a
 feature — surface it), related entities as quiet links into the graph
 (focused on that entity).
 
-**Entities** — Table: name, type, degree (mono, right-aligned), last seen
-(mono). Sortable by degree and name. Row click → entity detail: name in Geist Pixel,
-mono metadata, its memories list, its connections list (same component
-shape as the graph panel list), and an "Open in graph" button.
+**Entities** — a real entity browser, not a bare table (expanded at
+Charlie's direction, 2026-10-29). List view: a toolbar with name search
+(client-side over the graph snapshot), a type filter, and sort by degree /
+name / last seen. A summary strip in mono above the table: total entities,
+entity-type count, total relationships, most-connected entity. Columns:
+name, type, degree (mono, right-aligned), last seen (mono); a Mentions
+column where the data exposes it. The list is paged or virtualized — never
+959 bare rows rendered at once. Row click → entity detail: name in Geist
+Pixel, mono metadata (type, degree, last seen, aliases where present,
+description where present), a relationship-type breakdown (counts per
+type, mono), its memories list, its connections list grouped by type (same
+component shape as the graph panel list), and an "Open in graph" button.
+Known data limit: there is no entity→memories endpoint, so the detail's
+memories list remains the name-search approximation until a backend change
+is separately approved.
 
 **Wiki** — Two panes divided by a hairline: left index (page titles, 14px,
 active = `#000` weight 500 on `#fafafa`), right reading pane in Geist Pixel
 17/28, max-width 680px. Compiled-from sources listed at the foot in mono 11px `#888`.
 
-**Search** — Keep the real hybrid retrieval shape exactly: tabs Memories /
-Profile / Graph / Rules. Query input large (16px) with hairline border.
-Results as hairline-divided lists, mono metadata. A Graph-tab result opens
-/graph with that entity selected and centered.
+**Search** — REMOVED as a route (Charlie's ruling, 2026-10-29). The hybrid
+search UI lives on the Dashboard (above). Delete the /search route file
+and its nav link; old /search URLs may redirect to /. The retrieval shape
+(4 tabs, ranking, abstention) is unchanged — only its home moves.
 
-**Tasks** — The review queue as a table: item, reason, age (mono).
-Approve / Reject as small bordered buttons (Approve may be solid black;
-Reject plain). No colored badges — state shown as mono text.
+**Tasks** — REMOVED from this spec's build scope (Charlie's ruling,
+2026-10-29): Tasks is being rebuilt as a flagship feature — the
+Commitments Engine (evidence-backed, self-verifying agent work queue) —
+under Linear ticket **WYA-233**, which owns all Tasks behavior, data
+model and UI. Stage 3 must NOT restyle or rebuild /tasks; the current
+page stays as-is until WYA-233 lands. Only §1's design system binds
+that work. (Background: kb_tasks are knowledge-base action items
+linked to memories/entities — not a review queue; the Approve/Reject
+description in earlier drafts was a spec error.)
 
 **Submit** — Single centered column (max-width 560px): heading in Geist Pixel
 "Add to memory", textarea + URL field, black submit button. Result state
@@ -235,8 +268,9 @@ Geist Pixel, mono label, black button.
 - No API changes, no new endpoints. Graph expansion works from the existing
   graph/relationships API surface (`src/lib/api.ts`); check what exists
   before assuming a fetch per expansion.
-- Every existing route and feature survives: dashboard, memories, entities,
-  graph, wiki, search (4 tabs), tasks, submit, password gate.
+- Every existing feature survives: dashboard (now including search with its
+  4 tabs), memories, entities, graph, wiki, tasks, submit, password gate.
+  The /search route itself is removed by Charlie's ruling (§3).
 - The words "gradient", dark-theme tokens, and ricord.ai styling are removed
   from `apps/web`, not left dormant.
 - Deploying to Fly is OUT of this pass. Local dev only until Charlie says
@@ -248,8 +282,8 @@ Geist Pixel, mono label, black button.
 1. Tokens, fonts, chrome (top bar), primitives restyle (button/card/badge/
    dialog/table/tabs/toast in the new system).
 2. Graph rewrite against §2 (biggest risk — do it before page polish).
-3. Pages in order: Dashboard, Memories, Entities, Wiki, Search, Tasks,
-   Submit.
+3. Pages in order: Dashboard (incl. Search), Memories, Entities, Wiki,
+   Submit. (Tasks excluded — owned by Linear WYA-233.)
 4. Password gate restyle.
 5. Walk the acceptance checklist below; fix until every box is honestly
    checked.
@@ -268,7 +302,9 @@ Geist Pixel, mono label, black button.
 - [ ] Graph: layout is stable across reloads (same node positions) until
       Re-layout is pressed.
 - [ ] Graph: performance criteria in §2 met on the seeded dataset.
-- [ ] Search keeps its 4 hybrid tabs; graph results deep-link into a
-      focused graph.
+- [ ] Search lives on the Dashboard with its 4 hybrid tabs; graph results
+      deep-link into a focused graph; no /search route or nav link remains.
+- [ ] Entities is a full browser (search, type filter, sort, paged list,
+      rich detail) — not a bare table.
 - [ ] Password gate behavior unchanged (401 → re-prompt; sessionStorage).
 - [ ] Nothing deployed to Fly.

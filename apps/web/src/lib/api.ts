@@ -56,6 +56,7 @@ export const semeApi = {
   health: () => apiFetch('/health'),
   memories: (params?: Record<string, string>) => apiFetch('/memories' + qs(params)),
   entities: (params?: Record<string, string>) => apiFetch('/entities' + qs(params)),
+  entityByName: (name: string) => apiFetch('/entities/name/' + encodeURIComponent(name)),
   relationships: (params?: Record<string, string>) => apiFetch('/relationships' + qs(params)),
   wiki: (params?: Record<string, string>) => apiFetch('/wiki' + qs(params)),
   tasks: (params?: Record<string, string>) => apiFetch('/tasks' + qs(params)),
