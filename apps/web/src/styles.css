@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Geist Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --font-serif: "Geist Serif", ui-serif, Georgia, "Times New Roman", serif;
+  --font-serif: ui-serif, Georgia, "Times New Roman", serif;
 }
 
 @theme inline {
@@ -25,32 +25,12 @@
   --radius: 6px;
 }
 
-/* Geist Sans / Mono are self-hosted from the bundled `geist` package.
-   The package does not ship Geist Serif; the serif stack falls back to the
-   platform serif. No external font requests. */
-@font-face {
-  font-family: "Geist Sans";
-  src: url("../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2") format("woff2");
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
-}
+/* Geist Sans / Mono are loaded from Google Fonts (see the <link> tags in
+   src/routes/__root.tsx). No font files are bundled.
 
-@font-face {
-  font-family: "Geist Sans";
-  src: url("../node_modules/geist/dist/fonts/geist-sans/Geist-Italic.woff2") format("woff2");
-  font-weight: 100 900;
-  font-style: italic;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Geist Mono";
-  src: url("../node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2") format("woff2");
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
-}
+   Geist Serif does not exist in the official vercel/geist-font repository,
+   the `geist` npm package, Google Fonts or Fontsource, so there is no genuine
+   CDN source to point at. Serif surfaces use the platform serif stack. */
 
 :root {
   --background: #ffffff;

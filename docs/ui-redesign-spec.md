@@ -41,11 +41,16 @@ existing dark theme tokens are deleted, not toggled. Shadows: none on cards
 or panels; only floating overlays (dropdowns, tooltips, toasts) may use
 `0 4px 16px rgba(0,0,0,0.08)`.
 
-### Typography — Geist family, self-hosted
+### Typography — Geist family, loaded from CDN
 
-Load Geist Sans, Geist Mono and Geist Serif from the `geist` npm package (or
-bundled font files in the repo). No Google Fonts or any external font CDN at
-runtime.
+Fonts load from CDN — never the `geist` npm package, never bundled font
+files (Charlie's ruling, 2026-10-29, supersedes the original self-host
+clause). Geist Sans and Geist Mono come from Google Fonts. Geist Serif is
+not in the npm package, not on Google Fonts and not on Fontsource; it loads
+from a verified CDN URL for the genuine Geist Serif files (e.g. jsDelivr
+serving the vercel/geist-font repo), verified to return the actual font. If
+no such URL verifies, serif falls back to `ui-serif, Georgia` and that fact
+is reported — never silently papered over with a substitute serif.
 
 - **Geist Sans** — all UI chrome: nav, buttons, table text, labels, forms.
 - **Geist Mono** — data: IDs, timestamps, counts and stats numerals, code,
@@ -253,8 +258,8 @@ re-prompt). Restyle only: centered 360px card, hairline border, serif
 - [ ] Every route's background is `#ffffff`; no dark theme remains.
 - [ ] The string `gradient` appears nowhere in `apps/web` styles.
 - [ ] No hue (non-grayscale) color value anywhere in `apps/web` styles.
-- [ ] Geist Sans/Mono/Serif load from the bundled package; zero external
-      font requests in the network tab.
+- [ ] Geist Sans/Mono/Serif load from CDN URLs; the `geist` npm package is
+      not in apps/web dependencies and no font files are bundled.
 - [ ] Memory content and wiki pages render in Geist Serif; IDs/counts/
       timestamps render in Geist Mono with tabular numerals.
 - [ ] Graph: all 10 interactions in §2 work as written, incl. panel listing
