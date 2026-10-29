@@ -76,8 +76,11 @@ export class WikiCompiler {
     const memoryIds = unique.map(m => m.id);
 
     if (existing) {
-      // Update existing page
+      // Update existing page. Title and entity_name are refreshed too: pages
+      // created before the entity-name lookup was fixed still carry a UUID as
+      // their title, and a recompile is the natural place to heal that.
       this.wikiStore.updatePage(existing.id, {
+        title: entityName,
         content,
         maturity,
         updated_by: 'system',
@@ -85,7 +88,11 @@ export class WikiCompiler {
       });
       // Update source_memory_ids
       const db = this.storage.getDb();
-      db.prepare('UPDATE wiki_pages SET source_memory_ids = ? WHERE id = ?').run(JSON.stringify(memoryIds), existing.id);
+      db.prepare('UPDATE wiki_pages SET source_memory_ids = ?, entity_name = ? WHERE id = ?').run(
+        JSON.stringify(memoryIds),
+        entityName,
+        existing.id
+      );
       return { page_id: existing.id, entity_name: entityName, page_type: pageType, maturity, memories_used: unique.length };
     } else {
       // Create new page

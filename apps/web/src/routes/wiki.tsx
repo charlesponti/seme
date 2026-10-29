@@ -8,11 +8,9 @@ export const Route = createFileRoute('/wiki')({
 })
 
 const MATURITY: Record<string, string> = {
-  draft: 'bg-zinc-500/15 text-zinc-300',
-  active: 'bg-blue-500/15 text-blue-300',
-  proven: 'bg-emerald-500/15 text-emerald-300',
-  stale: 'bg-amber-500/15 text-amber-300',
-  deprecated: 'bg-red-500/15 text-red-300',
+  draft: 'bg-amber-500/15 text-amber-300',
+  stable: 'bg-emerald-500/15 text-emerald-300',
+  canonical: 'bg-blue-500/15 text-blue-300',
 }
 
 function WikiPage() {
