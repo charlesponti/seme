@@ -38,9 +38,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           <div
             key={t.id}
             className={cn(
-              'pointer-events-auto rounded-lg border px-4 py-3 text-sm shadow-lg backdrop-blur bg-card/95',
-              t.variant === 'success' && 'border-emerald-500/40 text-emerald-300',
-              t.variant === 'error' && 'border-red-500/40 text-red-300',
+              'pointer-events-auto rounded-md border border-border bg-card px-4 py-3 text-sm shadow-lg',
+              t.variant === 'success' && 'border-border text-foreground',
+              t.variant === 'error' && 'border-border text-foreground',
               t.variant === 'default' && 'border-border text-foreground'
             )}
           >

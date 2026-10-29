@@ -35,7 +35,7 @@ function RootLayout() {
       <header className="border-b border-border px-6 py-4 backdrop-blur bg-background/80 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">S</div>
+            <div className="h-8 w-8 rounded-lg flex items-center justify-center text-white font-bold text-sm">S</div>
             <h1 className="text-xl font-bold">Seme</h1>
           </div>
           <nav className="flex gap-1 text-sm">
@@ -130,7 +130,7 @@ function PasswordGate({ onAuth }: { onAuth: (key: string) => void }) {
         >
           {submitting ? 'Checking…' : 'Unlock'}
         </button>
-        {error && <p className="text-sm text-red-500 mt-3">{error}</p>}
+        {error && <p className="text-sm text-muted-foreground mt-3">{error}</p>}
       </form>
     </div>
   )
@@ -138,7 +138,7 @@ function PasswordGate({ onAuth }: { onAuth: (key: string) => void }) {
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="bg-background">
       <head><HeadContent /></head>
       <body>{children}<Scripts /></body>
     </html>
