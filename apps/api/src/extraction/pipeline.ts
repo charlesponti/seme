@@ -187,19 +187,51 @@ export class ExtractionPipeline {
         }
       }
 
-      // Link entities to memories (if any memories were created)
+      // Link entities to memories, but only when the entity is actually
+      // mentioned in that memory. Co-occurrence inside an episode is not
+      // evidence: an article about a budget mentions twenty entities, and
+      // blindly pairing them with every memory in the episode produced wiki
+      // pages where unrelated entities shared identical "facts".
       if (triggeringMemoryIds.length > 0) {
+        const memoryText = new Map<string, string>();
+        for (const memId of triggeringMemoryIds) {
+          const row = this.storage.read((db: any) =>
+            db
+              .prepare('SELECT value_text, evidence_quote, subject FROM memories WHERE id = ?')
+              .get(memId) as { value_text: string; evidence_quote: string | null; subject: string | null } | undefined
+          );
+          if (!row) continue;
+          memoryText.set(
+            memId,
+            `${row.value_text} ${row.evidence_quote ?? ''} ${row.subject ?? ''}`.toLowerCase()
+          );
+        }
+
+        /** Word-boundary aware containment test for an entity name. */
+        const mentions = (haystack: string, needle: string): boolean => {
+          const n = needle.trim().toLowerCase();
+          if (n.length < 2) return false;
+          const escaped = n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          // \b fails on names that start/end with punctuation, so guard it.
+          try {
+            return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, 'i').test(haystack);
+          } catch {
+            return haystack.includes(n);
+          }
+        };
+
         for (const ec of entityOutput.entity_candidates) {
           const entityId = entityNameToId.get(ec.name.toLowerCase());
-          if (entityId) {
-            for (const memId of triggeringMemoryIds) {
-              await this.storage.write((db) => {
-                db.prepare(`
-                  INSERT OR IGNORE INTO entity_memory_links (entity_id, memory_id, role, created_at)
-                  VALUES (?, ?, ?, ?)
-                `).run(entityId, memId, 'mentioned', nowUtc());
-              });
-            }
+          if (!entityId) continue;
+          for (const memId of triggeringMemoryIds) {
+            const haystack = memoryText.get(memId);
+            if (!haystack || !mentions(haystack, ec.name)) continue;
+            await this.storage.write((db) => {
+              db.prepare(`
+                INSERT OR IGNORE INTO entity_memory_links (entity_id, memory_id, role, created_at)
+                VALUES (?, ?, ?, ?)
+              `).run(entityId, memId, 'mentioned', nowUtc());
+            });
           }
         }
       }

@@ -441,8 +441,14 @@ app.get('/wiki/search/:query', (c) => {
 app.post('/wiki/compile/:entityId', async (c) => {
   const entityId = c.req.param('entityId');
   const body = await c.req.json().catch(() => ({}));
-  const entityName = body.entity_name || entityId;
   try {
+    // Fall back to the stored entity name — passing the id as the name made
+    // every page title a UUID and defeated the "mentions the entity" lookup.
+    const entity = service.getEntity(entityId);
+    const entityName = body.entity_name || entity?.name;
+    if (!entityName) {
+      return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Entity not found', operation: 'compile_wiki' } }, 404);
+    }
     const result = service.compileWikiForEntity(entityId, entityName);
     if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'No memories found for entity', operation: 'compile_wiki' } }, 404);
     return c.json(result);
