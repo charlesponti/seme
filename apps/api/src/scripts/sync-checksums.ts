@@ -17,6 +17,7 @@ const migrations: { version: number; sql: string }[] = [
   { version: 7, sql: schema.getSchemaSqlV7() },
   { version: 8, sql: schema.getSchemaSqlV8() },
   { version: 9, sql: schema.getSchemaSqlV9() },
+  { version: 10, sql: schema.getSchemaSqlV10() },
 ];
 
 const db = new Database(DB_PATH);

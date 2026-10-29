@@ -86,11 +86,32 @@ export class NoOpEmbeddingProvider implements EmbeddingProvider {
   async embed(_text: string): Promise<number[]> { return []; }
   async embedBatch(_texts: string[]): Promise<number[][]> { return []; }
 }
+
+/**
+ * Pick an embedding provider from the environment.
+ *
+ * SEME_EMBED_PROVIDER = ollama | openrouter | none   (default: auto)
+ *
+ * `auto` uses Ollama when OLLAMA_URL/OLLAMA_EMBED_MODEL is set or a local
+ * Ollama answers, otherwise OpenRouter when a key is present, otherwise none
+ * (retrieval degrades to keyword + graph only).
+ */
 export function createEmbeddingProvider(): EmbeddingProvider {
+  const choice = (process.env.SEME_EMBED_PROVIDER || 'auto').toLowerCase();
+  const apiKey = process.env.OPENROUTER_API_KEY;
   const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
   const ollamaModel = process.env.OLLAMA_EMBED_MODEL || 'qwen3-embedding:0.6b';
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  
-  // Prefer Ollama (local, free)
-  return new OllamaEmbeddingProvider(ollamaModel, ollamaUrl, 1024);
+  // Dimension must match what the database was created with.
+  const dim = parseInt(process.env.SEME_EMBED_DIM || '1024', 10);
+
+  if (choice === 'none') return new NoOpEmbeddingProvider();
+
+  if (choice === 'openrouter' || (choice === 'auto' && !ollamaUrl)) {
+    return apiKey
+      ? new OpenRouterEmbeddingProvider(apiKey, process.env.OPENROUTER_EMBED_MODEL || 'openai/text-embedding-3-small', dim)
+      : new NoOpEmbeddingProvider();
+  }
+
+  // Default: local Ollama.
+  return new OllamaEmbeddingProvider(ollamaModel, ollamaUrl, dim);
 }

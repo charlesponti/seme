@@ -2,7 +2,7 @@
 
 import Database from 'better-sqlite3';
 import * as sqliteVec from 'sqlite-vec';
-import { SCHEMA_SQL, getVecTableSql, getSchemaSqlV2, getSchemaSqlV3, getSchemaSqlV4, getSchemaSqlV5, getSchemaSqlV6, getSchemaSqlV7, getSchemaSqlV8, getSchemaSqlV9 } from '../schema/schema.js';
+import { SCHEMA_SQL, getVecTableSql, getSchemaSqlV2, getSchemaSqlV3, getSchemaSqlV4, getSchemaSqlV5, getSchemaSqlV6, getSchemaSqlV7, getSchemaSqlV8, getSchemaSqlV9, getSchemaSqlV10 } from '../schema/schema.js';
 import { uuid, nowUtc } from '../types/common.js';
 import { createHash } from 'node:crypto';
 
@@ -184,6 +184,7 @@ export class Storage {
     const v7Sql = getSchemaSqlV7();
     const v8Sql = getSchemaSqlV8();
     const v9Sql = getSchemaSqlV9();
+    const v10Sql = getSchemaSqlV10();
     return [
       { version: 1, name: 'initial_schema', sql: v1Sql, checksum: createHash('sha256').update(v1Sql).digest('hex') },
       { version: 2, name: 'expand_memory_kinds', sql: v2Sql, checksum: createHash('sha256').update(v2Sql).digest('hex'), disableForeignKeys: true },
@@ -194,6 +195,7 @@ export class Storage {
       { version: 7, name: 'procedures_table', sql: v7Sql, checksum: createHash('sha256').update(v7Sql).digest('hex') },
       { version: 8, name: 'integrations_table', sql: v8Sql, checksum: createHash('sha256').update(v8Sql).digest('hex') },
       { version: 9, name: 'remove_entity_type_constraint', sql: v9Sql, checksum: createHash('sha256').update(v9Sql).digest('hex'), disableForeignKeys: true },
+      { version: 10, name: 'source_type_free_form', sql: v10Sql, checksum: createHash('sha256').update(v10Sql).digest('hex'), disableForeignKeys: true },
     ];
   }
 

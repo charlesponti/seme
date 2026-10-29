@@ -7,7 +7,7 @@ import { MemoryService } from './api/service.js';
 import { uuid } from './types/common.js';
 
 const STORAGE_DIR = process.env.SEME_STORAGE_DIR || `${process.env.HOME}/.hominem`;
-const EMBEDDING_DIM = parseInt(process.env.SEME_EMBEDDING_DIM || '1024');
+const EMBEDDING_DIM = parseInt(process.env.SEME_EMBEDDING_DIM || process.env.SEME_EMBED_DIM || '1024');
 
 const service = new MemoryService({ storageDir: STORAGE_DIR, embeddingDim: EMBEDDING_DIM });
 

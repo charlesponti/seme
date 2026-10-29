@@ -229,7 +229,7 @@ export function getVecTableSql(dim: number): string {
   return `CREATE VIRTUAL TABLE IF NOT EXISTS memories_vec USING vec0(memory_id TEXT PRIMARY KEY, embedding FLOAT[${dim}])`;
 }
 
-export const SCHEMA_VERSION = 9;
+export const SCHEMA_VERSION = 10;
 export const SCHEMA_NAME = 'self-healing-memory/3';
 
 export function getSchemaSql(embeddingDim: number): string {
@@ -554,5 +554,31 @@ DROP TABLE entities;
 ALTER TABLE entities_new RENAME TO entities;
 CREATE INDEX IF NOT EXISTS idx_entities_name ON entities(name);
 CREATE INDEX IF NOT EXISTS idx_entities_type ON entities(type);
+`;
+}
+
+/**
+ * Migration v10: free-form `sources.source_type`.
+ *
+ * v5 constrained source_type to a fixed list ('url' | 'pdf' | 'youtube' |
+ * 'text' | 'file'), which rejects legitimate provenance such as 'rss'. SQLite
+ * cannot drop a CHECK in place, so the table is rebuilt preserving all rows.
+ */
+export function getSchemaSqlV10(): string {
+  return `
+CREATE TABLE IF NOT EXISTS sources_new (
+    id              TEXT PRIMARY KEY,
+    title           TEXT NOT NULL,
+    url             TEXT,
+    source_type     TEXT NOT NULL,
+    content_length  INTEGER NOT NULL,
+    created_at      TEXT NOT NULL
+);
+INSERT OR IGNORE INTO sources_new (id, title, url, source_type, content_length, created_at)
+  SELECT id, title, url, source_type, content_length, created_at FROM sources;
+DROP TABLE sources;
+ALTER TABLE sources_new RENAME TO sources;
+CREATE INDEX IF NOT EXISTS idx_sources_type ON sources(source_type);
+CREATE INDEX IF NOT EXISTS idx_sources_created ON sources(created_at);
 `;
 }
