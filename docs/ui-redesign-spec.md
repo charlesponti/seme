@@ -45,23 +45,24 @@ or panels; only floating overlays (dropdowns, tooltips, toasts) may use
 
 Fonts load from CDN — never the `geist` npm package, never bundled font
 files (Charlie's ruling, 2026-10-29, supersedes the original self-host
-clause). Geist Sans and Geist Mono come from Google Fonts. Geist Serif is
-not in the npm package, not on Google Fonts and not on Fontsource; it loads
-from a verified CDN URL for the genuine Geist Serif files (e.g. jsDelivr
-serving the vercel/geist-font repo), verified to return the actual font. If
-no such URL verifies, serif falls back to `ui-serif, Georgia` and that fact
-is reported — never silently papered over with a substitute serif.
+clause). Geist Sans, Geist Mono and Geist Pixel all load from Google Fonts.
+**The display/reading role — written as "serif" in earlier drafts of this
+spec — is filled by Geist Pixel** (Charlie's ruling, 2026-10-29). Geist
+Serif is not a released font: verified against Vercel's geist-font repo,
+vercel.com/font and the Google Fonts catalog — the family is Sans, Mono
+and Pixel. Wherever this spec assigns the display role, it means Geist
+Pixel, at the sizes given.
 
 - **Geist Sans** — all UI chrome: nav, buttons, table text, labels, forms.
 - **Geist Mono** — data: IDs, timestamps, counts and stats numerals, code,
   graph node labels, metadata rows. Always `font-variant-numeric: tabular-nums`
   for numerals anywhere (any family).
-- **Geist Serif** — reading surfaces and display type: page display headings,
-  memory content in detail views, the wiki reading pane, the dashboard title.
-  Memory is literature; chrome is sans, content is serif.
+- **Geist Pixel** — the display voice: page display headings, the wordmark,
+  memory content in detail views, the wiki reading pane, detail-panel and
+  entity names. Chrome is sans, data is mono, display is pixel.
 
-Scale (px / line-height): display 32/40 (serif, letter-spacing -0.02em),
-h1 24/32 (serif on content pages, sans-medium on tool pages — pick per route
+Scale (px / line-height): display 32/40 (Geist Pixel, letter-spacing -0.02em),
+h1 24/32 (Geist Pixel on content pages, sans-medium on tool pages — pick per route
 below), body 14/20, small 12/16, mono-data 12/18. Headings weight 500–600,
 never 700+. Body text never pure black except emphasis — primary text is
 `#171717`.
@@ -77,7 +78,7 @@ ease-out, opacity/transform only; no bounce, no spring, no parallax.
 ### Chrome (all routes)
 
 Top bar only, no sidebar: white, 1px bottom hairline. Left: wordmark "Seme"
-(Geist Serif, 18px) + nav links (Dashboard, Memories, Entities, Graph, Wiki,
+(Geist Pixel, 18px) + nav links (Dashboard, Memories, Entities, Graph, Wiki,
 Search, Tasks, Submit) in 14px sans, `#666` inactive, `#000` + weight 500
 active. Right: API status (small gray dot + "API" label; unreachable = hollow
 dot + "API offline" text — grayscale, never red) and total memory/entity
@@ -158,7 +159,7 @@ Design and acceptance target: **5,000 nodes / 10,000 edges**.
 
 320px, white, 1px left hairline, slides in 150ms. Contents:
 
-- Entity name — Geist Serif 20px.
+- Entity name — Geist Pixel 20px.
 - Type + degree — mono 12px `#666`, e.g. `PERSON · 23 CONNECTIONS`.
 - Buttons row: `Expand neighbors`, `View entity` (→ entity detail route).
 - **Connections** — the full list, grouped by relationship type with mono
@@ -188,18 +189,18 @@ No hero, no gradient cards, no feature sections.
 
 **Memories** — Table: content excerpt (sans 14, truncated 1 line), type,
 confidence (mono, as a plain number), created (mono), source (mono).
-Row click → detail: content in Geist Serif 17/28, metadata as a mono
+Row click → detail: content in Geist Pixel 17/28, metadata as a mono
 d definition list, provenance shown verbatim (Seme's validation gate is a
 feature — surface it), related entities as quiet links into the graph
 (focused on that entity).
 
 **Entities** — Table: name, type, degree (mono, right-aligned), last seen
-(mono). Sortable by degree and name. Row click → entity detail: serif name,
+(mono). Sortable by degree and name. Row click → entity detail: name in Geist Pixel,
 mono metadata, its memories list, its connections list (same component
 shape as the graph panel list), and an "Open in graph" button.
 
 **Wiki** — Two panes divided by a hairline: left index (page titles, 14px,
-active = `#000` weight 500 on `#fafafa`), right reading pane in Geist Serif
+active = `#000` weight 500 on `#fafafa`), right reading pane in Geist Pixel
 17/28, max-width 680px. Compiled-from sources listed at the foot in mono 11px `#888`.
 
 **Search** — Keep the real hybrid retrieval shape exactly: tabs Memories /
@@ -211,13 +212,13 @@ Results as hairline-divided lists, mono metadata. A Graph-tab result opens
 Approve / Reject as small bordered buttons (Approve may be solid black;
 Reject plain). No colored badges — state shown as mono text.
 
-**Submit** — Single centered column (max-width 560px): serif heading
+**Submit** — Single centered column (max-width 560px): heading in Geist Pixel
 "Add to memory", textarea + URL field, black submit button. Result state
 inline below the form in mono.
 
 **Password gate** — Behavior identical to today (sessionStorage key, 401 →
-re-prompt). Restyle only: centered 360px card, hairline border, serif
-"Seme", mono label, black button.
+re-prompt). Restyle only: centered 360px card, hairline border, "Seme" in
+Geist Pixel, mono label, black button.
 
 ## 4. States everywhere
 
@@ -258,9 +259,9 @@ re-prompt). Restyle only: centered 360px card, hairline border, serif
 - [ ] Every route's background is `#ffffff`; no dark theme remains.
 - [ ] The string `gradient` appears nowhere in `apps/web` styles.
 - [ ] No hue (non-grayscale) color value anywhere in `apps/web` styles.
-- [ ] Geist Sans/Mono/Serif load from CDN URLs; the `geist` npm package is
-      not in apps/web dependencies and no font files are bundled.
-- [ ] Memory content and wiki pages render in Geist Serif; IDs/counts/
+- [ ] Geist Sans/Mono/Pixel load from the Google Fonts CDN; the `geist` npm
+      package is not in apps/web dependencies and no font files are bundled.
+- [ ] Memory content and wiki pages render in Geist Pixel; IDs/counts/
       timestamps render in Geist Mono with tabular numerals.
 - [ ] Graph: all 10 interactions in §2 work as written, incl. panel listing
       ALL connections of the most-connected entity in the seeded dataset.
