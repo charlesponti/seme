@@ -1,7 +1,8 @@
 // src/types/common.ts — Shared types and enums for the self-healing memory system
 
 export type MemoryStatus = 'candidate' | 'active' | 'superseded' | 'archived' | 'quarantined' | 'deleted';
-export type SourceType = 'user_stated' | 'user_confirmed' | 'agent_inferred' | 'agent_reflection' | 'user_edited';
+export type SourceType = 'user_stated' | 'user_confirmed' | 'agent_inferred' | 'agent_reflection' | 'user_edited' | 'document_stated';
+export type ExtractionMode = 'user' | 'document';
 export type Modality = 'stated' | 'hypothetical' | 'negated' | 'joking' | 'quoted';
 export type MemoryKind = 'fact' | 'preference' | 'routine' | 'boundary' | 'relationship' | 'interest' | 'trait_inference'
   | 'decision' | 'reference' | 'anti_pattern' | 'observation';
@@ -70,6 +71,7 @@ export interface Episode {
   user_affect_tags: string | null;
   agent_behaviour_tags: string | null;
   extractor_version: string | null;
+  extraction_mode: ExtractionMode;
 }
 
 export interface SlotRegistryEntry {

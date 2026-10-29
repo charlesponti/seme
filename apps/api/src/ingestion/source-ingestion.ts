@@ -93,11 +93,15 @@ export class SourceIngestion {
       const turnId = uuid();
       // Need an episode first
       // Check if episode exists
-      let episode = this.storage.read((db: any) => db.prepare('SELECT id FROM episodes WHERE session_id = ? AND ended_at IS NULL').get(sessionId) as any);
+      let episode = this.storage.read((db: any) => db.prepare('SELECT id, extraction_mode FROM episodes WHERE session_id = ? AND ended_at IS NULL').get(sessionId) as any);
       if (!episode) {
         const epId = uuid();
-        this.storage.getDb().prepare('INSERT INTO episodes (id, session_id, started_at) VALUES (?, ?, ?)').run(epId, sessionId, now);
+        this.storage.getDb().prepare('INSERT INTO episodes (id, session_id, started_at, extraction_mode) VALUES (?, ?, ?, ?)').run(epId, sessionId, now, 'document');
         episode = { id: epId };
+      } else if (episode.extraction_mode !== 'document') {
+        // Content arriving through source ingestion is a document, not a
+        // conversation: extraction must read it in document mode.
+        this.storage.getDb().prepare('UPDATE episodes SET extraction_mode = ? WHERE id = ?').run('document', episode.id);
       }
       this.storage.getDb().prepare('INSERT INTO turns (id, episode_id, session_id, role, content, ts) VALUES (?, ?, ?, ?, ?, ?)').run(turnId, episode.id, sessionId, 'user', content, now);
       turnCount++;

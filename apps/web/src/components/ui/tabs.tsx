@@ -9,7 +9,7 @@ interface TabsProps {
 
 export function Tabs({ tabs, value, onChange, className }: TabsProps) {
   return (
-    <div className={cn('inline-flex items-center gap-1 rounded-lg border border-border bg-card p-1', className)}>
+    <div className={cn('inline-flex items-center gap-1.5 rounded-lg border border-border bg-card p-1', className)}>
       {tabs.map((t) => {
         const active = t.id === value
         return (

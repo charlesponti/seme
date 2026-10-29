@@ -140,7 +140,7 @@ Pedro Sánchez (3), Renfe (3).
 single first-person article ("I earn £30,000"). The memory extractor is
 deliberately tuned to facts *about the user*; a news corpus contains none, so it
 correctly declines to invent any. News is therefore a graph-seeding corpus, not a
-memory-seeding one.
+memory-seeding one — see "Document mode" below for the mode that fixes this.
 
 **2. Free-form entity types held up.** With no dictionary, the model produced
 coherent categories for an unfamiliar domain — 318 people, 295 organisations, 178
@@ -166,20 +166,56 @@ because they are the kind of thing a seeding exercise exists to surface:
   page titles were UUIDs and the "memories that mention this entity" lookup could
   never match. Fixed by resolving the stored entity name.
 
+## Document mode
+
+Ingested sources (`POST /ingest/source`: RSS, URLs, PDFs, YouTube transcripts)
+now open **document-mode** episodes. Extraction reads those turns as a document,
+not a conversation, and emits entity-centric memories: `subject` is a person,
+organisation or place from the article, `source_type` is `document_stated`, and
+the evidence quote still has to be a verbatim span of the chunk that produced it.
+
+Properties of the mode, all enforced in code rather than by prompt alone:
+
+- **Subject is the document's entity.** Candidates with `subject = user/I/we` are
+  dropped at extraction and rejected by the validation gate.
+- **No user slots.** Document memories always have `slot = null`; the gate
+  rejects a document claim that tries to occupy a profile slot.
+- **Provenance is unchanged.** The same gate applies: missing quote, quote not
+  found in the cited turn, or an episode that is not document-mode all fail.
+- **The profile is untouched.** Document memories are excluded from profile
+  compilation and never trigger a recompile, so news can never rewrite the user
+  model. They are still retrievable, searchable and linkable to entities.
+- **User mode is unchanged.** Conversation turns default to
+  `extraction_mode = 'user'` and keep the original prompt and validation path.
+
+Measured on 10 BBC articles, same seeder, fresh local store:
+
+| Metric | Value |
+|---|---|
+| Articles ingested | 10 |
+| **Memories created** | **134** (13.4/article, vs ~0.02/article user mode) |
+| Entities created | 130 |
+| Relationships created | 86 |
+| Memories with a verbatim evidence quote | 134/134 |
+| Entity→memory links | 226 across 129 memories |
+| Kinds | 118 fact, 16 relationship |
+| Modality | 107 stated, 25 quoted, 2 negated |
+
+Known limitation: the gate proves the *quote* is verbatim and in the cited
+chunk, not that the subject name is literal in that same chunk. 12/134 subjects
+(9%) were resolved by coreference — "He ruled out crude cuts" → `John Healey`.
+That is correct but cross-chunk, so a stricter "subject must be named in the
+chunk" rule would drop those facts too.
+
 ## Recommended next steps
 
-1. **Document-mode extraction.** Add an extraction mode for ingested documents
-   that emits entity-centric facts — `subject = <entity>`, `predicate`, `object`
-   — instead of user-frame facts. That is the single change that turns a news
-   corpus into usable memories; today the graph is rich and the memory store is
-   empty by design.
-2. **Constrain relation types.** Replace the free-form relation with a small
+1. **Constrain relation types.** Replace the free-form relation with a small
    closed set plus a mapping for long-tail cases, and re-run this corpus to see
    `related_to` fall below ~10%.
-3. **Compile the wiki after seeding** (with the link fix in place) so the graph
+2. **Compile the wiki after seeding** (with the link fix in place) so the graph
    is browsable as prose. `POST /wiki/compile-all` exists but costs one model call
    per entity — at 959 entities, target the top N by mention count first.
-4. **Track orphans as a metric.** 12% of entities have no relationship at all;
+3. **Track orphans as a metric.** 12% of entities have no relationship at all;
    a rising orphan rate is an early signal that relationship extraction is
    degrading on a new domain.
 

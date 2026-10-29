@@ -30,12 +30,12 @@ export function Dialog({ open, onClose, title, description, children, className 
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/5 backdrop-blur-sm" onClick={onClose} />
       <div
         role="dialog"
         aria-modal="true"
         className={cn(
-          'relative z-10 w-full max-w-lg rounded-xl border border-border bg-card p-6 shadow-2xl',
+          'relative z-10 w-full max-w-lg rounded-xl border border-border bg-card p-6 shadow-xl',
           className
         )}
       >
@@ -47,7 +47,7 @@ export function Dialog({ open, onClose, title, description, children, className 
           <button
             onClick={onClose}
             aria-label="Close"
-            className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
           >
             ✕
           </button>

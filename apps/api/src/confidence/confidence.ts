@@ -9,6 +9,7 @@ export const SOURCE_STRENGTH: Record<SourceType, number> = {
   user_confirmed: 0.75,
   agent_inferred: 0.40,
   agent_reflection: 0.25,
+  document_stated: 0.60,
 };
 
 // Half-lives in days by decay class
@@ -87,6 +88,7 @@ export function getContradictionPenalty(memorySourceType: SourceType, contradict
     user_confirmed: 4,
     agent_inferred: 3,
     agent_reflection: 2,
+    document_stated: 3,
   };
 
   const memStrength = strengthOrder[memorySourceType] || 0;
@@ -149,5 +151,6 @@ export function initialConfidence(sourceType: SourceType): number {
 export function kForSource(sourceType: SourceType): number {
   if (sourceType === 'user_stated' || sourceType === 'user_edited' || sourceType === 'user_confirmed') return 0.25;
   if (sourceType === 'agent_inferred') return 0.15;
+  if (sourceType === 'document_stated') return 0.10;
   return 0; // agent_reflection produces no reinforcement
 }
