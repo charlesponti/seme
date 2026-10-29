@@ -1,145 +1,303 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { semeApi } from '../lib/api'
-import GraphView from '../components/GraphView'
-import { Dialog } from '../components/ui/dialog'
-import { Tabs } from '../components/ui/tabs'
+import {
+  buildGraphIndex,
+  connectionsFor,
+  topByDegree,
+  visibleEdgeCount,
+  type GraphEntity,
+  type GraphIndex,
+  type GraphRelationship,
+} from '../lib/graphModel'
+import { GraphCanvas, type GraphCanvasHandle } from '../components/graph/GraphCanvas'
+import { DetailPanel } from '../components/graph/DetailPanel'
+import { useGraphLayout } from '../components/graph/useGraphLayout'
 
 export const Route = createFileRoute('/graph')({
+  validateSearch: (search: Record<string, unknown>): { entity?: string } => ({
+    entity: typeof search.entity === 'string' ? search.entity : undefined,
+  }),
   component: GraphPage,
 })
 
-function GraphPage() {
-  const [entities, setEntities] = useState<any[]>([])
-  const [relationships, setRelationships] = useState<any[]>([])
-  const [selected, setSelected] = useState<any | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [view, setView] = useState('all')
-  const [neighborhood, setNeighborhood] = useState<{ entities: any[]; relationships: any[] } | null>(null)
+const INITIAL_NODES = 150
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const snap = await semeApi.graphSnapshot()
-        setEntities(snap.entities || [])
-        setRelationships(snap.relationships || [])
-      } catch (e) {
-        console.error('Failed to load graph:', e)
-      }
+type GraphPageSearch = { entity?: string }
+
+const EMPTY_INDEX: GraphIndex = buildGraphIndex([], [])
+
+function GraphPage() {
+  const { entity: deepLinkId } = Route.useSearch() as GraphPageSearch
+
+  const [snapshot, setSnapshot] = useState<{ entities: GraphEntity[]; relationships: GraphRelationship[] } | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [visible, setVisible] = useState<Set<string>>(new Set())
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
+
+  const canvasRef = useRef<GraphCanvasHandle>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
+  const deepLinkDone = useRef<string | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const snap = await semeApi.graphSnapshot()
+      setSnapshot({
+        entities: Array.isArray(snap?.entities) ? snap.entities : [],
+        relationships: Array.isArray(snap?.relationships) ? snap.relationships : [],
+      })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load the graph')
+    } finally {
       setLoading(false)
     }
-    load()
   }, [])
 
-  async function focusNeighborhood(entity: any) {
-    setSelected(entity)
-    setNeighborhood(null)
-    try {
-      const nb = await semeApi.graphNeighborhood(entity.id, 2)
-      setNeighborhood({ entities: nb.entities || [], relationships: nb.relationships || [] })
-    } catch (e) {
-      console.error(e)
+  useEffect(() => {
+    load()
+  }, [load])
+
+  const index = useMemo(
+    () => (snapshot ? buildGraphIndex(snapshot.entities, snapshot.relationships) : EMPTY_INDEX),
+    [snapshot],
+  )
+
+  const layout = useGraphLayout(index)
+  const points = layout.points
+
+  // Initial view: top 150 by degree
+  useEffect(() => {
+    if (index.entities.length === 0) {
+      setVisible(new Set())
+      return
     }
-  }
+    setVisible(new Set(topByDegree(index, INITIAL_NODES)))
+  }, [index])
 
-  const shown =
-    view === 'focus' && neighborhood
-      ? { entities: neighborhood.entities, relationships: neighborhood.relationships }
-      : { entities, relationships }
+  const expand = useCallback(
+    (id: string) => {
+      setVisible((current) => {
+        const next = new Set(current)
+        next.add(id)
+        for (const neighbour of index.neighbours.get(id) ?? []) next.add(neighbour)
+        return next
+      })
+    },
+    [index],
+  )
 
-  const types = [...new Set(entities.map((e) => e.type))]
+  const ensureVisible = useCallback(
+    (id: string): boolean => {
+      if (!index.byId.has(id)) return false
+      setVisible((current) => {
+        if (current.has(id)) return current
+        const next = new Set(current)
+        next.add(id)
+        for (const neighbour of index.neighbours.get(id) ?? []) next.add(neighbour)
+        return next
+      })
+      return true
+    },
+    [index],
+  )
+
+  const focusEntity = useCallback(
+    (id: string) => {
+      if (!ensureVisible(id)) return
+      setSelectedId(id)
+      requestAnimationFrame(() => canvasRef.current?.flyTo(id))
+    },
+    [ensureVisible],
+  )
+
+  // Deep link: /graph?entity=<id> (used by search + entity pages later)
+  useEffect(() => {
+    if (deepLinkDone.current === deepLinkId) return
+    if (!deepLinkId || !points) return
+    if (!index.byId.has(deepLinkId)) return
+    deepLinkDone.current = deepLinkId
+    focusEntity(deepLinkId)
+  }, [deepLinkId, points, index, focusEntity])
+
+  const selected = selectedId ? index.byId.get(selectedId) ?? null : null
+  const connections = useMemo(
+    () => (selectedId ? connectionsFor(index, selectedId) : []),
+    [index, selectedId],
+  )
+  const degree = selectedId ? index.degree.get(selectedId) ?? 0 : 0
+
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return []
+    return index.entities
+      .filter((e) => e.name.toLowerCase().includes(q) || (e.aliases ?? []).some((a) => a.toLowerCase().includes(q)))
+      .sort((a, b) => (index.degree.get(b.id) ?? 0) - (index.degree.get(a.id) ?? 0))
+      .slice(0, 8)
+  }, [index, query])
+
+  const choose = useCallback(
+    (id: string) => {
+      setSearchOpen(false)
+      setQuery('')
+      searchRef.current?.blur()
+      focusEntity(id)
+    },
+    [focusEntity],
+  )
+
+  const edgeCount = visibleEdgeCount(index, visible)
 
   return (
-    <div>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">
-            <span className="gradient-text">Knowledge Graph</span>
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {entities.length} entities · {relationships.length} relationships · drag nodes to explore
-          </p>
-        </div>
-        <Tabs
-          value={view}
-          onChange={setView}
-          tabs={[
-            { id: 'all', label: 'Full graph', count: entities.length },
-            { id: 'focus', label: 'Neighborhood', count: neighborhood?.entities.length },
-          ]}
+    <div className="relative h-full w-full bg-white">
+      <div className="absolute inset-0">
+        {loading ? (
+          <div className="flex h-full items-center justify-center">
+            <div className="w-64 space-y-2">
+              <div className="h-2 w-full rounded bg-[#f5f5f5]" />
+              <div className="h-2 w-3/4 rounded bg-[#f5f5f5]" />
+              <div className="h-2 w-1/2 rounded bg-[#f5f5f5]" />
+            </div>
+          </div>
+        ) : error ? (
+          <div className="flex h-full items-center justify-center px-6">
+            <div className="w-full max-w-md rounded-lg border border-[#eaeaea] p-4">
+              <p className="text-sm text-[#171717]">Could not load the graph: {error}</p>
+              <button
+                type="button"
+                onClick={load}
+                className="mt-3 h-8 rounded-[6px] border border-[#d4d4d4] bg-white px-3 text-[12px] font-medium text-[#171717] hover:bg-[#f5f5f5]"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        ) : index.entities.length === 0 ? (
+          <div className="flex h-full items-center justify-center">
+            <p className="text-[13px] text-[#888888]">No entities yet — submit some text to build the graph.</p>
+          </div>
+        ) : (
+          <GraphCanvas
+            ref={canvasRef}
+            index={index}
+            points={points}
+            visible={visible}
+            selectedId={selectedId}
+            panelOpen={selectedId !== null}
+            onSelect={setSelectedId}
+            onExpand={expand}
+            persistNode={layout.persistNode}
+          />
+        )}
+
+        {!loading && !error && index.entities.length > 0 && !points && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-[#888888]">Laying out the map…</span>
+          </div>
+        )}
+
+        <DetailPanel
+          entity={selected}
+          connections={connections}
+          degree={degree}
+          onClose={() => setSelectedId(null)}
+          onExpand={expand}
+          onNavigate={focusEntity}
         />
       </div>
 
-      {types.length > 0 && (
-        <div className="mb-4 flex flex-wrap gap-1.5">
-          {types.map((t) => (
-            <span key={t} className="rounded-full border border-border bg-card px-2.5 py-0.5 text-[11px] text-muted-foreground">
-              {t}: {entities.filter((e) => e.type === t).length}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {loading ? (
-        <p className="text-sm text-muted-foreground">Loading graph…</p>
-      ) : (
-        <GraphView
-          entities={shown.entities}
-          relationships={shown.relationships}
-          height={560}
-          onSelect={(e) => e && focusNeighborhood(e)}
-        />
-      )}
-
-      {view === 'focus' && !neighborhood && (
-        <p className="mt-3 text-xs text-muted-foreground">Click any node to focus its 2-hop neighborhood.</p>
-      )}
-
-      <Dialog
-        open={!!selected}
-        onClose={() => setSelected(null)}
-        title={selected?.name}
-        description={selected ? `${selected.type} · ${selected.mention_count ?? 0} mentions · confidence ${selected.confidence ?? '-'}` : ''}
-      >
-        {selected && (
-          <div className="space-y-3 text-sm">
-            {selected.description && (
-              <p className="text-muted-foreground">{selected.description}</p>
-            )}
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="rounded-md border border-border p-2">
-                <div className="text-muted-foreground">First seen</div>
-                <div>{selected.first_seen_at?.slice(0, 10) ?? '-'}</div>
+      {!loading && !error && index.entities.length > 0 && (
+        <>
+          {/* Search */}
+          <div className="absolute left-4 top-4 z-10 w-[280px]">
+            <input
+              ref={searchRef}
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value)
+                setSearchOpen(true)
+              }}
+              onFocus={() => setSearchOpen(true)}
+              onBlur={() => window.setTimeout(() => setSearchOpen(false), 120)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && results.length > 0) choose(results[0].id)
+                if (e.key === 'Escape') {
+                  setSearchOpen(false)
+                  searchRef.current?.blur()
+                }
+              }}
+              placeholder="Search entities"
+              aria-label="Search entities"
+              className="h-8 w-full rounded-[6px] border border-[#d4d4d4] bg-white px-2.5 text-[13px] text-[#171717] placeholder:text-[#888888] focus:border-[#171717] focus:outline-none"
+            />
+            {searchOpen && results.length > 0 && (
+              <div
+                className="mt-1 overflow-hidden rounded-md border border-[#eaeaea] bg-white"
+                style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
+              >
+                {results.map((e) => (
+                  <button
+                    key={e.id}
+                    type="button"
+                    onMouseDown={(ev) => ev.preventDefault()}
+                    onClick={() => choose(e.id)}
+                    className="flex w-full items-center justify-between gap-3 px-2.5 py-1.5 text-left hover:bg-[#f5f5f5]"
+                  >
+                    <span className="truncate text-[13px] text-[#171717]">{e.name}</span>
+                    <span className="shrink-0 font-mono text-[11px] text-[#888888]">{e.type}</span>
+                  </button>
+                ))}
               </div>
-              <div className="rounded-md border border-border p-2">
-                <div className="text-muted-foreground">Last seen</div>
-                <div>{selected.last_seen_at?.slice(0, 10) ?? '-'}</div>
-              </div>
-            </div>
-            {selected.aliases?.length > 0 && (
-              <p className="text-xs text-muted-foreground">Aliases: {selected.aliases.join(', ')}</p>
             )}
-            <div className="space-y-1">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">Connections</div>
-              {relationships
-                .filter((r) => r.source_id === selected.id || r.target_id === selected.id)
-                .map((r) => {
-                  const otherId = r.source_id === selected.id ? r.target_id : r.source_id
-                  const other = entities.find((e) => e.id === otherId)
-                  const dir = r.source_id === selected.id ? '→' : '←'
-                  return (
-                    <div key={r.id} className="rounded-md bg-accent/50 px-2 py-1 text-xs">
-                      {dir} <span className="text-muted-foreground">{r.relation_type}</span> {other?.name ?? otherId.slice(0, 8)}
-                    </div>
-                  )
-                })}
-              {relationships.filter((r) => r.source_id === selected.id || r.target_id === selected.id).length === 0 && (
-                <p className="text-xs text-muted-foreground">No relationships yet.</p>
-              )}
+          </div>
+
+          {/* Controls */}
+          <div className="absolute bottom-4 left-4 z-10 flex flex-col items-start gap-2">
+            <button
+              type="button"
+              onClick={() => layout.relayout()}
+              disabled={layout.running}
+              className="h-7 rounded-[6px] border border-[#eaeaea] bg-white px-2.5 font-mono text-[11px] uppercase tracking-[0.08em] text-[#666666] hover:bg-[#f5f5f5] hover:text-[#171717] disabled:opacity-50"
+            >
+              {layout.running ? 'Laying out…' : 'Re-layout'}
+            </button>
+            <div className="flex flex-col overflow-hidden rounded-[6px] border border-[#eaeaea] bg-white">
+              {[
+                { label: '+', action: () => canvasRef.current?.zoomBy(1.25), aria: 'Zoom in' },
+                { label: '−', action: () => canvasRef.current?.zoomBy(0.8), aria: 'Zoom out' },
+                { label: '0', action: () => canvasRef.current?.resetView(), aria: 'Reset view' },
+              ].map((btn, i) => (
+                <button
+                  key={btn.label}
+                  type="button"
+                  aria-label={btn.aria}
+                  onClick={btn.action}
+                  className={`flex h-7 w-7 items-center justify-center font-mono text-[12px] text-[#171717] hover:bg-[#f5f5f5] ${
+                    i > 0 ? 'border-t border-[#eaeaea]' : ''
+                  }`}
+                >
+                  {btn.label}
+                </button>
+              ))}
             </div>
           </div>
-        )}
-      </Dialog>
+
+          {/* Legend + caption — shift clear of the open panel */}
+          <div
+            className="pointer-events-none absolute bottom-4 z-10 flex flex-col items-end gap-1 transition-[right] duration-150 ease-out motion-reduce:transition-none"
+            style={{ right: selectedId ? 336 : 16 }}
+          >
+            <div className="font-mono text-[11px] leading-[18px] text-[#666666]">○ entity · size = connections</div>
+            <div className="font-mono text-[11px] leading-[18px] text-[#666666] tabular-nums">
+              {visible.size} of {index.entities.length} entities · {edgeCount} of {index.relationships.length} edges
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

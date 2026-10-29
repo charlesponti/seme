@@ -28,7 +28,7 @@ export function Tabs({ tabs, value, onChange, className }: TabsProps) {
               <span className="rounded-full bg-background/60 px-1.5 text-[10px] tabular-nums">{t.count}</span>
             )}
           </button>
-        )}
+        )
       })}
     </div>
   )

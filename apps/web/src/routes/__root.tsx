@@ -1,4 +1,4 @@
-import { HeadContent, Scripts, createRootRoute, Outlet, Link } from '@tanstack/react-router'
+import { HeadContent, Scripts, createRootRoute, Outlet, Link, useRouterState } from '@tanstack/react-router'
 import appCss from '../styles.css?url'
 import { ToastProvider } from '../components/ui/toast'
 import { useState, useEffect } from 'react'
@@ -19,6 +19,7 @@ export const Route = createRootRoute({
 
 function RootLayout() {
   const [apiKey, setApiKeyState] = useState<string | null>(() => getApiKey())
+  const pathname = useRouterState({ select: (state) => state.location.pathname })
 
   useEffect(() => {
     const handler = () => setApiKeyState(getApiKey())
@@ -32,10 +33,10 @@ function RootLayout() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border px-6 py-4 backdrop-blur bg-background/80 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+      <header className="sticky top-0 z-50 h-12 border-b border-border bg-background px-6">
+        <div className="mx-auto flex h-full max-w-7xl items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-lg flex items-center justify-center text-white font-bold text-sm">S</div>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-black text-sm font-bold text-white">S</div>
             <h1 className="text-xl font-bold">Seme</h1>
           </div>
           <nav className="flex gap-1 text-sm">
@@ -61,7 +62,7 @@ function RootLayout() {
           </nav>
         </div>
       </header>
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className={pathname === '/graph' ? 'h-[calc(100dvh-3rem)] overflow-hidden' : 'mx-auto max-w-7xl px-6 py-8'}>
         <ToastProvider>
           <Outlet />
         </ToastProvider>
