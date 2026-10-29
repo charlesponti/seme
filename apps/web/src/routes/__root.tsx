@@ -12,6 +12,10 @@ export const Route = createRootRoute({
       { title: 'Seme Memory Dashboard' },
     ],
     links: [
+      { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
+      { rel: 'icon', href: '/favicon-32.png', type: 'image/png', sizes: '32x32' },
+      { rel: 'icon', href: '/favicon-16.png', type: 'image/png', sizes: '16x16' },
+      { rel: 'apple-touch-icon', href: '/apple-touch-icon.png', sizes: '180x180' },
       { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
       { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossOrigin: 'anonymous' },
       {
@@ -44,8 +48,15 @@ function RootLayout() {
       <header className="sticky top-0 z-50 h-12 border-b border-border bg-background px-6">
         <div className="mx-auto flex h-full max-w-7xl items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-black text-sm font-bold text-white">S</div>
-            <h1 className="text-xl font-bold">Seme</h1>
+            <img
+              src="/logo-mark-black.svg"
+              alt=""
+              aria-hidden="true"
+              width={22}
+              height={22}
+              className="h-[22px] w-[22px] shrink-0"
+            />
+            <h1 className="font-serif text-xl font-bold">Seme</h1>
           </div>
           <nav className="flex gap-1 text-sm">
             {[
@@ -118,9 +129,14 @@ function PasswordGate({ onAuth }: { onAuth: (key: string) => void }) {
         className="w-full max-w-sm rounded-xl border border-border bg-card p-6"
       >
         <div className="flex items-center gap-3 mb-4">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
-            S
-          </div>
+          <img
+            src="/favicon.svg"
+            alt=""
+            aria-hidden="true"
+            width={48}
+            height={48}
+            className="h-12 w-12 shrink-0"
+          />
           <h1 className="text-xl font-bold">Seme</h1>
         </div>
         <p className="text-sm text-muted-foreground mb-4">Enter gate password to continue.</p>
