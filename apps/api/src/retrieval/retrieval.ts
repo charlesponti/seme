@@ -25,11 +25,11 @@ export interface RetrievalContext {
 const RELEVANCE_FLOOR = 0.15;
 
 // Candidates from each signal are ranked, then fused with weighted reciprocal-rank fusion.
-// Vector similarity is the strongest signal on natural-language questions, so it weighs most.
+// Vector similarity is the strongest signal on natural-language questions, so it dominates; word
+// matches only nudge ties. (Weighting bm25 full-text search measurably lowered hit@1 on our eval.)
 const RRF_K = 60;
-const WEIGHT_VECTOR = 4;
-const WEIGHT_FTS = 1;
-const WEIGHT_KEYWORD = 0.5;
+const WEIGHT_VECTOR = 8;
+const WEIGHT_KEYWORD = 0.25;
 const SIGNAL_LIMIT = 30;
 const MAX_RESULTS = 20;
 
@@ -101,25 +101,7 @@ export class RetrievalEngine {
     };
     const terms = queryTerms(userMessage);
 
-    // 1. FTS5 keyword search, best bm25 match first (any content term, not all of them)
-    if (terms.length > 0) {
-      try {
-        const match = terms.map(t => `"${t}"`).join(' OR ');
-        const ftsResults = this.storage.read((db: any) => {
-          return db.prepare(`
-            SELECT memory_id FROM memories_fts
-            WHERE memories_fts MATCH ?
-            ORDER BY bm25(memories_fts)
-            LIMIT ${SIGNAL_LIMIT}
-          `).all(match) as { memory_id: string }[];
-        });
-        fuse(ftsResults.map(r => r.memory_id), WEIGHT_FTS);
-      } catch {
-        // FTS5 query syntax error — fall through to keyword matching
-      }
-    }
-
-    // 2. Content-word match, memories hitting more distinct query words first
+    // 1. Content-word match, memories hitting more distinct query words first
     if (terms.length > 0) {
       const hits: { id: string; n: number }[] = [];
       for (const m of allActive) {
