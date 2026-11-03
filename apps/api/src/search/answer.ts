@@ -22,7 +22,8 @@ export function buildAnswerPrompt(query: string, memories: string[]) {
   return {
     system:
       'You answer questions from a personal memory store, like a search engine\'s quick answer. ' +
-      'Use only the numbered memories provided. Reply in one to three short sentences, plain text, no preamble. ' +
+      'Use only the numbered memories provided; they belong to the person asking, so address them as "you". ' +
+      'Reply in one to three short sentences, plain text, no preamble. ' +
       'If the memories do not contain the answer, say so briefly instead of guessing.',
     user: `Memories:\n${lines.join('\n')}\n\nQuestion: ${query}`,
     used: lines.length,
