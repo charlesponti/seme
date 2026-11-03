@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { semeApi } from '../lib/api'
 import { formatDay } from '../lib/format'
 
@@ -226,6 +226,8 @@ function SearchBlock() {
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<SearchTab>('memories')
   const [opening, setOpening] = useState<string | null>(null)
+  const [answer, setAnswer] = useState<{ status: 'loading' } | { status: 'ready'; text: string } | null>(null)
+  const answerRun = useRef(0)
 
   const doSearch = useCallback(async () => {
     const q = query.trim()
@@ -237,8 +239,30 @@ function SearchBlock() {
       if (data?.error) throw new Error(data.error.message ?? 'Search failed')
       setResults(data as SearchResults)
       setTab('memories')
+      const texts = ((data as SearchResults).memories ?? [])
+        .map((m: any) => m.value_text)
+        .filter((t: unknown): t is string => typeof t === 'string' && t.trim().length > 0)
+      if (texts.length > 0) {
+        const run = ++answerRun.current
+        setAnswer({ status: 'loading' })
+        semeApi
+          .answer(q, texts)
+          .then((res) => {
+            if (run !== answerRun.current) return
+            // Unconfigured or failed: the memories list stands on its own, so show nothing.
+            setAnswer(res?.answer ? { status: 'ready', text: res.answer } : null)
+          })
+          .catch(() => {
+            if (run === answerRun.current) setAnswer(null)
+          })
+      } else {
+        answerRun.current++
+        setAnswer(null)
+      }
     } catch (e) {
       setResults(null)
+      answerRun.current++
+      setAnswer(null)
       setError(e instanceof Error ? e.message : 'Search failed')
     } finally {
       setLoading(false)
@@ -299,6 +323,20 @@ function SearchBlock() {
           {[0, 1, 2].map((i) => (
             <div key={i} className="h-12 w-full bg-[#f5f5f5]" />
           ))}
+        </div>
+      )}
+
+      {results && answer && (
+        <div className="mt-5 border border-[#eaeaea] bg-[#fafafa] px-4 py-3" aria-live="polite">
+          <div className="text-[11px] uppercase leading-4 tracking-[0.08em] text-[#888888]">Quick answer</div>
+          {answer.status === 'loading' ? (
+            <div className="mt-2 space-y-2">
+              <div className="h-4 w-3/4 bg-[#eeeeee]" />
+              <div className="h-4 w-1/2 bg-[#eeeeee]" />
+            </div>
+          ) : (
+            <p className="mt-1.5 text-[16px] leading-6 text-[#171717]">{answer.text}</p>
+          )}
         </div>
       )}
 
