@@ -24,6 +24,28 @@ export interface RetrievalContext {
 
 const RELEVANCE_FLOOR = 0.15;
 
+// Candidates from each signal are ranked, then fused with weighted reciprocal-rank fusion.
+// Vector similarity is the strongest signal on natural-language questions, so it weighs most.
+const RRF_K = 60;
+const WEIGHT_VECTOR = 4;
+const WEIGHT_FTS = 1;
+const WEIGHT_KEYWORD = 0.5;
+const SIGNAL_LIMIT = 30;
+const MAX_RESULTS = 20;
+
+// Question filler that would otherwise "match" half the store.
+const STOPWORDS = new Set((
+  'the and for are but not you your yours our ours his her its their them they this that these those what when where which who whom whose why how ' +
+  'does did doing done has have had having was were been being can could would should will shall may might must about into over under from with without ' +
+  'than then there here also just very much many any some all each every other another such only own same too out off per via get got use used using ' +
+  'tell show give find list know like'
+).split(' '));
+
+function queryTerms(message: string): string[] {
+  const terms = message.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !STOPWORDS.has(w));
+  return [...new Set(terms)];
+}
+
 export class RetrievalEngine {
   private storage: Storage;
   private graphStore: GraphStore;
@@ -68,31 +90,45 @@ export class RetrievalEngine {
       return db.prepare(sql).all(...params) as any[];
     });
 
-    // Hybrid retrieval: FTS5 + exact keyword match
+    // Hybrid retrieval: each signal produces a ranked list, fused into one relevance score per memory
     const candidateIds = new Set<string>();
-
-    // 1. FTS5 keyword search
-    try {
-      const sanitized = userMessage.replace(/[?*"()]/g, ' ').trim();
-      const ftsResults = this.storage.read((db: any) => {
-        return db.prepare(`
-          SELECT memory_id FROM memories_fts
-          WHERE memories_fts MATCH ?
-          LIMIT 20
-        `).all(sanitized) as { memory_id: string }[];
+    const relevance = new Map<string, number>();
+    const fuse = (ids: string[], weight: number) => {
+      ids.forEach((id, i) => {
+        candidateIds.add(id);
+        relevance.set(id, (relevance.get(id) || 0) + weight / (RRF_K + i));
       });
-      for (const r of ftsResults) candidateIds.add(r.memory_id);
-    } catch {
-      // FTS5 query syntax error — fall through to keyword matching
+    };
+    const terms = queryTerms(userMessage);
+
+    // 1. FTS5 keyword search, best bm25 match first (any content term, not all of them)
+    if (terms.length > 0) {
+      try {
+        const match = terms.map(t => `"${t}"`).join(' OR ');
+        const ftsResults = this.storage.read((db: any) => {
+          return db.prepare(`
+            SELECT memory_id FROM memories_fts
+            WHERE memories_fts MATCH ?
+            ORDER BY bm25(memories_fts)
+            LIMIT ${SIGNAL_LIMIT}
+          `).all(match) as { memory_id: string }[];
+        });
+        fuse(ftsResults.map(r => r.memory_id), WEIGHT_FTS);
+      } catch {
+        // FTS5 query syntax error — fall through to keyword matching
+      }
     }
 
-    // 2. Exact keyword match (strip punctuation)
-    const words = userMessage.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 2);
-    for (const m of allActive) {
-      const text = `${m.subject} ${m.predicate} ${m.value_text}`.toLowerCase();
-      if (words.some(w => text.includes(w))) {
-        candidateIds.add(m.id);
+    // 2. Content-word match, memories hitting more distinct query words first
+    if (terms.length > 0) {
+      const hits: { id: string; n: number }[] = [];
+      for (const m of allActive) {
+        const text = `${m.subject} ${m.predicate} ${m.value_text}`.toLowerCase();
+        const n = terms.filter(w => text.includes(w)).length;
+        if (n > 0) hits.push({ id: m.id, n });
       }
+      hits.sort((a, b) => b.n - a.n);
+      fuse(hits.slice(0, SIGNAL_LIMIT).map(h => h.id), WEIGHT_KEYWORD);
     }
 
     // 2b. Vector search (hybrid): semantic similarity via sqlite-vec
@@ -104,15 +140,11 @@ export class RetrievalEngine {
             SELECT memory_id, vec_distance_cosine(embedding, ?) as distance
             FROM memories_vec
             ORDER BY distance ASC
-            LIMIT 20
+            LIMIT ${SIGNAL_LIMIT}
           `).all(new Float32Array(queryEmbedding)) as { memory_id: string; distance: number }[];
         });
-        for (const r of vecResults) {
-          // Convert cosine distance to similarity (1 - distance)
-          if (r.distance < 0.5) { // Only include reasonably similar results
-            candidateIds.add(r.memory_id);
-          }
-        }
+        // Only include reasonably similar results (cosine distance < 0.55)
+        fuse(vecResults.filter(r => r.distance < 0.55).map(r => r.memory_id), WEIGHT_VECTOR);
       } catch (e) {
         // Graceful degradation: skip vector search
         console.warn('Vector search failed:', (e as Error).message);
@@ -191,8 +223,9 @@ export class RetrievalEngine {
         }
       }
 
-      for (const memId of graphMatchedMemoryIds.keys()) {
+      for (const [memId, hop] of graphMatchedMemoryIds.entries()) {
         candidateIds.add(memId);
+        relevance.set(memId, (relevance.get(memId) || 0) + 1 / (RRF_K + hop * 15));
       }
 
       graphEntities = (Array.from(visitedEntityIds) as string[]).map((id: string) => {
@@ -248,15 +281,18 @@ export class RetrievalEngine {
       }
     }
 
-    // Sort by effective confidence (desc), then reinforcement count
+    // Most relevant first; confidence and reinforcement only break ties
     filteredMemories.sort((a, b) => {
+      const relA = relevance.get(a.id) || 0;
+      const relB = relevance.get(b.id) || 0;
+      if (relB !== relA) return relB - relA;
       const effA = effectiveConfidence(a, now);
       const effB = effectiveConfidence(b, now);
       if (effB !== effA) return effB - effA;
       return (b.reinforcement_count || 0) - (a.reinforcement_count || 0);
     });
 
-    const topMemories = filteredMemories.slice(0, 20);
+    const topMemories = filteredMemories.slice(0, MAX_RESULTS);
 
     // Episodic recall
     let episodes: { id: string; summary: string; started_at: string }[] = [];
