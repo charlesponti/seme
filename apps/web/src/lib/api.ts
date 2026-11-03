@@ -68,6 +68,11 @@ export const semeApi = {
       method: 'POST',
       body: JSON.stringify({ user_message: query, ...opts }),
     }),
+  answer: (query: string, memories: string[]) =>
+    apiFetch('/search/answer', {
+      method: 'POST',
+      body: JSON.stringify({ query, memories }),
+    }),
   retrieve: (sessionId: string, userMessage: string, hint?: any) =>
     apiFetch(`/sessions/${encodeURIComponent(sessionId)}/retrieve`, {
       method: 'POST',
