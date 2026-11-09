@@ -1,3 +1,7 @@
 
 # deployment config stays local (no infra detail in the repo)
 fly.toml
+
+# Eval runs and baselines live in ~/.hominem/seme.evals.db now. These JSON folders are old copies.
+apps/api/evals/results/
+apps/api/evals/baselines/
