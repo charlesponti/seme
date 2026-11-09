@@ -18,6 +18,7 @@ import { GraphStore } from '../graph/graph-store.js';
 import { WikiStore } from '../wiki/wiki-store.js';
 import { WikiCompiler } from '../wiki/wiki-compiler.js';
 import { SourceIngestion } from '../ingestion/source-ingestion.js';
+import { ProvenanceStore } from '../provenance/provenance-store.js';
 import { HybridSearch } from '../search/hybrid-search.js';
 import { KBIntelligence } from '../kb/kb-intelligence.js';
 import { TaskStore } from '../tasks/task-store.js';
@@ -29,7 +30,26 @@ import { uuid, nowUtc } from '../types/common.js';
 import { createEmbeddingProvider } from '../embeddings/embedding-provider.js';
 import { getDecayClass } from '../confidence/confidence.js';
 
+/** Live state of one submission's extraction, polled by the web sheet. */
+export interface IngestProgress {
+  episode_id: string;
+  state: 'running' | 'done' | 'failed';
+  stage: string;
+  chunks: number | null;
+  total?: number;
+  done?: number;
+  memories_created?: number;
+  entities_created?: number;
+  relationships_created?: number;
+  error?: string;
+  updated_at: string;
+}
+
+const INGEST_PROGRESS_LIMIT = 200;
+
 export class MemoryService {
+  private ingestProgress = new Map<string, IngestProgress>();
+
   private storage: Storage;
   private ingest: IngestManager;
   private gate: ValidationGate;
@@ -43,6 +63,7 @@ export class MemoryService {
   private deletionManager: DeletionManager;
   private adaptationStore: AdaptationStore;
   private graphStore: GraphStore;
+  private provenanceStore: ProvenanceStore;
   private wikiStore: WikiStore;
   private wikiCompiler: WikiCompiler;
   private sourceIngestion: SourceIngestion;
@@ -60,6 +81,7 @@ export class MemoryService {
     this.gate = new ValidationGate(this.storage);
     this.resolver = new Resolver(this.storage, createEmbeddingProvider());
     this.graphStore = new GraphStore(this.storage);
+    this.provenanceStore = new ProvenanceStore(this.storage);
     this.wikiStore = new WikiStore(this.storage);
     this.wikiCompiler = new WikiCompiler(this.storage, this.wikiStore);
     this.sourceIngestion = new SourceIngestion(this.storage, config.storageDir);
@@ -74,9 +96,18 @@ export class MemoryService {
     this.retrieval = new RetrievalEngine(this.storage, this.graphStore, createEmbeddingProvider());
     this.identityCore = new IdentityCoreManager(this.storage);
     this.extractionPipeline = new ExtractionPipeline(
-      this.storage, this.ingest, this.gate, this.resolver, this.profileCompiler
+      this.storage,
+      this.ingest,
+      this.gate,
+      this.resolver,
+      this.profileCompiler,
     );
-    this.sleepJob = new SleepJob(this.storage, this.profileCompiler, config.sleepLogPath, this.graphStore);
+    this.sleepJob = new SleepJob(
+      this.storage,
+      this.profileCompiler,
+      config.sleepLogPath,
+      this.graphStore,
+    );
     this.reviewQueue = new ReviewQueue(this.storage);
     this.deletionManager = new DeletionManager(this.storage, this.profileCompiler);
     this.adaptationStore = new AdaptationStore(this.storage, this.reviewQueue);
@@ -87,16 +118,76 @@ export class MemoryService {
 
   private seedSlots(): void {
     const slots = [
-      { slot: 'name', kind: 'fact', cardinality: 'single', decay_class: 'exempt', profile_included: 1 },
-      { slot: 'home_city', kind: 'fact', cardinality: 'single', decay_class: 'slow', profile_included: 1 },
-      { slot: 'dietary_restriction', kind: 'fact', cardinality: 'single', decay_class: 'slow', profile_included: 1 },
-      { slot: 'interest', kind: 'interest', cardinality: 'multi', decay_class: 'medium', profile_included: 1 },
-      { slot: 'preference', kind: 'preference', cardinality: 'multi', decay_class: 'medium', profile_included: 1 },
-      { slot: 'routine', kind: 'routine', cardinality: 'multi', decay_class: 'medium', profile_included: 1 },
-      { slot: 'relationship', kind: 'relationship', cardinality: 'multi', decay_class: 'slow', profile_included: 1 },
-      { slot: 'decision', kind: 'decision', cardinality: 'multi', decay_class: 'slow', profile_included: 1 },
-      { slot: 'reference', kind: 'reference', cardinality: 'multi', decay_class: 'medium', profile_included: 1 },
-      { slot: 'anti_pattern', kind: 'anti_pattern', cardinality: 'multi', decay_class: 'slow', profile_included: 1 },
+      {
+        slot: 'name',
+        kind: 'fact',
+        cardinality: 'single',
+        decay_class: 'exempt',
+        profile_included: 1,
+      },
+      {
+        slot: 'home_city',
+        kind: 'fact',
+        cardinality: 'single',
+        decay_class: 'slow',
+        profile_included: 1,
+      },
+      {
+        slot: 'dietary_restriction',
+        kind: 'fact',
+        cardinality: 'single',
+        decay_class: 'slow',
+        profile_included: 1,
+      },
+      {
+        slot: 'interest',
+        kind: 'interest',
+        cardinality: 'multi',
+        decay_class: 'medium',
+        profile_included: 1,
+      },
+      {
+        slot: 'preference',
+        kind: 'preference',
+        cardinality: 'multi',
+        decay_class: 'medium',
+        profile_included: 1,
+      },
+      {
+        slot: 'routine',
+        kind: 'routine',
+        cardinality: 'multi',
+        decay_class: 'medium',
+        profile_included: 1,
+      },
+      {
+        slot: 'relationship',
+        kind: 'relationship',
+        cardinality: 'multi',
+        decay_class: 'slow',
+        profile_included: 1,
+      },
+      {
+        slot: 'decision',
+        kind: 'decision',
+        cardinality: 'multi',
+        decay_class: 'slow',
+        profile_included: 1,
+      },
+      {
+        slot: 'reference',
+        kind: 'reference',
+        cardinality: 'multi',
+        decay_class: 'medium',
+        profile_included: 1,
+      },
+      {
+        slot: 'anti_pattern',
+        kind: 'anti_pattern',
+        cardinality: 'multi',
+        decay_class: 'slow',
+        profile_included: 1,
+      },
     ];
     const db = this.storage.getDb();
     for (const s of slots) {
@@ -107,7 +198,13 @@ export class MemoryService {
     }
   }
 
-  async recordTurn(sessionId: string, role: 'user' | 'assistant' | 'system', content: string, ts?: string, turnId?: string) {
+  async recordTurn(
+    sessionId: string,
+    role: 'user' | 'assistant' | 'system',
+    content: string,
+    ts?: string,
+    turnId?: string,
+  ) {
     if (typeof sessionId !== 'string' || typeof role !== 'string' || typeof content !== 'string') {
       throw new Error('ERR_VALIDATION: Invalid input types');
     }
@@ -122,28 +219,54 @@ export class MemoryService {
     const result = await this.ingest.endSession(sessionId, endedAt);
 
     // Trigger extraction asynchronously (don't await)
-    this.extractionPipeline.run(result.episode_id).then((r) => {
-      console.log(`Extraction complete for ${result.episode_id}: ${r.memories_created} memories, ${r.feedback_events_created} feedback events`);
-    }).catch((e) => {
-      console.error(`Extraction failed for ${result.episode_id}:`, e.message);
-    });
+    this.extractionPipeline
+      .run(result.episode_id)
+      .then((r) => {
+        console.log(
+          `Extraction complete for ${result.episode_id}: ${r.memories_created} memories, ${r.feedback_events_created} feedback events`,
+        );
+      })
+      .catch((e) => {
+        console.error(`Extraction failed for ${result.episode_id}:`, e.message);
+      });
 
     return result;
   }
 
   // 3. retrieve_context
-  async retrieveContext(sessionId: string, userMessage: string, timeRangeHint?: { from?: string; to?: string; asOf?: string; historical?: boolean; since?: string; before?: string }) {
+  async retrieveContext(
+    sessionId: string,
+    userMessage: string,
+    timeRangeHint?: {
+      from?: string;
+      to?: string;
+      asOf?: string;
+      historical?: boolean;
+      since?: string;
+      before?: string;
+    },
+  ) {
     // Normalize temporal params
-    const hint = timeRangeHint ? {
-      from: timeRangeHint.from || timeRangeHint.since,
-      to: timeRangeHint.to || timeRangeHint.before || timeRangeHint.asOf,
-      historical: timeRangeHint.historical || !!timeRangeHint.asOf,
-    } : undefined;
+    const hint = timeRangeHint
+      ? {
+          from: timeRangeHint.from || timeRangeHint.since,
+          to: timeRangeHint.to || timeRangeHint.before || timeRangeHint.asOf,
+          historical: timeRangeHint.historical || !!timeRangeHint.asOf,
+        }
+      : undefined;
     return await this.retrieval.retrieve(sessionId, userMessage, hint);
   }
 
   // 4. remember_command
-  async rememberCommand(sessionId: string, content: string, sourceTurnId?: string, kindHint?: string) {
+  async rememberCommand(
+    sessionId: string,
+    content: string,
+    sourceTurnId?: string,
+    kindHint?: string,
+  ) {
+    if (typeof content !== 'string' || content.trim() === '') {
+      throw new Error('ERR_VALIDATION: content must be non-empty text');
+    }
     if (this.deletionManager.getLearningState() === 'paused') {
       throw new Error('ERR_PAUSED: Learning is paused');
     }
@@ -189,7 +312,14 @@ export class MemoryService {
   }
 
   // Deletion & privacy
-  async forgetCommand(scope: string, memoryId?: string, slot?: string, topic?: string, episodeId?: string, confirmedIrreversible?: boolean) {
+  async forgetCommand(
+    scope: string,
+    memoryId?: string,
+    slot?: string,
+    topic?: string,
+    episodeId?: string,
+    confirmedIrreversible?: boolean,
+  ) {
     if (scope === 'memory' && memoryId) {
       return this.deletionManager.forgetMemory(memoryId);
     }
@@ -312,20 +442,44 @@ export class MemoryService {
     return this.reviewQueue.list(limit, offset, itemType);
   }
 
-  async resolveReviewItem(itemId: string, decision: string, chosenMemoryId?: string, editedValueText?: string) {
+  async resolveReviewItem(
+    itemId: string,
+    decision: string,
+    chosenMemoryId?: string,
+    editedValueText?: string,
+  ) {
     return this.reviewQueue.resolve(itemId, decision, chosenMemoryId, editedValueText);
   }
 
   // List memories (V1-later)
-  listMemories(status?: string, kind?: string, slot?: string, search?: string, limit?: number, offset?: number) {
+  listMemories(
+    status?: string,
+    kind?: string,
+    slot?: string,
+    search?: string,
+    limit?: number,
+    offset?: number,
+  ) {
     return this.storage.read((db: any) => {
       let query = 'SELECT * FROM memories';
       const conditions: string[] = [];
       const params: any[] = [];
-      if (status) { conditions.push('status = ?'); params.push(status); }
-      if (kind) { conditions.push('kind = ?'); params.push(kind); }
-      if (slot) { conditions.push('slot = ?'); params.push(slot); }
-      if (search) { conditions.push('(value_text LIKE ? OR subject LIKE ? OR predicate LIKE ?)'); params.push(`%${search}%`, `%${search}%`, `%${search}%`); }
+      if (status) {
+        conditions.push('status = ?');
+        params.push(status);
+      }
+      if (kind) {
+        conditions.push('kind = ?');
+        params.push(kind);
+      }
+      if (slot) {
+        conditions.push('slot = ?');
+        params.push(slot);
+      }
+      if (search) {
+        conditions.push('(value_text LIKE ? OR subject LIKE ? OR predicate LIKE ?)');
+        params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+      }
       if (conditions.length > 0) query += ' WHERE ' + conditions.join(' AND ');
       query += ' ORDER BY recorded_at DESC';
       const lim = limit || 50;
@@ -334,16 +488,26 @@ export class MemoryService {
       params.push(lim, off);
 
       const rows = db.prepare(query).all(...params) as any[];
-      const totalQuery = 'SELECT COUNT(*) as c FROM memories' + (conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '');
+      const totalQuery =
+        'SELECT COUNT(*) as c FROM memories' +
+        (conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '');
       const totalParams = params.slice(0, -2);
       const total = (db.prepare(totalQuery).get(...totalParams) as { c: number }).c;
 
       return {
         memories: rows.map((r: any) => ({
-          id: r.id, kind: r.kind, slot: r.slot, value_text: r.value_text,
-          status: r.status, source_type: r.source_type, confidence: r.confidence,
-          importance: r.importance, pinned: r.pinned === 1, observed_at: r.observed_at,
-          valid_from: r.valid_from, valid_to: r.valid_to,
+          id: r.id,
+          kind: r.kind,
+          slot: r.slot,
+          value_text: r.value_text,
+          status: r.status,
+          source_type: r.source_type,
+          confidence: r.confidence,
+          importance: r.importance,
+          pinned: r.pinned === 1,
+          observed_at: r.observed_at,
+          valid_from: r.valid_from,
+          valid_to: r.valid_to,
         })),
         total,
       };
@@ -352,30 +516,59 @@ export class MemoryService {
 
   // Get memory with full provenance
   getMemory(memoryId: string) {
-    const row = this.storage.read((db: any) => db.prepare('SELECT * FROM memories WHERE id = ?').get(memoryId) as any);
+    const row = this.storage.read(
+      (db: any) => db.prepare('SELECT * FROM memories WHERE id = ?').get(memoryId) as any,
+    );
     if (!row) throw new Error('ERR_NOT_FOUND: Memory not found');
     if (row.status === 'deleted') throw new Error('ERR_NOT_FOUND: Memory not found');
     return {
-      id: row.id, kind: row.kind, slot: row.slot, subject: row.subject, predicate: row.predicate,
-      value_text: row.value_text, value_json: row.value_json ? JSON.parse(row.value_json) : null,
-      evidence_quote: row.evidence_quote, source_turn_id: row.source_turn_id,
-      source_episode_id: row.source_episode_id, source_type: row.source_type, modality: row.modality,
-      confidence: row.confidence, importance: row.importance, pinned: row.pinned === 1,
-      valid_from: row.valid_from, valid_to: row.valid_to, observed_at: row.observed_at,
-      recorded_at: row.recorded_at, superseded_at: row.superseded_at,
-      superseded_by_id: row.superseded_by_id, supersedes_id: row.supersedes_id,
-      last_reinforced_at: row.last_reinforced_at, last_accessed_at: row.last_accessed_at,
-      reinforcement_count: row.reinforcement_count, access_count: row.access_count,
-      status: row.status, extractor_version: row.extractor_version, decay_class: row.decay_class,
+      id: row.id,
+      kind: row.kind,
+      slot: row.slot,
+      subject: row.subject,
+      predicate: row.predicate,
+      value_text: row.value_text,
+      value_json: row.value_json ? JSON.parse(row.value_json) : null,
+      evidence_quote: row.evidence_quote,
+      source_turn_id: row.source_turn_id,
+      source_episode_id: row.source_episode_id,
+      source_type: row.source_type,
+      modality: row.modality,
+      confidence: row.confidence,
+      importance: row.importance,
+      pinned: row.pinned === 1,
+      valid_from: row.valid_from,
+      valid_to: row.valid_to,
+      observed_at: row.observed_at,
+      recorded_at: row.recorded_at,
+      superseded_at: row.superseded_at,
+      superseded_by_id: row.superseded_by_id,
+      supersedes_id: row.supersedes_id,
+      last_reinforced_at: row.last_reinforced_at,
+      last_accessed_at: row.last_accessed_at,
+      reinforcement_count: row.reinforcement_count,
+      access_count: row.access_count,
+      status: row.status,
+      extractor_version: row.extractor_version,
+      decay_class: row.decay_class,
     };
   }
 
   // Correct memory (supersession by user_edited)
   async correctMemory(memoryId: string, correctedValueText: string, correctedValueJson?: any) {
-    const memory = this.storage.read((db: any) => db.prepare('SELECT * FROM memories WHERE id = ?').get(memoryId) as any);
+    if (typeof correctedValueText !== 'string' || correctedValueText.trim() === '') {
+      throw new Error('ERR_VALIDATION: corrected value must be non-empty text');
+    }
+    const memory = this.storage.read(
+      (db: any) => db.prepare('SELECT * FROM memories WHERE id = ?').get(memoryId) as any,
+    );
     if (!memory) throw new Error('ERR_NOT_FOUND: Memory not found');
-    if (memory.status === 'superseded') throw new Error('ERR_CONFLICT: Cannot correct superseded memory, correct the successor instead');
-    if (this.deletionManager.getLearningState() === 'paused') throw new Error('ERR_PAUSED: Learning is paused');
+    if (memory.status === 'superseded')
+      throw new Error(
+        'ERR_CONFLICT: Cannot correct superseded memory, correct the successor instead',
+      );
+    if (this.deletionManager.getLearningState() === 'paused')
+      throw new Error('ERR_PAUSED: Learning is paused');
 
     const newId = uuid();
     const now = nowUtc();
@@ -388,15 +581,35 @@ export class MemoryService {
           status, extractor_version, decay_class)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
-        newId, memory.kind, memory.slot, memory.subject, memory.predicate,
-        correctedValueText, correctedValueJson ? JSON.stringify(correctedValueJson) : null,
-        memory.evidence_quote, memory.source_turn_id, memory.source_episode_id,
-        'user_edited', memory.modality, 0.90, memory.importance, memory.pinned,
-        now, null, now, now, memoryId, 0, 0, 'active', 'user', memory.decay_class
+        newId,
+        memory.kind,
+        memory.slot,
+        memory.subject,
+        memory.predicate,
+        correctedValueText,
+        correctedValueJson ? JSON.stringify(correctedValueJson) : null,
+        memory.evidence_quote,
+        memory.source_turn_id,
+        memory.source_episode_id,
+        'user_edited',
+        memory.modality,
+        0.9,
+        memory.importance,
+        memory.pinned,
+        now,
+        null,
+        now,
+        now,
+        memoryId,
+        0,
+        0,
+        'active',
+        'user',
+        memory.decay_class,
       );
-      db.prepare('INSERT INTO memories_fts (memory_id, value_text, subject, predicate) VALUES (?, ?, ?, ?)').run(
-        newId, correctedValueText, memory.subject, memory.predicate
-      );
+      db.prepare(
+        'INSERT INTO memories_fts (memory_id, value_text, subject, predicate) VALUES (?, ?, ?, ?)',
+      ).run(newId, correctedValueText, memory.subject, memory.predicate);
 
       // Now supersede old (superseded_by_id references newId, which now exists)
       db.prepare(`
@@ -408,10 +621,15 @@ export class MemoryService {
       db.prepare(`
         INSERT INTO healing_log (id, ts, job, action, memory_ids, before_json, after_json, rationale, reversible)
         VALUES (?, ?, ?, 'supersede', ?, ?, ?, ?, 1)
-      `).run(uuid(), now, 'correct_memory', JSON.stringify([memoryId, newId]),
+      `).run(
+        uuid(),
+        now,
+        'correct_memory',
+        JSON.stringify([memoryId, newId]),
         JSON.stringify({ id: memoryId, value_text: memory.value_text }),
         JSON.stringify({ id: newId, value_text: correctedValueText }),
-        'User correction via correct_memory');
+        'User correction via correct_memory',
+      );
     });
 
     await this.profileCompiler.compile('correct_memory', [newId]);
@@ -420,12 +638,19 @@ export class MemoryService {
 
   // Revert healing action
   async revertHealingAction(healingLogId: string) {
-    const log = this.storage.read((db: any) => db.prepare('SELECT * FROM healing_log WHERE id = ?').get(healingLogId) as any);
+    const log = this.storage.read(
+      (db: any) => db.prepare('SELECT * FROM healing_log WHERE id = ?').get(healingLogId) as any,
+    );
     if (!log) throw new Error('ERR_NOT_FOUND: Healing log entry not found');
     if (log.reversible !== 1) throw new Error('ERR_CONFLICT: Action is not reversible');
 
     // Check if already reverted
-    const alreadyReverted = this.storage.read((db: any) => db.prepare("SELECT id FROM healing_log WHERE rationale LIKE ?").get(`%revert of ${healingLogId}%`) as any);
+    const alreadyReverted = this.storage.read(
+      (db: any) =>
+        db
+          .prepare('SELECT id FROM healing_log WHERE rationale LIKE ?')
+          .get(`%revert of ${healingLogId}%`) as any,
+    );
     if (alreadyReverted) throw new Error('ERR_CONFLICT: Already reverted');
 
     const before = log.before_json ? JSON.parse(log.before_json) : null;
@@ -440,36 +665,82 @@ export class MemoryService {
       db.prepare(`
         INSERT INTO healing_log (id, ts, job, action, memory_ids, before_json, after_json, rationale, reversible)
         VALUES (?, ?, ?, 'repair', ?, ?, ?, ?, 0)
-      `).run(uuid(), nowUtc(), 'revert_healing_action', JSON.stringify(affectedIds),
-        log.after_json, log.before_json, `Revert of ${healingLogId}`, 0);
+      `).run(
+        uuid(),
+        nowUtc(),
+        'revert_healing_action',
+        JSON.stringify(affectedIds),
+        log.after_json,
+        log.before_json,
+        `Revert of ${healingLogId}`,
+        0,
+      );
     });
 
-    return { healing_log_id: healingLogId, reverted: true, restored_memory_ids: affectedIds, new_healing_log_id: uuid() };
+    return {
+      healing_log_id: healingLogId,
+      reverted: true,
+      restored_memory_ids: affectedIds,
+      new_healing_log_id: uuid(),
+    };
   }
 
   // Health metrics (full)
   getHealthMetrics() {
     return this.storage.read((db: any) => {
       const countsByStatus: Record<string, number> = {};
-      const statusRows = db.prepare('SELECT status, COUNT(*) as c FROM memories GROUP BY status').all() as any[];
+      const statusRows = db
+        .prepare('SELECT status, COUNT(*) as c FROM memories GROUP BY status')
+        .all() as any[];
       for (const r of statusRows) countsByStatus[r.status] = r.c;
 
-      const quarantineCount = (db.prepare("SELECT COUNT(*) as c FROM memories WHERE status = 'quarantined'").get() as { c: number }).c;
-      const quarantineOldest = db.prepare("SELECT MIN(recorded_at) as oldest FROM memories WHERE status = 'quarantined'").get() as { oldest: string | null };
-      const contradictionDepth = (db.prepare("SELECT COUNT(*) as c FROM review_items WHERE kind = 'contradiction' AND status = 'pending'").get() as { c: number }).c;
-      const totalMemories = (db.prepare('SELECT COUNT(*) as c FROM memories').get() as { c: number }).c;
-      const provenanceComplete = (db.prepare("SELECT COUNT(*) as c FROM memories WHERE source_turn_id IS NOT NULL AND source_episode_id IS NOT NULL AND evidence_quote != ''").get() as { c: number }).c;
-      const profileTokenEstimate = db.prepare("SELECT rendered_text FROM profile WHERE id = 'singleton'").get() as { rendered_text: string } | undefined;
-      const lastSleepJob = db.prepare('SELECT finished_at, status FROM sleep_job_runs ORDER BY started_at DESC LIMIT 1').get() as { finished_at: string | null; status: string } | undefined;
-      const learningState = db.prepare("SELECT value FROM schema_meta WHERE key = 'learning_state'").get() as { value: string } | undefined;
+      const quarantineCount = (
+        db.prepare("SELECT COUNT(*) as c FROM memories WHERE status = 'quarantined'").get() as {
+          c: number;
+        }
+      ).c;
+      const quarantineOldest = db
+        .prepare("SELECT MIN(recorded_at) as oldest FROM memories WHERE status = 'quarantined'")
+        .get() as { oldest: string | null };
+      const contradictionDepth = (
+        db
+          .prepare(
+            "SELECT COUNT(*) as c FROM review_items WHERE kind = 'contradiction' AND status = 'pending'",
+          )
+          .get() as { c: number }
+      ).c;
+      const totalMemories = (
+        db.prepare('SELECT COUNT(*) as c FROM memories').get() as { c: number }
+      ).c;
+      const provenanceComplete = (
+        db
+          .prepare(
+            "SELECT COUNT(*) as c FROM memories WHERE source_turn_id IS NOT NULL AND source_episode_id IS NOT NULL AND evidence_quote != ''",
+          )
+          .get() as { c: number }
+      ).c;
+      const profileTokenEstimate = db
+        .prepare("SELECT rendered_text FROM profile WHERE id = 'singleton'")
+        .get() as { rendered_text: string } | undefined;
+      const lastSleepJob = db
+        .prepare('SELECT finished_at, status FROM sleep_job_runs ORDER BY started_at DESC LIMIT 1')
+        .get() as { finished_at: string | null; status: string } | undefined;
+      const learningState = db
+        .prepare("SELECT value FROM schema_meta WHERE key = 'learning_state'")
+        .get() as { value: string } | undefined;
 
       return {
         counts_by_status: countsByStatus,
         quarantine_count: quarantineCount,
-        quarantine_oldest_age_hours: quarantineOldest.oldest ? (Date.now() - new Date(quarantineOldest.oldest).getTime()) / (1000 * 60 * 60) : 0,
+        quarantine_oldest_age_hours: quarantineOldest.oldest
+          ? (Date.now() - new Date(quarantineOldest.oldest).getTime()) / (1000 * 60 * 60)
+          : 0,
         contradiction_queue_depth: contradictionDepth,
-        provenance_complete_percent: totalMemories > 0 ? (provenanceComplete / totalMemories) * 100 : 100,
-        profile_token_estimate: profileTokenEstimate ? profileTokenEstimate.rendered_text.split(/\s+/).length : 0,
+        provenance_complete_percent:
+          totalMemories > 0 ? (provenanceComplete / totalMemories) * 100 : 100,
+        profile_token_estimate: profileTokenEstimate
+          ? profileTokenEstimate.rendered_text.split(/\s+/).length
+          : 0,
         learning_state: (learningState?.value || 'active') as 'active' | 'paused',
         last_sleep_job_at: lastSleepJob?.finished_at || null,
         last_sleep_job_result: lastSleepJob?.status || null,
@@ -478,7 +749,12 @@ export class MemoryService {
   }
 
   // Adaptation store (Phase 2)
-  async ingestFeedback(signal: { signal_type: string; target: string; detail_json: string; episode_id: string | null }) {
+  async ingestFeedback(signal: {
+    signal_type: string;
+    target: string;
+    detail_json: string;
+    episode_id: string | null;
+  }) {
     return this.adaptationStore.ingestFeedback(signal);
   }
 
@@ -490,7 +766,13 @@ export class MemoryService {
     return this.adaptationStore.getAllStates();
   }
 
-  async proposeAdaptation(proposal: { dimension: string; proposed_value: string; reason: string; feedback_event_ids: string[]; strength: number }) {
+  async proposeAdaptation(proposal: {
+    dimension: string;
+    proposed_value: string;
+    reason: string;
+    feedback_event_ids: string[];
+    strength: number;
+  }) {
     return this.adaptationStore.proposeAdaptation(proposal);
   }
 
@@ -511,73 +793,340 @@ export class MemoryService {
   }
 
   // Graph Store (Knowledge Graph) — public API
-  createEntity(name: string, type: string, aliases?: string[], description?: string | null, sourceType?: string, confidence?: number): string {
-    return this.graphStore.createEntity(name, type, aliases, description, sourceType, confidence);
+  createEntity(
+    name: string,
+    type: string,
+    aliases?: string[],
+    description?: string | null,
+    sourceType?: string,
+    confidence?: number,
+    firstSeenTurnId?: string | null,
+    firstSeenSourceId?: string | null,
+  ): string {
+    return this.graphStore.createEntity(
+      name,
+      type,
+      aliases,
+      description,
+      sourceType,
+      confidence,
+      firstSeenTurnId ?? null,
+      firstSeenSourceId ?? null,
+    );
   }
 
-  getEntity(id: string) { return this.graphStore.getEntity(id); }
-  getEntityByName(name: string) { return this.graphStore.getEntityByName(name); }
-  listEntities(type?: string, search?: string, limit?: number, offset?: number) { return this.graphStore.listEntities(type, search, limit, offset); }
-  updateEntity(id: string, updates: any) { return this.graphStore.updateEntity(id, updates); }
-  deleteEntity(id: string) { return this.graphStore.deleteEntity(id); }
-
-  createRelationship(sourceId: string, targetId: string, relationType: string, description?: string | null, sourceTurnId?: string, sourceEpisodeId?: string, sourceType?: string, confidence?: number): string {
-    return this.graphStore.createRelationship(sourceId, targetId, relationType, description, sourceTurnId, sourceEpisodeId, sourceType, confidence);
+  getEntity(id: string) {
+    return this.graphStore.getEntity(id);
+  }
+  getEntityByName(name: string) {
+    return this.graphStore.getEntityByName(name);
+  }
+  listEntities(type?: string, search?: string, limit?: number, offset?: number) {
+    return this.graphStore.listEntities(type, search, limit, offset);
+  }
+  updateEntity(id: string, updates: any) {
+    return this.graphStore.updateEntity(id, updates);
+  }
+  deleteEntity(id: string) {
+    return this.graphStore.deleteEntity(id);
   }
 
-  getRelationship(id: string) { return this.graphStore.getRelationship(id); }
-  listRelationships(sourceId?: string, targetId?: string, relationType?: string, limit?: number, offset?: number) { return this.graphStore.listRelationships(sourceId, targetId, relationType, limit, offset); }
-  deleteRelationship(id: string) { return this.graphStore.deleteRelationship(id); }
+  createRelationship(
+    sourceId: string,
+    targetId: string,
+    relationType: string,
+    description?: string | null,
+    sourceTurnId?: string,
+    sourceEpisodeId?: string,
+    sourceType?: string,
+    confidence?: number,
+    sourceDocumentId?: string | null,
+    evidenceQuote?: string | null,
+  ): string {
+    return this.graphStore.createRelationship(
+      sourceId,
+      targetId,
+      relationType,
+      description,
+      sourceTurnId,
+      sourceEpisodeId,
+      sourceType,
+      confidence,
+      sourceDocumentId ?? null,
+      evidenceQuote ?? null,
+    );
+  }
 
-  getNeighborhood(entityId: string, depth?: number) { return this.graphStore.getNeighborhood(entityId, depth); }
-  findPath(fromId: string, toId: string) { return this.graphStore.findPath(fromId, toId); }
-  getGraphSnapshot() { return this.graphStore.getGraphSnapshot(); }
+  getRelationship(id: string) {
+    return this.graphStore.getRelationship(id);
+  }
+  listRelationships(
+    sourceId?: string,
+    targetId?: string,
+    relationType?: string,
+    limit?: number,
+    offset?: number,
+  ) {
+    return this.graphStore.listRelationships(sourceId, targetId, relationType, limit, offset);
+  }
+  deleteRelationship(id: string) {
+    return this.graphStore.deleteRelationship(id);
+  }
+
+  getNeighborhood(entityId: string, depth?: number) {
+    return this.graphStore.getNeighborhood(entityId, depth);
+  }
+  findPath(fromId: string, toId: string) {
+    return this.graphStore.findPath(fromId, toId);
+  }
+  getGraphSnapshot() {
+    return this.graphStore.getGraphSnapshot();
+  }
 
   // --- Wiki methods ---
-  getWikiPage(id: string) { return this.wikiStore.getPage(id); }
-  getWikiPageByEntity(entityId: string, pageType?: string) { return this.wikiStore.getPageByEntity(entityId, pageType); }
-  listWikiPages(params?: { entity_id?: string; page_type?: string; maturity?: string; status?: string; search?: string; limit?: number; offset?: number }) { return this.wikiStore.listPages(params); }
-  createWikiPage(params: { entity_id?: string | null; entity_name?: string | null; title: string; content: string; page_type: string; maturity?: string; source_memory_ids?: string[]; updated_by?: 'system' | 'user' }) { return this.wikiStore.createPage(params); }
-  updateWikiPage(id: string, params: { title?: string; content?: string; maturity?: string; status?: string; updated_by?: 'system' | 'user'; reason?: string }) { return this.wikiStore.updatePage(id, params); }
-  deprecateWikiPage(id: string, reason: string) { return this.wikiStore.deprecatePage(id, reason); }
-  deleteWikiPage(id: string) { return this.wikiStore.deletePage(id); }
-  getWikiVersions(pageId: string) { return this.wikiStore.getVersions(pageId); }
-  searchWikiPages(query: string, limit?: number) { return this.wikiStore.searchPages(query, limit); }
-  compileWikiForEntity(entityId: string, entityName: string) { return this.wikiCompiler.compileForEntity(entityId, entityName); }
-  compileAllWiki() { return this.wikiCompiler.compileAll(); }
-  detectWikiConflicts(entityId: string) { return this.wikiCompiler.detectConflicts(entityId); }
+  getWikiPage(id: string) {
+    return this.wikiStore.getPage(id);
+  }
+  getWikiPageByEntity(entityId: string, pageType?: string) {
+    return this.wikiStore.getPageByEntity(entityId, pageType);
+  }
+  listWikiPages(params?: {
+    entity_id?: string;
+    page_type?: string;
+    maturity?: string;
+    status?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    return this.wikiStore.listPages(params);
+  }
+  createWikiPage(params: {
+    entity_id?: string | null;
+    entity_name?: string | null;
+    title: string;
+    content: string;
+    page_type: string;
+    maturity?: string;
+    source_memory_ids?: string[];
+    updated_by?: 'system' | 'user';
+  }) {
+    return this.wikiStore.createPage(params);
+  }
+  updateWikiPage(
+    id: string,
+    params: {
+      title?: string;
+      content?: string;
+      maturity?: string;
+      status?: string;
+      updated_by?: 'system' | 'user';
+      reason?: string;
+    },
+  ) {
+    return this.wikiStore.updatePage(id, params);
+  }
+  deprecateWikiPage(id: string, reason: string) {
+    return this.wikiStore.deprecatePage(id, reason);
+  }
+  deleteWikiPage(id: string) {
+    return this.wikiStore.deletePage(id);
+  }
+  getWikiVersions(pageId: string) {
+    return this.wikiStore.getVersions(pageId);
+  }
+  searchWikiPages(query: string, limit?: number) {
+    return this.wikiStore.searchPages(query, limit);
+  }
+  compileWikiForEntity(entityId: string, entityName: string) {
+    return this.wikiCompiler.compileForEntity(entityId, entityName);
+  }
+  compileAllWiki() {
+    return this.wikiCompiler.compileAll();
+  }
+  detectWikiConflicts(entityId: string) {
+    return this.wikiCompiler.detectConflicts(entityId);
+  }
 
   // --- Source ingestion methods ---
-  async ingestUrl(url: string, sessionId: string) { return this.sourceIngestion.ingestUrl(url, sessionId); }
-  async ingestPdf(pdfPath: string, sessionId: string) { return this.sourceIngestion.ingestPdf(pdfPath, sessionId); }
-  async ingestYouTube(url: string, sessionId: string) { return this.sourceIngestion.ingestYouTube(url, sessionId); }
-  async ingestText(text: string, title: string, sessionId: string, sourceType?: string) { return this.sourceIngestion.ingestText(text, title, sessionId, sourceType); }
-  listSources() { return this.storage.read((db: any) => db.prepare('SELECT * FROM sources ORDER BY created_at DESC').all()); }
+
+  /** Merge a progress update for one submission. Keeps only the most recent submissions in memory. */
+  private setIngestProgress(
+    episodeId: string,
+    update: Partial<Omit<IngestProgress, 'episode_id' | 'updated_at'>>,
+  ) {
+    const prev = this.ingestProgress.get(episodeId);
+    const next: IngestProgress = {
+      episode_id: episodeId,
+      state: 'running',
+      stage: 'queued',
+      chunks: null,
+      ...prev,
+      ...update,
+      updated_at: nowUtc(),
+    };
+    this.ingestProgress.delete(episodeId);
+    this.ingestProgress.set(episodeId, next);
+    while (this.ingestProgress.size > INGEST_PROGRESS_LIMIT) {
+      const oldest = this.ingestProgress.keys().next().value;
+      if (oldest === undefined) break;
+      this.ingestProgress.delete(oldest);
+    }
+  }
+
+  /** Live extraction progress for a submission, or null if it is unknown to this process. */
+  getIngestProgress(episodeId: string): IngestProgress | null {
+    return this.ingestProgress.get(episodeId) ?? null;
+  }
+  async ingestUrl(url: string, sessionId: string) {
+    return this.runSourceExtraction(this.sourceIngestion.ingestUrl(url, sessionId));
+  }
+  async ingestPdf(pdfPath: string, sessionId: string) {
+    return this.runSourceExtraction(this.sourceIngestion.ingestPdf(pdfPath, sessionId));
+  }
+  async ingestYouTube(url: string, sessionId: string) {
+    return this.runSourceExtraction(this.sourceIngestion.ingestYouTube(url, sessionId));
+  }
+  async ingestText(text: string, title: string, sessionId: string, sourceType?: string) {
+    return this.runSourceExtraction(
+      this.sourceIngestion.ingestText(text, title, sessionId, sourceType),
+    );
+  }
+
+  /** Ingested sources used to sit unextracted: extraction only ran on endSession. Kick it off per submission. */
+  private async runSourceExtraction<T extends { episode_id: string }>(
+    pending: Promise<T>,
+  ): Promise<T> {
+    const result = await pending;
+    const rawChunks = (result as unknown as { chunks?: unknown }).chunks;
+    const chunks = typeof rawChunks === 'number' ? rawChunks : null;
+    const episodeId = result.episode_id;
+    this.setIngestProgress(episodeId, { state: 'running', stage: 'extracting_memories', chunks });
+    this.extractionPipeline
+      .run(episodeId, {
+        // Counts belong to one stage: a new stage clears the last one's total/done.
+        onStage: (stage, detail) =>
+          this.setIngestProgress(episodeId, {
+            state: 'running',
+            stage,
+            total: detail?.total,
+            done: detail?.done,
+          }),
+      })
+      .then((r) => {
+        this.setIngestProgress(episodeId, {
+          state: 'done',
+          stage: 'done',
+          memories_created: r.memories_created,
+          entities_created: r.entities_created,
+          relationships_created: r.relationships_created,
+        });
+        console.log(
+          `Extraction complete for ${episodeId}: ${r.memories_created} memories, ${r.entities_created} entities, ${r.relationships_created} relationships`,
+        );
+      })
+      .catch((e) => {
+        this.setIngestProgress(episodeId, { state: 'failed', error: e.message });
+        console.error(`Extraction failed for ${episodeId}:`, e.message);
+      });
+    return result;
+  }
+  listSources(limit?: number) {
+    return this.provenanceStore.listSourcesWithCounts(limit);
+  }
+  getEntityProvenance(id: string) {
+    return this.provenanceStore.forEntity(id);
+  }
+  getRelationshipProvenance(id: string) {
+    return this.provenanceStore.forRelationship(id);
+  }
 
   // --- Hybrid search ---
-  hybridSearchQuery(query: string, options?: { limit?: number; include_turns?: boolean; include_memories?: boolean; include_wiki?: boolean; include_graph?: boolean; since?: string; before?: string; asOf?: string }) { return this.hybridSearch.search(query, options); }
+  hybridSearchQuery(
+    query: string,
+    options?: {
+      limit?: number;
+      include_turns?: boolean;
+      include_memories?: boolean;
+      include_wiki?: boolean;
+      include_graph?: boolean;
+      since?: string;
+      before?: string;
+      asOf?: string;
+    },
+  ) {
+    return this.hybridSearch.search(query, options);
+  }
 
   // --- KB Intelligence ---
-  kbChallenge(claim: string) { return this.kbIntelligence.challenge(claim); }
-  kbEmerge() { return this.kbIntelligence.emerge(); }
-  kbConnect(topicA: string, topicB: string) { return this.kbIntelligence.connect(topicA, topicB); }
-  kbContradictions() { return this.kbIntelligence.contradictions(); }
-  kbLint() { return this.kbIntelligence.lint(); }
+  kbChallenge(claim: string) {
+    return this.kbIntelligence.challenge(claim);
+  }
+  kbEmerge() {
+    return this.kbIntelligence.emerge();
+  }
+  kbConnect(topicA: string, topicB: string) {
+    return this.kbIntelligence.connect(topicA, topicB);
+  }
+  kbContradictions() {
+    return this.kbIntelligence.contradictions();
+  }
+  kbLint() {
+    return this.kbIntelligence.lint();
+  }
 
   // --- KB Tasks ---
-  createTask(params: { title: string; description?: string; priority?: string; due_date?: string; memory_ids?: string[]; entity_ids?: string[] }) { return this.taskStore.create(params); }
-  getTask(id: string) { return this.taskStore.get(id); }
-  listTasks(params?: { status?: string; priority?: string; limit?: number; offset?: number }) { return this.taskStore.list(params); }
-  updateTask(id: string, params: { title?: string; description?: string; status?: string; priority?: string; due_date?: string; memory_ids?: string[]; entity_ids?: string[] }) { return this.taskStore.update(id, params); }
-  deleteTask(id: string) { return this.taskStore.delete(id); }
+  createTask(params: {
+    title: string;
+    description?: string;
+    priority?: string;
+    due_date?: string;
+    memory_ids?: string[];
+    entity_ids?: string[];
+  }) {
+    return this.taskStore.create(params);
+  }
+  getTask(id: string) {
+    return this.taskStore.get(id);
+  }
+  listTasks(params?: { status?: string; priority?: string; limit?: number; offset?: number }) {
+    return this.taskStore.list(params);
+  }
+  updateTask(
+    id: string,
+    params: {
+      title?: string;
+      description?: string;
+      status?: string;
+      priority?: string;
+      due_date?: string;
+      memory_ids?: string[];
+      entity_ids?: string[];
+    },
+  ) {
+    return this.taskStore.update(id, params);
+  }
+  deleteTask(id: string) {
+    return this.taskStore.delete(id);
+  }
 
   // --- Auto-deprecation ---
-  runAutoDeprecation() { return this.autoDeprecation.run(); }
-  getDeprecationThresholds() { return this.autoDeprecation.getThresholds(); }
+  runAutoDeprecation() {
+    return this.autoDeprecation.run();
+  }
+  getDeprecationThresholds() {
+    return this.autoDeprecation.getThresholds();
+  }
 
   // --- Per-memory feedback ---
-  memoryFeedback(memoryId: string, signalType: string, detail?: string): { updated: boolean; new_confidence: number } {
-    const memory = this.storage.read((db: any) => db.prepare('SELECT * FROM memories WHERE id = ?').get(memoryId) as any);
+  memoryFeedback(
+    memoryId: string,
+    signalType: string,
+    detail?: string,
+  ): { updated: boolean; new_confidence: number } {
+    const memory = this.storage.read(
+      (db: any) => db.prepare('SELECT * FROM memories WHERE id = ?').get(memoryId) as any,
+    );
     if (!memory) throw new Error('ERR_NOT_FOUND: Memory not found');
 
     const now = nowUtc();
@@ -603,39 +1152,107 @@ export class MemoryService {
     }
 
     // Update memory
-    this.storage.getDb().prepare(`
+    this.storage
+      .getDb()
+      .prepare(`
       UPDATE memories SET confidence = ?, reinforcement_count = reinforcement_count + ?, last_reinforced_at = ? WHERE id = ?
-    `).run(newConfidence, reinforcementDelta, now, memoryId);
+    `)
+      .run(newConfidence, reinforcementDelta, now, memoryId);
 
     // Record feedback event
     const feedbackId = uuid();
-    this.storage.getDb().prepare(`
+    this.storage
+      .getDb()
+      .prepare(`
       INSERT INTO feedback_events (id, ts, episode_id, signal_type, target, detail_json)
       VALUES (?, ?, ?, ?, ?, ?)
-    `).run(feedbackId, now, memory.source_episode_id, signalType, 'other', JSON.stringify({ memory_id: memoryId, detail: detail || '' }));
+    `)
+      .run(
+        feedbackId,
+        now,
+        memory.source_episode_id,
+        signalType,
+        'other',
+        JSON.stringify({ memory_id: memoryId, detail: detail || '' }),
+      );
 
     return { updated: true, new_confidence: newConfidence };
   }
 
   // --- Procedures ---
-  createProcedure(params: { title: string; description?: string; procedure_type: string; trigger_pattern?: string; steps?: any[]; guards?: any[]; confidence?: number; status?: string }) { return this.procedureStore.create(params); }
-  getProcedure(id: string) { return this.procedureStore.get(id); }
-  listProcedures(params?: { procedure_type?: string; status?: string; trigger?: string; limit?: number; offset?: number }) { return this.procedureStore.list(params); }
-  updateProcedure(id: string, params: { title?: string; description?: string; procedure_type?: string; trigger_pattern?: string; steps?: any[]; guards?: any[]; confidence?: number; status?: string }) { return this.procedureStore.update(id, params); }
-  deleteProcedure(id: string) { return this.procedureStore.delete(id); }
-  findProcedures(trigger: string) { return this.procedureStore.findMatching(trigger); }
+  createProcedure(params: {
+    title: string;
+    description?: string;
+    procedure_type: string;
+    trigger_pattern?: string;
+    steps?: any[];
+    guards?: any[];
+    confidence?: number;
+    status?: string;
+  }) {
+    return this.procedureStore.create(params);
+  }
+  getProcedure(id: string) {
+    return this.procedureStore.get(id);
+  }
+  listProcedures(params?: {
+    procedure_type?: string;
+    status?: string;
+    trigger?: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    return this.procedureStore.list(params);
+  }
+  updateProcedure(
+    id: string,
+    params: {
+      title?: string;
+      description?: string;
+      procedure_type?: string;
+      trigger_pattern?: string;
+      steps?: any[];
+      guards?: any[];
+      confidence?: number;
+      status?: string;
+    },
+  ) {
+    return this.procedureStore.update(id, params);
+  }
+  deleteProcedure(id: string) {
+    return this.procedureStore.delete(id);
+  }
+  findProcedures(trigger: string) {
+    return this.procedureStore.findMatching(trigger);
+  }
 
   // --- Data import ---
-  importData(bundle: any, strategy?: 'skip' | 'overwrite' | 'merge') { return this.dataImport.importBundle(bundle, strategy); }
+  importData(bundle: any, strategy?: 'skip' | 'overwrite' | 'merge') {
+    return this.dataImport.importBundle(bundle, strategy);
+  }
 
   // --- Integrations ---
-  listIntegrations() { return this.integrationStore.list(); }
-  getIntegration(id: string) { return this.integrationStore.get(id); }
-  connectIntegration(serviceName: string, authType?: string, scopes?: string[]) { return this.integrationStore.connect(serviceName, authType, scopes); }
-  setIntegrationStatus(id: string, status: string, credentials?: string) { return this.integrationStore.setStatus(id, status as any, credentials); }
-  disconnectIntegration(id: string) { return this.integrationStore.disconnect(id); }
-  deleteIntegration(id: string) { return this.integrationStore.delete(id); }
-  listKnownServices() { return this.integrationStore.listKnownServices(); }
+  listIntegrations() {
+    return this.integrationStore.list();
+  }
+  getIntegration(id: string) {
+    return this.integrationStore.get(id);
+  }
+  connectIntegration(serviceName: string, authType?: string, scopes?: string[]) {
+    return this.integrationStore.connect(serviceName, authType, scopes);
+  }
+  setIntegrationStatus(id: string, status: string, credentials?: string) {
+    return this.integrationStore.setStatus(id, status as any, credentials);
+  }
+  disconnectIntegration(id: string) {
+    return this.integrationStore.disconnect(id);
+  }
+  deleteIntegration(id: string) {
+    return this.integrationStore.delete(id);
+  }
+  listKnownServices() {
+    return this.integrationStore.listKnownServices();
+  }
 
   // Storage access for tests
   getStorage() {

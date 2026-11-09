@@ -8,15 +8,16 @@ import { MemoryService } from './api/service.js';
 import { uuid } from './types/common.js';
 
 const STORAGE_DIR = process.env.SEME_STORAGE_DIR || `${process.env.HOME}/.hominem`;
-const EMBEDDING_DIM = parseInt(process.env.SEME_EMBEDDING_DIM || process.env.SEME_EMBED_DIM || '1024');
+const EMBEDDING_DIM = parseInt(
+  process.env.SEME_EMBEDDING_DIM || process.env.SEME_EMBED_DIM || '1024',
+);
 
 const service = new MemoryService({ storageDir: STORAGE_DIR, embeddingDim: EMBEDDING_DIM });
 
 // Seed identity core on startup
-service.seedIdentityCore(
-  { name: 'User' },
-  'The user. Identity core not yet configured.'
-).catch(() => {});
+service
+  .seedIdentityCore({ name: 'User' }, 'The user. Identity core not yet configured.')
+  .catch(() => {});
 
 const app = new Hono();
 
@@ -116,10 +117,19 @@ app.post('/sessions/:sessionId/turns', async (c) => {
   const sessionId = c.req.param('sessionId');
   const body = await c.req.json();
   try {
-    const result = await service.recordTurn(sessionId, body.role, body.content, body.ts, body.turn_id);
+    const result = await service.recordTurn(
+      sessionId,
+      body.role,
+      body.content,
+      body.ts,
+      body.turn_id,
+    );
     return c.json(result, 201);
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'record_turn' } }, 400);
+    return c.json(
+      { error: { code: parseErrorCode(e.message), message: e.message, operation: 'record_turn' } },
+      400,
+    );
   }
 });
 
@@ -131,7 +141,10 @@ app.post('/sessions/:sessionId/end', async (c) => {
     const result = await service.endSession(sessionId, body.ended_at);
     return c.json(result);
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'end_session' } }, 400);
+    return c.json(
+      { error: { code: parseErrorCode(e.message), message: e.message, operation: 'end_session' } },
+      400,
+    );
   }
 });
 
@@ -140,18 +153,30 @@ app.post('/sessions/:sessionId/retrieve', async (c) => {
   const sessionId = c.req.param('sessionId');
   const body = await c.req.json();
   try {
-    const timeRangeHint = body.since || body.before || body.asOf ? {
-      since: body.since,
-      before: body.before,
-      asOf: body.asOf,
-      from: body.from,
-      to: body.to,
-      historical: body.historical,
-    } : undefined;
+    const timeRangeHint =
+      body.since || body.before || body.asOf
+        ? {
+            since: body.since,
+            before: body.before,
+            asOf: body.asOf,
+            from: body.from,
+            to: body.to,
+            historical: body.historical,
+          }
+        : undefined;
     const result = await service.retrieveContext(sessionId, body.user_message || '', timeRangeHint);
     return c.json(result);
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'retrieve_context' } }, 400);
+    return c.json(
+      {
+        error: {
+          code: parseErrorCode(e.message),
+          message: e.message,
+          operation: 'retrieve_context',
+        },
+      },
+      400,
+    );
   }
 });
 
@@ -159,10 +184,24 @@ app.post('/sessions/:sessionId/retrieve', async (c) => {
 app.post('/memory/remember', async (c) => {
   const body = await c.req.json();
   try {
-    const result = await service.rememberCommand(body.session_id, body.content, body.source_turn_id, body.kind_hint);
+    const result = await service.rememberCommand(
+      body.session_id,
+      body.content,
+      body.source_turn_id,
+      body.kind_hint,
+    );
     return c.json(result, 201);
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'remember_command' } }, 400);
+    return c.json(
+      {
+        error: {
+          code: parseErrorCode(e.message),
+          message: e.message,
+          operation: 'remember_command',
+        },
+      },
+      400,
+    );
   }
 });
 
@@ -170,10 +209,22 @@ app.post('/memory/remember', async (c) => {
 app.post('/memory/forget', async (c) => {
   const body = await c.req.json();
   try {
-    const result = await service.forgetCommand(body.scope, body.memory_id, body.slot, body.topic, body.episode_id, body.confirmed_irreversible);
+    const result = await service.forgetCommand(
+      body.scope,
+      body.memory_id,
+      body.slot,
+      body.topic,
+      body.episode_id,
+      body.confirmed_irreversible,
+    );
     return c.json(result);
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'forget_command' } }, 400);
+    return c.json(
+      {
+        error: { code: parseErrorCode(e.message), message: e.message, operation: 'forget_command' },
+      },
+      400,
+    );
   }
 });
 
@@ -181,17 +232,32 @@ app.post('/memory/forget', async (c) => {
 app.post('/memory/boundary', async (c) => {
   const body = await c.req.json();
   try {
-    const result = await service.boundaryCommand(body.session_id, body.content, body.source_turn_id);
+    const result = await service.boundaryCommand(
+      body.session_id,
+      body.content,
+      body.source_turn_id,
+    );
     return c.json(result, 201);
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'boundary_command' } }, 400);
+    return c.json(
+      {
+        error: {
+          code: parseErrorCode(e.message),
+          message: e.message,
+          operation: 'boundary_command',
+        },
+      },
+      400,
+    );
   }
 });
 
 // 7. get_profile
 app.get('/profile', (c) => {
   const result = service.getProfile();
-  return c.json(result || { profile_text: '', profile_version: 0, compiled_at: null, source_memory_ids: [] });
+  return c.json(
+    result || { profile_text: '', profile_version: 0, compiled_at: null, source_memory_ids: [] },
+  );
 });
 
 // Sleep job
@@ -201,7 +267,12 @@ app.post('/sleep-job', async (c) => {
     const result = await service.runSleepJob(body.trigger || 'manual');
     return c.json(result);
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'run_sleep_job' } }, 400);
+    return c.json(
+      {
+        error: { code: parseErrorCode(e.message), message: e.message, operation: 'run_sleep_job' },
+      },
+      400,
+    );
   }
 });
 
@@ -209,11 +280,22 @@ app.post('/sleep-job', async (c) => {
 app.get('/health-metrics', (c) => {
   const db = service.getStorage();
   const countsByStatus: Record<string, number> = {};
-  const statusRows = db.read((d: any) => d.prepare('SELECT status, COUNT(*) as c FROM memories GROUP BY status').all()) as any[];
+  const statusRows = db.read((d: any) =>
+    d.prepare('SELECT status, COUNT(*) as c FROM memories GROUP BY status').all(),
+  ) as any[];
   for (const r of statusRows) countsByStatus[r.status] = r.c;
-  const total = db.read((d: any) => (d.prepare('SELECT COUNT(*) as c FROM memories').get() as any).c);
-  const quarantine = db.read((d: any) => (d.prepare("SELECT COUNT(*) as c FROM memories WHERE status = 'quarantined'").get() as any).c);
-  return c.json({ counts_by_status: countsByStatus, quarantine_count: quarantine, total_memories: total });
+  const total = db.read(
+    (d: any) => (d.prepare('SELECT COUNT(*) as c FROM memories').get() as any).c,
+  );
+  const quarantine = db.read(
+    (d: any) =>
+      (d.prepare("SELECT COUNT(*) as c FROM memories WHERE status = 'quarantined'").get() as any).c,
+  );
+  return c.json({
+    counts_by_status: countsByStatus,
+    quarantine_count: quarantine,
+    total_memories: total,
+  });
 });
 
 // Review queue
@@ -228,10 +310,24 @@ app.post('/review-queue/:itemId/resolve', async (c) => {
   const itemId = c.req.param('itemId');
   const body = await c.req.json();
   try {
-    const result = service.resolveReviewItem(itemId, body.decision, body.chosen_memory_id, body.edited_value_text);
+    const result = service.resolveReviewItem(
+      itemId,
+      body.decision,
+      body.chosen_memory_id,
+      body.edited_value_text,
+    );
     return c.json(result);
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'resolve_review_item' } }, 400);
+    return c.json(
+      {
+        error: {
+          code: parseErrorCode(e.message),
+          message: e.message,
+          operation: 'resolve_review_item',
+        },
+      },
+      400,
+    );
   }
 });
 // Export data
@@ -240,7 +336,10 @@ app.get('/export', async (c) => {
     const result = await service.exportData();
     return c.json(result);
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'export_data' } }, 400);
+    return c.json(
+      { error: { code: parseErrorCode(e.message), message: e.message, operation: 'export_data' } },
+      400,
+    );
   }
 });
 
@@ -288,24 +387,63 @@ app.get('/entities', (c) => {
 app.get('/entities/name/:name', (c) => {
   const name = c.req.param('name');
   const result = service.getEntityByName(name);
-  if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Entity not found', operation: 'get_entity' } }, 404);
+  if (!result)
+    return c.json(
+      { error: { code: 'ERR_NOT_FOUND', message: 'Entity not found', operation: 'get_entity' } },
+      404,
+    );
   return c.json(result);
 });
 
 app.get('/entities/:id', (c) => {
   const id = c.req.param('id');
   const result = service.getEntity(id);
-  if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Entity not found', operation: 'get_entity' } }, 404);
+  if (!result)
+    return c.json(
+      { error: { code: 'ERR_NOT_FOUND', message: 'Entity not found', operation: 'get_entity' } },
+      404,
+    );
   return c.json(result);
+});
+
+app.get('/entities/:id/provenance', async (c) => {
+  const id = c.req.param('id');
+  const entity = service.getEntity(id);
+  if (!entity)
+    return c.json(
+      {
+        error: {
+          code: 'ERR_NOT_FOUND',
+          message: 'Entity not found',
+          operation: 'get_entity_provenance',
+        },
+      },
+      404,
+    );
+  return c.json(await service.getEntityProvenance(id));
 });
 
 app.post('/entities', async (c) => {
   const body = await c.req.json();
   try {
-    const result = service.createEntity(body.name, body.type, body.aliases, body.description, body.source_type, body.confidence);
+    const result = service.createEntity(
+      body.name,
+      body.type,
+      body.aliases,
+      body.description,
+      body.source_type,
+      body.confidence,
+      body.first_seen_turn_id,
+      body.first_seen_source_id,
+    );
     return c.json({ id: result }, 201);
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'create_entity' } }, 400);
+    return c.json(
+      {
+        error: { code: parseErrorCode(e.message), message: e.message, operation: 'create_entity' },
+      },
+      400,
+    );
   }
 });
 
@@ -316,7 +454,12 @@ app.put('/entities/:id', async (c) => {
     service.updateEntity(id, body);
     return c.json({ updated: true });
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'update_entity' } }, 400);
+    return c.json(
+      {
+        error: { code: parseErrorCode(e.message), message: e.message, operation: 'update_entity' },
+      },
+      400,
+    );
   }
 });
 
@@ -326,7 +469,12 @@ app.delete('/entities/:id', async (c) => {
     service.deleteEntity(id);
     return c.json({ deleted: true });
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'delete_entity' } }, 400);
+    return c.json(
+      {
+        error: { code: parseErrorCode(e.message), message: e.message, operation: 'delete_entity' },
+      },
+      400,
+    );
   }
 });
 
@@ -343,17 +491,68 @@ app.get('/relationships', (c) => {
 app.get('/relationships/:id', (c) => {
   const id = c.req.param('id');
   const result = service.getRelationship(id);
-  if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Relationship not found', operation: 'get_relationship' } }, 404);
+  if (!result)
+    return c.json(
+      {
+        error: {
+          code: 'ERR_NOT_FOUND',
+          message: 'Relationship not found',
+          operation: 'get_relationship',
+        },
+      },
+      404,
+    );
   return c.json(result);
+});
+
+app.get('/relationships/:id/provenance', async (c) => {
+  const id = c.req.param('id');
+  const relationship = service.getRelationship(id);
+  if (!relationship)
+    return c.json(
+      {
+        error: {
+          code: 'ERR_NOT_FOUND',
+          message: 'Relationship not found',
+          operation: 'get_relationship_provenance',
+        },
+      },
+      404,
+    );
+  return c.json({
+    relationship_id: id,
+    source_turn_id: relationship.source_turn_id,
+    evidence: await service.getRelationshipProvenance(id),
+  });
 });
 
 app.post('/relationships', async (c) => {
   const body = await c.req.json();
   try {
-    const result = service.createRelationship(body.source_id, body.target_id, body.relation_type, body.description, body.source_turn_id, body.source_episode_id, body.source_type, body.confidence);
+    const result = service.createRelationship(
+      body.source_id,
+      body.target_id,
+      body.relation_type,
+      body.description,
+      body.source_turn_id,
+      body.source_episode_id,
+      body.source_type,
+      body.confidence,
+      body.source_document_id,
+      body.evidence_quote,
+    );
     return c.json({ id: result }, 201);
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'create_relationship' } }, 400);
+    return c.json(
+      {
+        error: {
+          code: parseErrorCode(e.message),
+          message: e.message,
+          operation: 'create_relationship',
+        },
+      },
+      400,
+    );
   }
 });
 
@@ -363,7 +562,16 @@ app.delete('/relationships/:id', async (c) => {
     service.deleteRelationship(id);
     return c.json({ deleted: true });
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'delete_relationship' } }, 400);
+    return c.json(
+      {
+        error: {
+          code: parseErrorCode(e.message),
+          message: e.message,
+          operation: 'delete_relationship',
+        },
+      },
+      400,
+    );
   }
 });
 
@@ -378,7 +586,11 @@ app.get('/graph/path/:from/:to', (c) => {
   const fromId = c.req.param('from');
   const toId = c.req.param('to');
   const result = service.findPath(fromId, toId);
-  if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'No path found', operation: 'find_path' } }, 404);
+  if (!result)
+    return c.json(
+      { error: { code: 'ERR_NOT_FOUND', message: 'No path found', operation: 'find_path' } },
+      404,
+    );
   return c.json(result);
 });
 
@@ -390,10 +602,17 @@ app.get('/graph/snapshot', (c) => {
 app.post('/graph/search', async (c) => {
   const body = await c.req.json();
   try {
-    const result = await service.retrieveContext(body.session_id || 'default', body.user_message || '', body.time_range_hint);
+    const result = await service.retrieveContext(
+      body.session_id || 'default',
+      body.user_message || '',
+      body.time_range_hint,
+    );
     return c.json(result);
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'graph_search' } }, 400);
+    return c.json(
+      { error: { code: parseErrorCode(e.message), message: e.message, operation: 'graph_search' } },
+      400,
+    );
   }
 });
 
@@ -406,13 +625,33 @@ app.get('/wiki', (c) => {
   const search = c.req.query('search') || undefined;
   const limit = parseInt(c.req.query('limit') || '50');
   const offset = parseInt(c.req.query('offset') || '0');
-  return c.json(service.listWikiPages({ entity_id: entityId, page_type: pageType, maturity, status, search, limit, offset }));
+  return c.json(
+    service.listWikiPages({
+      entity_id: entityId,
+      page_type: pageType,
+      maturity,
+      status,
+      search,
+      limit,
+      offset,
+    }),
+  );
 });
 
 app.get('/wiki/:id', (c) => {
   const id = c.req.param('id');
   const result = service.getWikiPage(id);
-  if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Wiki page not found', operation: 'get_wiki_page' } }, 404);
+  if (!result)
+    return c.json(
+      {
+        error: {
+          code: 'ERR_NOT_FOUND',
+          message: 'Wiki page not found',
+          operation: 'get_wiki_page',
+        },
+      },
+      404,
+    );
   return c.json(result);
 });
 
@@ -420,7 +659,17 @@ app.get('/wiki/entity/:entityId', (c) => {
   const entityId = c.req.param('entityId');
   const pageType = c.req.query('page_type') || undefined;
   const result = service.getWikiPageByEntity(entityId, pageType);
-  if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Wiki page not found', operation: 'get_wiki_page' } }, 404);
+  if (!result)
+    return c.json(
+      {
+        error: {
+          code: 'ERR_NOT_FOUND',
+          message: 'Wiki page not found',
+          operation: 'get_wiki_page',
+        },
+      },
+      404,
+    );
   return c.json(result);
 });
 
@@ -430,7 +679,16 @@ app.post('/wiki', async (c) => {
     const result = service.createWikiPage(body);
     return c.json({ id: result }, 201);
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'create_wiki_page' } }, 400);
+    return c.json(
+      {
+        error: {
+          code: parseErrorCode(e.message),
+          message: e.message,
+          operation: 'create_wiki_page',
+        },
+      },
+      400,
+    );
   }
 });
 
@@ -439,10 +697,29 @@ app.put('/wiki/:id', async (c) => {
   const body = await c.req.json();
   try {
     const result = service.updateWikiPage(id, body);
-    if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Wiki page not found', operation: 'update_wiki_page' } }, 404);
+    if (!result)
+      return c.json(
+        {
+          error: {
+            code: 'ERR_NOT_FOUND',
+            message: 'Wiki page not found',
+            operation: 'update_wiki_page',
+          },
+        },
+        404,
+      );
     return c.json(result);
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'update_wiki_page' } }, 400);
+    return c.json(
+      {
+        error: {
+          code: parseErrorCode(e.message),
+          message: e.message,
+          operation: 'update_wiki_page',
+        },
+      },
+      400,
+    );
   }
 });
 
@@ -450,10 +727,29 @@ app.delete('/wiki/:id', async (c) => {
   const id = c.req.param('id');
   try {
     const result = service.deleteWikiPage(id);
-    if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Wiki page not found', operation: 'delete_wiki_page' } }, 404);
+    if (!result)
+      return c.json(
+        {
+          error: {
+            code: 'ERR_NOT_FOUND',
+            message: 'Wiki page not found',
+            operation: 'delete_wiki_page',
+          },
+        },
+        404,
+      );
     return c.json({ deleted: true });
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'delete_wiki_page' } }, 400);
+    return c.json(
+      {
+        error: {
+          code: parseErrorCode(e.message),
+          message: e.message,
+          operation: 'delete_wiki_page',
+        },
+      },
+      400,
+    );
   }
 });
 
@@ -477,13 +773,31 @@ app.post('/wiki/compile/:entityId', async (c) => {
     const entity = service.getEntity(entityId);
     const entityName = body.entity_name || entity?.name;
     if (!entityName) {
-      return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Entity not found', operation: 'compile_wiki' } }, 404);
+      return c.json(
+        {
+          error: { code: 'ERR_NOT_FOUND', message: 'Entity not found', operation: 'compile_wiki' },
+        },
+        404,
+      );
     }
     const result = service.compileWikiForEntity(entityId, entityName);
-    if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'No memories found for entity', operation: 'compile_wiki' } }, 404);
+    if (!result)
+      return c.json(
+        {
+          error: {
+            code: 'ERR_NOT_FOUND',
+            message: 'No memories found for entity',
+            operation: 'compile_wiki',
+          },
+        },
+        404,
+      );
     return c.json(result);
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'compile_wiki' } }, 400);
+    return c.json(
+      { error: { code: parseErrorCode(e.message), message: e.message, operation: 'compile_wiki' } },
+      400,
+    );
   }
 });
 
@@ -492,7 +806,16 @@ app.post('/wiki/compile-all', async (c) => {
     const results = service.compileAllWiki();
     return c.json({ compiled: results.length, pages: results });
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'compile_all_wiki' } }, 400);
+    return c.json(
+      {
+        error: {
+          code: parseErrorCode(e.message),
+          message: e.message,
+          operation: 'compile_all_wiki',
+        },
+      },
+      400,
+    );
   }
 });
 
@@ -507,25 +830,63 @@ app.post('/ingest/source', async (c) => {
   const sessionId = body.session_id || 'default';
   try {
     let result;
-    if (body.url && body.url.includes('youtube.com') || body.url?.includes('youtu.be')) {
+    if ((body.url && body.url.includes('youtube.com')) || body.url?.includes('youtu.be')) {
       result = await service.ingestYouTube(body.url, sessionId);
     } else if (body.url) {
       result = await service.ingestUrl(body.url, sessionId);
     } else if (body.pdf_path) {
       result = await service.ingestPdf(body.pdf_path, sessionId);
     } else if (body.text) {
-      result = await service.ingestText(body.text, body.title || 'Untitled', sessionId, body.source_type);
+      result = await service.ingestText(
+        body.text,
+        body.title || 'Untitled',
+        sessionId,
+        body.source_type,
+      );
     } else {
-      return c.json({ error: { code: 'ERR_VALIDATION', message: 'Must provide url, pdf_path, or text', operation: 'ingest_source' } }, 400);
+      return c.json(
+        {
+          error: {
+            code: 'ERR_VALIDATION',
+            message: 'Must provide url, pdf_path, or text',
+            operation: 'ingest_source',
+          },
+        },
+        400,
+      );
     }
     return c.json(result, 201);
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'ingest_source' } }, 400);
+    return c.json(
+      {
+        error: { code: parseErrorCode(e.message), message: e.message, operation: 'ingest_source' },
+      },
+      400,
+    );
   }
 });
 
-app.get('/sources', (c) => {
-  return c.json(service.listSources());
+// Live extraction progress for a submission returned by /ingest/source.
+app.get('/ingest/episodes/:id/status', (c) => {
+  const progress = service.getIngestProgress(c.req.param('id'));
+  if (!progress) {
+    return c.json(
+      {
+        error: {
+          code: 'ERR_NOT_FOUND',
+          message: 'No progress for that episode',
+          operation: 'ingest_status',
+        },
+      },
+      404,
+    );
+  }
+  return c.json(progress);
+});
+
+app.get('/sources', async (c) => {
+  const limit = parseInt(c.req.query('limit') || '1000');
+  return c.json(await service.listSources(limit));
 });
 
 // Hybrid search
@@ -544,7 +905,12 @@ app.post('/search', async (c) => {
     });
     return c.json(result);
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'hybrid_search' } }, 400);
+    return c.json(
+      {
+        error: { code: parseErrorCode(e.message), message: e.message, operation: 'hybrid_search' },
+      },
+      400,
+    );
   }
 });
 
@@ -578,7 +944,10 @@ app.post('/tasks', async (c) => {
     const id = service.createTask(body);
     return c.json({ id }, 201);
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'create_task' } }, 400);
+    return c.json(
+      { error: { code: parseErrorCode(e.message), message: e.message, operation: 'create_task' } },
+      400,
+    );
   }
 });
 
@@ -593,7 +962,11 @@ app.get('/tasks', (c) => {
 app.get('/tasks/:id', (c) => {
   const id = c.req.param('id');
   const result = service.getTask(id);
-  if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Task not found', operation: 'get_task' } }, 404);
+  if (!result)
+    return c.json(
+      { error: { code: 'ERR_NOT_FOUND', message: 'Task not found', operation: 'get_task' } },
+      404,
+    );
   return c.json(result);
 });
 
@@ -602,10 +975,17 @@ app.patch('/tasks/:id', async (c) => {
   const body = await c.req.json();
   try {
     const result = service.updateTask(id, body);
-    if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Task not found', operation: 'update_task' } }, 404);
+    if (!result)
+      return c.json(
+        { error: { code: 'ERR_NOT_FOUND', message: 'Task not found', operation: 'update_task' } },
+        404,
+      );
     return c.json(result);
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'update_task' } }, 400);
+    return c.json(
+      { error: { code: parseErrorCode(e.message), message: e.message, operation: 'update_task' } },
+      400,
+    );
   }
 });
 
@@ -613,10 +993,17 @@ app.delete('/tasks/:id', async (c) => {
   const id = c.req.param('id');
   try {
     const result = service.deleteTask(id);
-    if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Task not found', operation: 'delete_task' } }, 404);
+    if (!result)
+      return c.json(
+        { error: { code: 'ERR_NOT_FOUND', message: 'Task not found', operation: 'delete_task' } },
+        404,
+      );
     return c.json({ deleted: true });
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'delete_task' } }, 400);
+    return c.json(
+      { error: { code: parseErrorCode(e.message), message: e.message, operation: 'delete_task' } },
+      400,
+    );
   }
 });
 
@@ -636,7 +1023,16 @@ app.post('/procedures', async (c) => {
     const id = service.createProcedure(body);
     return c.json({ id }, 201);
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'create_procedure' } }, 400);
+    return c.json(
+      {
+        error: {
+          code: parseErrorCode(e.message),
+          message: e.message,
+          operation: 'create_procedure',
+        },
+      },
+      400,
+    );
   }
 });
 
@@ -652,7 +1048,17 @@ app.get('/procedures', (c) => {
 app.get('/procedures/:id', (c) => {
   const id = c.req.param('id');
   const result = service.getProcedure(id);
-  if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Procedure not found', operation: 'get_procedure' } }, 404);
+  if (!result)
+    return c.json(
+      {
+        error: {
+          code: 'ERR_NOT_FOUND',
+          message: 'Procedure not found',
+          operation: 'get_procedure',
+        },
+      },
+      404,
+    );
   return c.json(result);
 });
 
@@ -661,10 +1067,29 @@ app.patch('/procedures/:id', async (c) => {
   const body = await c.req.json();
   try {
     const result = service.updateProcedure(id, body);
-    if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Procedure not found', operation: 'update_procedure' } }, 404);
+    if (!result)
+      return c.json(
+        {
+          error: {
+            code: 'ERR_NOT_FOUND',
+            message: 'Procedure not found',
+            operation: 'update_procedure',
+          },
+        },
+        404,
+      );
     return c.json(result);
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'update_procedure' } }, 400);
+    return c.json(
+      {
+        error: {
+          code: parseErrorCode(e.message),
+          message: e.message,
+          operation: 'update_procedure',
+        },
+      },
+      400,
+    );
   }
 });
 
@@ -672,10 +1097,29 @@ app.delete('/procedures/:id', async (c) => {
   const id = c.req.param('id');
   try {
     const result = service.deleteProcedure(id);
-    if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Procedure not found', operation: 'delete_procedure' } }, 404);
+    if (!result)
+      return c.json(
+        {
+          error: {
+            code: 'ERR_NOT_FOUND',
+            message: 'Procedure not found',
+            operation: 'delete_procedure',
+          },
+        },
+        404,
+      );
     return c.json({ deleted: true });
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'delete_procedure' } }, 400);
+    return c.json(
+      {
+        error: {
+          code: parseErrorCode(e.message),
+          message: e.message,
+          operation: 'delete_procedure',
+        },
+      },
+      400,
+    );
   }
 });
 
@@ -692,7 +1136,16 @@ app.post('/memories/:id/feedback', async (c) => {
     const result = service.memoryFeedback(id, body.signal_type || 'explicit_rating', body.detail);
     return c.json(result);
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'memory_feedback' } }, 400);
+    return c.json(
+      {
+        error: {
+          code: parseErrorCode(e.message),
+          message: e.message,
+          operation: 'memory_feedback',
+        },
+      },
+      400,
+    );
   }
 });
 
@@ -703,7 +1156,10 @@ app.post('/import', async (c) => {
     const result = service.importData(body.bundle || body, body.strategy || 'skip');
     return c.json(result);
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'import_data' } }, 400);
+    return c.json(
+      { error: { code: parseErrorCode(e.message), message: e.message, operation: 'import_data' } },
+      400,
+    );
   }
 });
 
@@ -722,7 +1178,16 @@ app.post('/integrations/connect', async (c) => {
     const id = service.connectIntegration(body.service_name, body.auth_type, body.scopes);
     return c.json({ id }, 201);
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'connect_integration' } }, 400);
+    return c.json(
+      {
+        error: {
+          code: parseErrorCode(e.message),
+          message: e.message,
+          operation: 'connect_integration',
+        },
+      },
+      400,
+    );
   }
 });
 
@@ -731,10 +1196,29 @@ app.patch('/integrations/:id', async (c) => {
   const body = await c.req.json();
   try {
     const result = service.setIntegrationStatus(id, body.status, body.credentials);
-    if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Integration not found', operation: 'update_integration' } }, 404);
+    if (!result)
+      return c.json(
+        {
+          error: {
+            code: 'ERR_NOT_FOUND',
+            message: 'Integration not found',
+            operation: 'update_integration',
+          },
+        },
+        404,
+      );
     return c.json({ updated: true });
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'update_integration' } }, 400);
+    return c.json(
+      {
+        error: {
+          code: parseErrorCode(e.message),
+          message: e.message,
+          operation: 'update_integration',
+        },
+      },
+      400,
+    );
   }
 });
 
@@ -742,10 +1226,29 @@ app.delete('/integrations/:id', async (c) => {
   const id = c.req.param('id');
   try {
     const result = service.deleteIntegration(id);
-    if (!result) return c.json({ error: { code: 'ERR_NOT_FOUND', message: 'Integration not found', operation: 'delete_integration' } }, 404);
+    if (!result)
+      return c.json(
+        {
+          error: {
+            code: 'ERR_NOT_FOUND',
+            message: 'Integration not found',
+            operation: 'delete_integration',
+          },
+        },
+        404,
+      );
     return c.json({ deleted: true });
   } catch (e: any) {
-    return c.json({ error: { code: parseErrorCode(e.message), message: e.message, operation: 'delete_integration' } }, 400);
+    return c.json(
+      {
+        error: {
+          code: parseErrorCode(e.message),
+          message: e.message,
+          operation: 'delete_integration',
+        },
+      },
+      400,
+    );
   }
 });
 

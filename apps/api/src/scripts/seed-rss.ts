@@ -48,7 +48,7 @@ function args(name: string): string[] {
 }
 
 const LIMIT = parseInt(arg('limit', '100')!, 10);
-const API = (arg('api', 'http://localhost:3000')!).replace(/\/$/, '');
+const API = arg('api', 'http://localhost:3000')!.replace(/\/$/, '');
 const DELAY = parseInt(arg('delay', '900')!, 10);
 const WAIT = parseInt(arg('wait', '0')!, 10);
 const DRY = flag('dry-run');
@@ -56,7 +56,16 @@ const OUT = arg('out');
 const FEEDS = args('feed').length ? args('feed') : DEFAULT_FEEDS;
 const API_KEY = process.env.SEME_API_KEY || '';
 
-const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', '#39': "'", '#34': '"' };
+const ENTITIES = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: ' ',
+  '#39': "'",
+  '#34': '"',
+};
 
 function decodeEntities(s: string): string {
   return s
@@ -70,7 +79,7 @@ function stripTags(html: string): string {
     html
       .replace(/<script[\s\S]*?<\/script>/gi, ' ')
       .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-      .replace(/<[^>]+>/g, ' ')
+      .replace(/<[^>]+>/g, ' '),
   )
     .replace(/\s+/g, ' ')
     .trim();
@@ -79,7 +88,10 @@ function stripTags(html: string): string {
 function tag(xml: string, name: string): string {
   const m = new RegExp(`<${name}[^>]*>([\\s\\S]*?)<\\/${name}>`, 'i').exec(xml);
   if (!m) return '';
-  return m[1].replace(/^<!\[CDATA\[/, '').replace(/\]\]>$/, '').trim();
+  return m[1]
+    .replace(/^<!\[CDATA\[/, '')
+    .replace(/\]\]>$/, '')
+    .trim();
 }
 
 async function parseFeed(url: string): Promise<FeedItem[]> {
@@ -150,7 +162,11 @@ async function api(path: string, body?: unknown): Promise<any> {
 }
 
 async function counts(): Promise<{ memories: number; entities: number; relationships: number }> {
-  const [m, e, r] = await Promise.all([api('/memories?limit=1'), api('/entities?limit=1'), api('/relationships?limit=1')]);
+  const [m, e, r] = await Promise.all([
+    api('/memories?limit=1'),
+    api('/entities?limit=1'),
+    api('/relationships?limit=1'),
+  ]);
   return { memories: m?.total ?? 0, entities: e?.total ?? 0, relationships: r?.total ?? 0 };
 }
 
@@ -161,7 +177,9 @@ async function main() {
   console.log(`feeds: ${FEEDS.length} · limit: ${LIMIT} · dry-run: ${DRY}`);
 
   const before = DRY ? { memories: 0, entities: 0, relationships: 0 } : await counts();
-  console.log(`before: ${before.memories} memories · ${before.entities} entities · ${before.relationships} relationships\n`);
+  console.log(
+    `before: ${before.memories} memories · ${before.entities} entities · ${before.relationships} relationships\n`,
+  );
 
   // 1. Collect items across feeds, de-duplicating by link.
   const seen = new Set<string>();
@@ -191,7 +209,9 @@ async function main() {
   console.log(`\ncollected ${items.length} unique articles\n`);
 
   if (DRY) {
-    items.forEach((it, i) => console.log(`${String(i + 1).padStart(3)}. ${it.title}\n     ${it.link}`));
+    items.forEach((it, i) =>
+      console.log(`${String(i + 1).padStart(3)}. ${it.title}\n     ${it.link}`),
+    );
     return;
   }
 
@@ -235,8 +255,16 @@ async function main() {
       }
 
       ok++;
-      console.log(`${label} ok    ${it.title.slice(0, 70)}  (${ing.chunks} chunk${ing.chunks === 1 ? '' : 's'})`);
-      report.push({ ...it, status: 'ok', chunks: ing.chunks, chars: text.length, session_id: sessionId });
+      console.log(
+        `${label} ok    ${it.title.slice(0, 70)}  (${ing.chunks} chunk${ing.chunks === 1 ? '' : 's'})`,
+      );
+      report.push({
+        ...it,
+        status: 'ok',
+        chunks: ing.chunks,
+        chars: text.length,
+        session_id: sessionId,
+      });
     } catch (e) {
       failed++;
       const msg = (e as Error).message;
@@ -262,10 +290,12 @@ async function main() {
     last = now;
     stable = same ? stable + 1 : 0;
     process.stdout.write(
-      `\r  ${now.memories} memories · ${now.entities} entities · ${now.relationships} relationships   `
+      `\r  ${now.memories} memories · ${now.entities} entities · ${now.relationships} relationships   `,
     );
-    // two consecutive stable readings, and never less than ~15s of waiting
-    if (stable >= 2 && i >= 5) break;
+    // Entity extraction is chunked and LLM-bound: a 6s lull between chunks is
+    // normal and used to exit the drain early (93 reported vs 131 actual).
+    // Require ~18s of no movement and at least 60s of waiting before stopping.
+    if (stable >= 6 && i >= 20) break;
   }
   const after = last;
   console.log('');
@@ -290,12 +320,22 @@ async function main() {
 
   console.log('\n' + '='.repeat(64));
   console.log(`articles ingested : ${ok} (${failed} failed/skipped)`);
-  console.log(`memories          : ${before.memories} → ${after.memories}  (+${summary.delta.memories})`);
-  console.log(`entities          : ${before.entities} → ${after.entities}  (+${summary.delta.entities})`);
-  console.log(`relationships     : ${before.relationships} → ${after.relationships}  (+${summary.delta.relationships})`);
+  console.log(
+    `memories          : ${before.memories} → ${after.memories}  (+${summary.delta.memories})`,
+  );
+  console.log(
+    `entities          : ${before.entities} → ${after.entities}  (+${summary.delta.entities})`,
+  );
+  console.log(
+    `relationships     : ${before.relationships} → ${after.relationships}  (+${summary.delta.relationships})`,
+  );
   if (after.memories > before.memories) {
-    console.log(`yield             : ${(summary.delta.memories / Math.max(1, ok)).toFixed(1)} memories/article`);
-    console.log(`entities per 100  : ${((summary.delta.entities / Math.max(1, ok)) * 100).toFixed(0)}`);
+    console.log(
+      `yield             : ${(summary.delta.memories / Math.max(1, ok)).toFixed(1)} memories/article`,
+    );
+    console.log(
+      `entities per 100  : ${((summary.delta.entities / Math.max(1, ok)) * 100).toFixed(0)}`,
+    );
   }
   console.log('='.repeat(64));
 
