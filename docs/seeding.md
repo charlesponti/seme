@@ -11,7 +11,7 @@ stress test:
 - **Dense named entities** — people, organisations, places and topics in almost
   every sentence, with almost no repetition between articles.
 - **Zero first-person framing** — the memory extractor is tuned for facts about
-  *the user*; news has none. If the graph still fills up, entity extraction is
+  _the user_; news has none. If the graph still fills up, entity extraction is
   genuinely working rather than riding on the memory extractor.
 - **Messy, real HTML** — paywalls, cookie banners, live blogs, inline video
   captions, entity-escaped feeds and tracking parameters in links.
@@ -53,13 +53,13 @@ Two details matter:
 
 ```bash
 # preview what would be ingested, no writes
-npx tsx src/scripts/seed-rss.ts --dry-run --limit 20
+pnpm exec tsx src/scripts/seed-rss.ts --dry-run --limit 20
 
 # small validation run
-npx tsx src/scripts/seed-rss.ts --api $SEME_API --limit 5 --delay 900
+pnpm exec tsx src/scripts/seed-rss.ts --api $SEME_API --limit 5 --delay 900
 
 # the full corpus
-npx tsx src/scripts/seed-rss.ts --api $SEME_API --limit 100 --delay 800 \
+pnpm exec tsx src/scripts/seed-rss.ts --api $SEME_API --limit 100 --delay 800 \
   --out seed-report.json
 ```
 
@@ -68,14 +68,14 @@ Flags: `--feed` (repeatable, defaults to five BBC feeds), `--limit`,
 
 ## Metrics that matter
 
-| Metric | What it tells you |
-|---|---|
-| memories / article | whether the fact extractor generalises beyond conversation |
-| entities / article | whether NER copes with unfamiliar, dense domains |
-| relationships / article | whether relation extraction survives long text |
-| chunks / article | whether chunking is splitting sensibly (2–6 is healthy) |
-| failed articles | fetch or parse weakness, not model weakness |
-| extraction latency | whether the queue drains or backs up |
+| Metric                  | What it tells you                                          |
+| ----------------------- | ---------------------------------------------------------- |
+| memories / article      | whether the fact extractor generalises beyond conversation |
+| entities / article      | whether NER copes with unfamiliar, dense domains           |
+| relationships / article | whether relation extraction survives long text             |
+| chunks / article        | whether chunking is splitting sensibly (2–6 is healthy)    |
+| failed articles         | fetch or parse weakness, not model weakness                |
+| extraction latency      | whether the queue drains or backs up                       |
 
 ## Results
 
@@ -85,47 +85,47 @@ Filled in from the full run — see `seed-report.json` for per-article detail.
 
 Five feeds, deduplicated by link, one article per session.
 
-| Metric | Value |
-|---|---|
-| Feed items collected | 100 |
-| Articles ingested | 99 (1 skipped — no readable body text) |
-| Skipped reason | article page had < 80 chars of extractable prose |
-| Chunks created | 299 (avg 3.0, max 7 per article) |
-| Average article size | ~4,900 characters |
-| **Memories created** | **2** |
-| **Entities created** | **959** (9.7 per article) |
-| **Relationships created** | **745** (7.5 per article) |
-| Orphaned entities | 115 (12%) |
+| Metric                    | Value                                            |
+| ------------------------- | ------------------------------------------------ |
+| Feed items collected      | 100                                              |
+| Articles ingested         | 99 (1 skipped — no readable body text)           |
+| Skipped reason            | article page had < 80 chars of extractable prose |
+| Chunks created            | 299 (avg 3.0, max 7 per article)                 |
+| Average article size      | ~4,900 characters                                |
+| **Memories created**      | **2**                                            |
+| **Entities created**      | **959** (9.7 per article)                        |
+| **Relationships created** | **745** (7.5 per article)                        |
+| Orphaned entities         | 115 (12%)                                        |
 
 Entity types produced (free-form, no dictionary):
 
-| Type | Count |
-|---|---|
-| person | 318 |
-| organization | 295 |
-| place | 178 |
-| concept | 55 |
-| topic | 30 |
-| tool | 26 |
-| other | 26 |
-| project | 24 |
-| animal | 7 |
+| Type         | Count |
+| ------------ | ----- |
+| person       | 318   |
+| organization | 295   |
+| place        | 178   |
+| concept      | 55    |
+| topic        | 30    |
+| tool         | 26    |
+| other        | 26    |
+| project      | 24    |
+| animal       | 7     |
 
 Relationship types:
 
-| Relation | Count |
-|---|---|
-| related_to | 395 (53%) |
-| located_in | 117 |
-| works_at | 114 |
-| uses | 26 |
-| created | 24 |
-| is_a | 21 |
-| lives_in | 19 |
-| knows | 14 |
-| moved_to | 8 |
-| married_to | 4 |
-| likes / prefers | 3 |
+| Relation        | Count     |
+| --------------- | --------- |
+| related_to      | 395 (53%) |
+| located_in      | 117       |
+| works_at        | 114       |
+| uses            | 26        |
+| created         | 24        |
+| is_a            | 21        |
+| lives_in        | 19        |
+| knows           | 14        |
+| moved_to        | 8         |
+| married_to      | 4         |
+| likes / prefers | 3         |
 
 Most-mentioned entities: John Healey (6), BBC (6), United States (6), UK (5),
 Andy Burnham (4), Office for Budget Responsibility (4), Madrid (4), Anthropic (4),
@@ -138,7 +138,7 @@ Pedro Sánchez (3), Renfe (3).
 99 articles produced 959 entities and 745 relationships — roughly 9.7 nodes and
 7.5 edges per article — but only **2 memories** in total, and both came from a
 single first-person article ("I earn £30,000"). The memory extractor is
-deliberately tuned to facts *about the user*; a news corpus contains none, so it
+deliberately tuned to facts _about the user_; a news corpus contains none, so it
 correctly declines to invent any. News is therefore a graph-seeding corpus, not a
 memory-seeding one — see "Document mode" below for the mode that fixes this.
 
@@ -190,18 +190,18 @@ Properties of the mode, all enforced in code rather than by prompt alone:
 
 Measured on 10 BBC articles, same seeder, fresh local store:
 
-| Metric | Value |
-|---|---|
-| Articles ingested | 10 |
-| **Memories created** | **134** (13.4/article, vs ~0.02/article user mode) |
-| Entities created | 130 |
-| Relationships created | 86 |
-| Memories with a verbatim evidence quote | 134/134 |
-| Entity→memory links | 226 across 129 memories |
-| Kinds | 118 fact, 16 relationship |
-| Modality | 107 stated, 25 quoted, 2 negated |
+| Metric                                  | Value                                              |
+| --------------------------------------- | -------------------------------------------------- |
+| Articles ingested                       | 10                                                 |
+| **Memories created**                    | **134** (13.4/article, vs ~0.02/article user mode) |
+| Entities created                        | 130                                                |
+| Relationships created                   | 86                                                 |
+| Memories with a verbatim evidence quote | 134/134                                            |
+| Entity→memory links                     | 226 across 129 memories                            |
+| Kinds                                   | 118 fact, 16 relationship                          |
+| Modality                                | 107 stated, 25 quoted, 2 negated                   |
 
-Known limitation: the gate proves the *quote* is verbatim and in the cited
+Known limitation: the gate proves the _quote_ is verbatim and in the cited
 chunk, not that the subject name is literal in that same chunk. 12/134 subjects
 (9%) were resolved by coreference — "He ruled out crude cuts" → `John Healey`.
 That is correct but cross-chunk, so a stricter "subject must be named in the
@@ -218,4 +218,3 @@ chunk" rule would drop those facts too.
 3. **Track orphans as a metric.** 12% of entities have no relationship at all;
    a rising orphan rate is an early signal that relationship extraction is
    degrading on a new domain.
-

@@ -7,8 +7,8 @@ Seme is a local-first, single-user memory engine for AI companions. SQLite-backe
 
 ## Running things
 
-- API: `cd apps/api && npx portless api.seme npm run dev` → `https://api.seme.lvh.me` (health: `/health`).
-- Web: `cd apps/web && npx portless web.seme npm run dev` → `https://web.seme.lvh.me`. The web dev server proxies `/api` to the API for its worktree (see `apps/web/vite.config.ts`).
+- API: `cd apps/api && pnpm exec portless api.seme pnpm run dev` → `https://api.seme.lvh.me` (health: `/health`).
+- Web: `cd apps/web && pnpm exec portless web.seme pnpm run dev` → `https://web.seme.lvh.me`. The web dev server proxies `/api` to the API for its worktree (see `apps/web/vite.config.ts`).
 - Worktrees get their own URLs with a branch prefix (e.g. `portless-wt.api.seme.lvh.me`).
 - **Restart the API without asking** whenever it needs one. Stop the old process chain by PID (never a broad `pkill -f`). Start it with the command above and check `/health`.
 
@@ -34,9 +34,9 @@ Seme is a local-first, single-user memory engine for AI companions. SQLite-backe
 
 ## Checks before calling work done
 
-- API: `cd apps/api && npx tsc` (must pass).
-- Web: `cd apps/web && npm run typecheck`.
-- Repo: `npm run lint` and `npm run format:check`.
+- API: `cd apps/api && pnpm exec tsc` (must pass).
+- Web: `cd apps/web && pnpm run typecheck`.
+- Repo: `pnpm run lint` and `pnpm run format:check`.
 - Anything that touches the real store or the live API: say what you ran and what you saw.
 
 ## Git

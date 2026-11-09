@@ -22,8 +22,8 @@ A local-first, single-user long-term memory system for companion chat applicatio
 ## Quick start
 
 ```bash
-npm install
-npm run build
+pnpm install
+pnpm run build
 node dist/index.js
 ```
 
