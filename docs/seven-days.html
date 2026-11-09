@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seven days of making Seme less wrong</title>
+<meta name="description" content="What changed in Seme over a week: tougher evals, skill routing, a relation judge, SQLite eval storage, a faster BBC loader, a pnpm workspace, and faster extraction.">
+<style>
+  :root {
+    --bg: #fbfaf7;
+    --fg: #1d1c1a;
+    --muted: #6b6861;
+    --rule: #e4e1da;
+    --accent: #2f5d50;
+    --code-bg: #f1efea;
+    --good: #2f6b3a;
+    --bad: #8a3b2e;
+    --measure: 40rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #161614;
+      --fg: #ebe8e1;
+      --muted: #9b978e;
+      --rule: #2e2d2a;
+      --accent: #8fc7b4;
+      --code-bg: #22211f;
+      --good: #8fd09b;
+      --bad: #e39a88;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #161614;
+    --fg: #ebe8e1;
+    --muted: #9b978e;
+    --rule: #2e2d2a;
+    --accent: #8fc7b4;
+    --code-bg: #22211f;
+    --good: #8fd09b;
+    --bad: #e39a88;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 17px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+  main {
+    max-width: var(--measure);
+    margin: 0 auto;
+    padding: 3rem 1.25rem 5rem;
+  }
+  h1 { font-size: 2.1rem; line-height: 1.2; margin: 0 0 0.5rem; letter-spacing: -0.01em; }
+  h2 { font-size: 1.35rem; margin: 2.8rem 0 0.6rem; letter-spacing: -0.005em; }
+  h3 { font-size: 1.05rem; margin: 1.8rem 0 0.4rem; }
+  p, ul, ol, table, pre, blockquote { margin: 0 0 1.1rem; }
+  ul, ol { padding-left: 1.3rem; }
+  li { margin: 0.25rem 0; }
+  a { color: var(--accent); }
+  .meta { color: var(--muted); font-size: 0.92rem; margin-bottom: 2rem; }
+  .lede { font-size: 1.15rem; color: var(--fg); }
+  hr { border: 0; border-top: 1px solid var(--rule); margin: 2.5rem 0; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.88em; }
+  code { background: var(--code-bg); padding: 0.1em 0.35em; border-radius: 4px; }
+  pre { background: var(--code-bg); padding: 0.9rem 1rem; border-radius: 8px; overflow-x: auto; line-height: 1.5; }
+  pre code { background: none; padding: 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.93rem; }
+  th, td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-weight: 600; color: var(--muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .good { color: var(--good); font-weight: 600; }
+  .bad { color: var(--bad); font-weight: 600; }
+  .callout {
+    border-left: 3px solid var(--accent);
+    padding: 0.2rem 0 0.2rem 1rem;
+    color: var(--fg);
+    margin: 1.5rem 0;
+  }
+  .toc {
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    margin: 2rem 0;
+    font-size: 0.95rem;
+  }
+  .toc ol { margin: 0.4rem 0 0; }
+  footer { color: var(--muted); font-size: 0.9rem; margin-top: 3rem; }
+  @media (max-width: 480px) {
+    body { font-size: 16px; }
+    h1 { font-size: 1.7rem; }
+    th, td { padding: 0.4rem 0.35rem; font-size: 0.85rem; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Seven days of making Seme less wrong</h1>
+<p class="meta">Seme engineering log &middot; week of 3&ndash;9 November 2026</p>
+
+<p class="lede">This week was mostly about one question: when Seme says it remembered something about a person, is it actually right, and how would we know? That turned into tougher evals, a skill router, a relation judge that doesn't rely on exact words, a pile of storage and tooling cleanup, and a faster extraction pipeline.</p>
+
+<div class="toc">
+  <strong>In this post</strong>
+  <ol>
+    <li><a href="#evals">Evals that can actually fail</a></li>
+    <li><a href="#skills">Skill modules and the router</a></li>
+    <li><a href="#third-party">The third-party facts bug</a></li>
+    <li><a href="#judge">Grading relations without word matching</a></li>
+    <li><a href="#storage">Eval results live in SQLite now</a></li>
+    <li><a href="#corpus">BBC corpus and loader</a></li>
+    <li><a href="#provenance">Provenance and ingest progress</a></li>
+    <li><a href="#pnpm">The move to pnpm</a></li>
+    <li><a href="#speed">Making extraction faster</a></li>
+    <li><a href="#open">What's still open</a></li>
+  </ol>
+</div>
+
+<h2 id="evals">1. Evals that can actually fail</h2>
+<p>The old eval suite was too easy. A handful of short, tidy diary entries made nearly everything look fine, so it couldn't show whether the skills system was doing anything. The fix was to write a harder one.</p>
+<p>The new people-and-relationships suite models a five-year diary. A generator builds a timeline across food, friends, places, money, trips, career, family, emotions, and goals, then writes the diary entries a person might plausibly submit day to day. Every entry has gold labels for entities, relations, and the memories that should come out of it. Third parties show up in passing all the time, because that's how real diaries read.</p>
+<p>The grader works in layers. A string grader handles exact entity matches. A relation judge handles the cases where the same fact can be said a dozen ways. Results report precision, recall, and F1, plus pass-rate and pass^k so repeat-run flakiness is visible. Latency is tracked too, since a memory system that takes a minute per entry isn't much use.</p>
+
+<h2 id="skills">2. Skill modules and the router</h2>
+<p>Seme now has three domain skill modules: <code>food-and-health</code>, <code>people-and-relationships</code>, and <code>work-and-projects</code>. Each one is a <code>SKILL.md</code> with guidance for the extractor. For each chunk of text, a router embeds the chunk and picks the modules whose descriptions are closest, using the local Ollama embedding model (<code>qwen3-embedding</code>). Module embeddings are cached in SQLite in a <code>skill_embeddings</code> table, so they're only recomputed when a description or the model changes.</p>
+<p>The router fails open. If embeddings aren't available, the chunk just gets extracted without skill guidance rather than failing. Along the way we removed the <code>SEME_SKILLS=off</code> switch. Skills are the direction, and keeping a parallel off-path around was just more code to test.</p>
+<p>When we first ran the tougher eval with skills on, the scores were worse than they should have been. That led to the bug in the next section.</p>
+
+<h2 id="third-party">3. The third-party facts bug</h2>
+<p>Skills-on was dropping relations. The cause was a prompt contradiction. The skill guidance said to extract a third party's facts as relations from that person, but the base extraction rules, rule 9 in particular, said to tag reported or quoted statements with a modality and not treat them as confirmed. Put together, the model was often treating "Dev says X is hiring" as hypothetical and dropping it.</p>
+<p>The fix was to rewrite both places so they agree. Rule 9 now reads:</p>
+<pre><code>9. Tag hypothetical, joking, negated or quoted statements with that modality. A claim by a
+   third party that the user reports ("Dev says X is hiring") is stated: extract it from that
+   person. Use quoted only when the user repeats someone's exact words in quotation marks.</code></pre>
+<p>The skill bullet got the same treatment: third parties mentioned in passing still get entities, and a reported claim becomes a relation from that person. After that, skills-on relation recall came out above the skills-off baseline, 0.836 against 0.801.</p>
+
+<h2 id="judge">4. Grading relations without word matching</h2>
+<p>This was the most useful argument of the week. The first relation grader leaned on surface wording: strip determiners, match the words. That breaks immediately for people who don't write in English, and it's also just the wrong tool. "A burger and fries go together" is obvious to any language model without a single matching word.</p>
+<blockquote class="callout">Rule of thumb we landed on: don't rebuild language understanding from scratch. Decades of computational linguistics and a lot of working libraries already exist, and most of them run on Node too.</blockquote>
+<p>So the relation judge now uses a natural language inference model, <code>MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7</code> (quantized, run locally through transformers.js). Each relation gets turned into a short sentence, something like "Dev is hiring", and the judge asks whether the source text entails it. The entailment score is compared to a threshold.</p>
+<p>The threshold came from data, not a guess. We hand-audited a stratified sample of 100 judged relations. At the first threshold we tried, 0.25, recall was about 0.77. At 0.10 the audit estimates precision around 0.99 and recall around 0.98, so <code>SUPPORT_THRESHOLD</code> is now <code>0.10</code>. These are audit estimates from one sample, so treat them as a good starting point, not a guarantee.</p>
+
+<h2 id="storage">5. Eval results live in SQLite now</h2>
+<p>Eval runs and baselines were JSON files committed into the repo. That bloats git history fast, and every new baseline is a diff nobody wants to read. Everything now goes into <code>~/.hominem/seme.evals.db</code> (override with <code>SEME_EVALS_DB</code>), with two tables: <code>runs</code> and <code>baselines</code>.</p>
+<p>A one-time importer moved the old JSON results over, and we only deleted the JSON copies after checking that every run and baseline was in the database. Output folders are gitignored now. The runner reads baselines from the database, so <code>--baseline</code> still works the same way.</p>
+
+<h2 id="corpus">6. BBC corpus and loader</h2>
+<p>We load a BBC article corpus through the API as a stress test for ingestion. The corpus builder and loader both got rewritten for speed and resilience:</p>
+<ul>
+  <li><strong>Corpus builder</strong> (<code>scripts/bbc-corpus.mjs</code>): bounded concurrency, retries, ordered streaming output, and resume, so a crash doesn't mean starting over.</li>
+  <li><strong>Loader</strong> (<code>scripts/bbc-load.mjs</code>): streams input instead of loading it whole, retries POSTs only on 429 and 503, and drains by polling each episode's status rather than sleeping.</li>
+  <li><strong>Duplicate extraction gone</strong>: the old loader also called the session-end endpoint, which re-ran extraction on every episode. It's removed.</li>
+</ul>
+<p>On a 10-article run, wall time went from 66 seconds to 14. The first run through the 300-article corpus hit provider rate limits when hundreds of episodes extracted at once, so <code>scripts/seme-retry-extraction.mjs</code> retries document episodes that came back with no memories or no entity links, one at a time, reusing the stored turns. It defaults to three workers with a short delay between jobs.</p>
+
+<h2 id="provenance">7. Provenance and ingest progress</h2>
+<p>Every entity and relation now records where it came from: the turn, the source, and the evidence quote. Provenance routes expose that for the UI. There's also a <code>GET /ingest/episodes/:id/status</code> endpoint that reports the current extraction stage and counts while an episode runs. Progress is held in memory, so a restart forgets it and returns a 404, which is fine for a status that only matters while work is in flight.</p>
+<p>The web app picked up an entities browser, search on the dashboard, and an add-memory sheet to go with it.</p>
+
+<h2 id="pnpm">8. The move to pnpm</h2>
+<p>The repo is now a pnpm workspace (<code>apps/*</code>) pinned to <code>pnpm@11.23.0</code>. A few things we ran into along the way, so future us doesn't have to:</p>
+<ul>
+  <li><code>allowBuilds</code> in <code>pnpm-workspace.yaml</code> is what lets <code>better-sqlite3</code> and <code>onnxruntime-node</code> run their install scripts. <code>protobufjs</code> is explicitly off.</li>
+  <li>Docker images build from the repo root with <code>pnpm --filter seme --prod deploy --legacy</code>. The <code>--legacy</code> flag is required because pnpm 10+ refuses non-injected workspace deploys otherwise.</li>
+  <li>The root <code>.dockerignore</code> patterns need <code>**/</code> prefixes. Without them, <code>apps/api/.env</code> and nested <code>.db</code> files slip into the build context. We planted a fake <code>.env</code> and <code>leak.db</code> to check, and both are now excluded.</li>
+  <li>After a prod deploy, pnpm wanted to purge <code>node_modules</code>. <code>CI=true pnpm install --frozen-lockfile</code> fixed it.</li>
+</ul>
+
+<h2 id="speed">9. Making extraction faster</h2>
+<p>Extraction used to run in sequence: memory first, then entities and relations. Entity extraction only reads the turns, though, so it doesn't need to wait on the memory call. The pipeline now starts entity extraction first and awaits it where its result is consumed. The wrapper never rejects, so an early return from the memory step can't leave a crashing promise behind.</p>
+<p>Results on the full people suite, skills on, two repeats:</p>
+<table>
+  <thead>
+    <tr><th>Metric</th><th class="num">Before</th><th class="num">After</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Latency p50</td><td class="num">12,347 ms</td><td class="num good">7,587 ms</td></tr>
+    <tr><td>Pass rate</td><td class="num">0.193</td><td class="num">0.197</td></tr>
+    <tr><td>Pass^k</td><td class="num">0.138</td><td class="num">0.161</td></tr>
+    <tr><td>Relation recall</td><td class="num">0.836</td><td class="num">0.843</td></tr>
+    <tr><td>Relation F1</td><td class="num">0.771</td><td class="num">0.774</td></tr>
+    <tr><td>Entity F1</td><td class="num">0.945</td><td class="num">0.944</td></tr>
+    <tr><td>Memory recall</td><td class="num">0.701</td><td class="num">0.698</td></tr>
+    <tr><td>Memory precision</td><td class="num">0.935</td><td class="num">0.930</td></tr>
+  </tbody>
+</table>
+<p>Median latency dropped about 39%, and quality held within run-to-run noise. The small dip in memory precision is inside what two repeats can tell apart. The change is committed as <code>perf(extraction): run entity extraction alongside memory extraction</code>.</p>
+
+<h2 id="open">10. What's still open</h2>
+<ul>
+  <li><strong>The memory LLM call is now the critical path.</strong> Shortening it means changing the prompt or the model, and either one can move quality, so that needs a deliberate eval run rather than a quick tweak.</li>
+  <li><strong>Post-LLM writes are still sequential.</strong> Resolving and saving entities and relations after extraction is the next thing to parallelize, worth roughly a second or two per episode.</li>
+  <li><strong>Prompt audit leftovers.</strong> The <code>agent_inferred</code> source type conflicts with "only extract what the text says". The evidence quote limit (300 characters) doesn't match the verified quote limit (400). The food skill has an undefined "allergy relation" wording. Memory recall has been flat around 0.70 for a while.</li>
+  <li><strong>Lint and format debt.</strong> About 25 lint errors and a pile of format issues predate this week, and we left them alone on purpose so the week's changes stayed reviewable.</li>
+  <li><strong>The pre-commit hook fails on lockfiles.</strong> The lint-staged glob catches <code>pnpm-lock.yaml</code>, and oxfmt doesn't handle YAML, so lockfile commits need <code>--no-verify</code> for now. The glob should exclude YAML.</li>
+  <li><strong>Fly deploy isn't verified.</strong> The local <code>fly.toml</code> build context needs to point at the repo root now that Docker builds from there.</li>
+</ul>
+
+<hr>
+<p>The through-line for the week: fewer things we have to trust on faith. Evals that can fail, a judge with a measured threshold, a baseline that lives in a database instead of a diff, and a pipeline that's quicker to find out when it's wrong.</p>
+
+<footer>Seme is a local-first, single-user memory engine for AI companions. Numbers come from the eval database and commit history for this week.</footer>
+
+</main>
+</body>
+</html>
