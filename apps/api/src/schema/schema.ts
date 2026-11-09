@@ -229,7 +229,7 @@ export function getVecTableSql(dim: number): string {
   return `CREATE VIRTUAL TABLE IF NOT EXISTS memories_vec USING vec0(memory_id TEXT PRIMARY KEY, embedding FLOAT[${dim}])`;
 }
 
-export const SCHEMA_VERSION = 10;
+export const SCHEMA_VERSION = 13;
 export const SCHEMA_NAME = 'self-healing-memory/3';
 
 export function getSchemaSql(embeddingDim: number): string {
@@ -650,5 +650,189 @@ DROP TABLE sources;
 ALTER TABLE sources_new RENAME TO sources;
 CREATE INDEX IF NOT EXISTS idx_sources_type ON sources(source_type);
 CREATE INDEX IF NOT EXISTS idx_sources_created ON sources(created_at);
+`;
+}
+
+/**
+ * Migration v12: document provenance for entities and relationships.
+ *
+ * Ingested sources previously survived only as a "[Source: …]" prefix inside
+ * turn content. Entities and relationships therefore knew which *turn* they
+ * came from but not which article/document that turn belonged to, and
+ * relationships carried no evidence text at all.
+ *
+ * - `turns.source_id` links a turn to the source it was ingested from.
+ * - `entities.source_type` accepts 'document_stated'; `first_seen_*` records
+ *   the first turn/source an entity was observed in.
+ * - `entity_turn_links` gains `source_id` and `evidence_quote` per mention.
+ * - `relationships` accepts 'document_stated' and stores the first evidence
+ *   (`source_document_id`, `evidence_quote`). `source_id` is already the
+ *   source *entity*, hence the distinct column name.
+ * - `relationship_sources` keeps every piece of evidence for a relationship,
+ *   because a relationship is deduplicated across mentions and sources.
+ *
+ * Must run with foreign_keys = OFF (handled by the migration runner).
+ */
+export function getSchemaSqlV12(): string {
+  return `
+-- 1. Link turns back to their ingested source.
+ALTER TABLE turns ADD COLUMN source_id TEXT REFERENCES sources(id);
+
+-- Best-effort backfill for turns ingested before this migration: every chunk
+-- was prefixed with "[Source: <title> (<url>)]".
+UPDATE turns SET source_id = (
+  SELECT s.id FROM sources s
+  WHERE turns.content LIKE '[Source: ' || s.title || '%'
+  ORDER BY s.created_at DESC
+  LIMIT 1
+)
+WHERE source_id IS NULL AND content LIKE '[Source: %';
+
+-- 2. Rebuild entities: allow document_stated and record first provenance.
+CREATE TABLE entities_new (
+    id              TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    type            TEXT NOT NULL,
+    aliases         TEXT,
+    description     TEXT,
+    first_seen_at   TEXT NOT NULL,
+    last_seen_at    TEXT NOT NULL,
+    mention_count   INTEGER NOT NULL DEFAULT 1,
+    confidence      REAL NOT NULL CHECK (confidence >= 0.0 AND confidence <= 1.0),
+    source_type     TEXT NOT NULL CHECK (source_type IN (
+                        'user_stated', 'user_confirmed', 'agent_inferred',
+                        'agent_reflection', 'user_edited', 'document_stated')),
+    profile_included INTEGER NOT NULL DEFAULT 0 CHECK (profile_included IN (0, 1)),
+    pinned          INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0, 1)),
+    first_seen_turn_id   TEXT,
+    first_seen_source_id TEXT
+);
+INSERT INTO entities_new (
+    id, name, type, aliases, description, first_seen_at, last_seen_at,
+    mention_count, confidence, source_type, profile_included, pinned
+)
+SELECT
+    id, name, type, aliases, description, first_seen_at, last_seen_at,
+    mention_count, confidence, source_type, profile_included, pinned
+FROM entities;
+DROP TABLE entities;
+ALTER TABLE entities_new RENAME TO entities;
+
+-- Any entity whose mentions all come from document episodes is a document
+-- claim, not something the user said.
+UPDATE entities SET source_type = 'document_stated'
+WHERE source_type = 'user_stated'
+  AND EXISTS (
+    SELECT 1 FROM entity_turn_links etl
+    JOIN turns t ON t.id = etl.turn_id
+    JOIN episodes e ON e.id = t.episode_id
+    WHERE etl.entity_id = entities.id AND e.extraction_mode = 'document'
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM entity_turn_links etl
+    JOIN turns t ON t.id = etl.turn_id
+    JOIN episodes e ON e.id = t.episode_id
+    WHERE etl.entity_id = entities.id AND e.extraction_mode <> 'document'
+  );
+
+-- 3. Rebuild relationships: allow document_stated, keep first evidence.
+CREATE TABLE relationships_new (
+    id              TEXT PRIMARY KEY,
+    source_id       TEXT NOT NULL REFERENCES entities(id),
+    target_id       TEXT NOT NULL REFERENCES entities(id),
+    relation_type   TEXT NOT NULL,
+    description     TEXT,
+    weight          REAL NOT NULL DEFAULT 1.0 CHECK (weight >= 0.0 AND weight <= 1.0),
+    first_seen_at   TEXT NOT NULL,
+    last_seen_at    TEXT NOT NULL,
+    mention_count   INTEGER NOT NULL DEFAULT 1,
+    confidence      REAL NOT NULL CHECK (confidence >= 0.0 AND confidence <= 1.0),
+    source_type     TEXT NOT NULL CHECK (source_type IN (
+                        'user_stated', 'user_confirmed', 'agent_inferred',
+                        'agent_reflection', 'user_edited', 'document_stated')),
+    source_turn_id  TEXT NOT NULL REFERENCES turns(id),
+    source_episode_id TEXT NOT NULL REFERENCES episodes(id),
+    valid_from      TEXT,
+    valid_to        TEXT,
+    source_document_id TEXT REFERENCES sources(id),
+    evidence_quote  TEXT
+);
+INSERT INTO relationships_new (
+    id, source_id, target_id, relation_type, description, weight,
+    first_seen_at, last_seen_at, mention_count, confidence, source_type,
+    source_turn_id, source_episode_id, valid_from, valid_to
+)
+SELECT
+    id, source_id, target_id, relation_type, description, weight,
+    first_seen_at, last_seen_at, mention_count, confidence, source_type,
+    source_turn_id, source_episode_id, valid_from, valid_to
+FROM relationships;
+DROP TABLE relationships;
+ALTER TABLE relationships_new RENAME TO relationships;
+
+UPDATE relationships SET source_document_id = (
+  SELECT t.source_id FROM turns t WHERE t.id = relationships.source_turn_id
+)
+WHERE source_document_id IS NULL;
+
+UPDATE relationships SET source_type = 'document_stated'
+WHERE source_type = 'user_stated'
+  AND EXISTS (
+    SELECT 1 FROM turns t
+    JOIN episodes e ON e.id = t.episode_id
+    WHERE t.id = relationships.source_turn_id AND e.extraction_mode = 'document'
+  );
+
+-- 4. Per-mention provenance on entity links.
+ALTER TABLE entity_turn_links ADD COLUMN source_id TEXT;
+ALTER TABLE entity_turn_links ADD COLUMN evidence_quote TEXT;
+UPDATE entity_turn_links SET source_id = (
+  SELECT t.source_id FROM turns t WHERE t.id = entity_turn_links.turn_id
+)
+WHERE source_id IS NULL;
+
+-- 5. Full evidence trail for relationships.
+CREATE TABLE IF NOT EXISTS relationship_sources (
+    relationship_id TEXT NOT NULL REFERENCES relationships(id),
+    turn_id         TEXT NOT NULL REFERENCES turns(id),
+    source_id       TEXT,
+    evidence_quote  TEXT,
+    created_at      TEXT NOT NULL,
+    PRIMARY KEY (relationship_id, turn_id)
+);
+INSERT OR IGNORE INTO relationship_sources (relationship_id, turn_id, source_id, evidence_quote, created_at)
+SELECT r.id, r.source_turn_id, t.source_id, NULL, r.first_seen_at
+FROM relationships r
+JOIN turns t ON t.id = r.source_turn_id;
+
+CREATE INDEX IF NOT EXISTS idx_entities_name            ON entities(name);
+CREATE INDEX IF NOT EXISTS idx_entities_type            ON entities(type);
+CREATE INDEX IF NOT EXISTS idx_rel_source               ON relationships(source_id);
+CREATE INDEX IF NOT EXISTS idx_rel_target               ON relationships(target_id);
+CREATE INDEX IF NOT EXISTS idx_rel_type                 ON relationships(relation_type);
+CREATE INDEX IF NOT EXISTS idx_relationships_document   ON relationships(source_document_id);
+CREATE INDEX IF NOT EXISTS idx_e_m_links_entity         ON entity_memory_links(entity_id);
+CREATE INDEX IF NOT EXISTS idx_e_m_links_memory         ON entity_memory_links(memory_id);
+CREATE INDEX IF NOT EXISTS idx_e_t_links_entity         ON entity_turn_links(entity_id);
+CREATE INDEX IF NOT EXISTS idx_e_t_links_turn           ON entity_turn_links(turn_id);
+CREATE INDEX IF NOT EXISTS idx_e_t_links_source         ON entity_turn_links(source_id);
+CREATE INDEX IF NOT EXISTS idx_rel_sources_source       ON relationship_sources(source_id);
+CREATE INDEX IF NOT EXISTS idx_turns_source             ON turns(source_id);
+`;
+}
+
+// Cache of skill-module embeddings for the skill router. Keyed by skill name and
+// invalidated by content_hash (sha256 of model id + description), so a changed
+// description or embedding model re-embeds on the next index.
+export function getSchemaSqlV13(): string {
+  return `
+CREATE TABLE IF NOT EXISTS skill_embeddings (
+    skill_name   TEXT PRIMARY KEY,
+    content_hash TEXT NOT NULL,
+    embed_model  TEXT NOT NULL,
+    dim          INTEGER NOT NULL,
+    vector       TEXT NOT NULL,
+    indexed_at   TEXT NOT NULL
+);
 `;
 }

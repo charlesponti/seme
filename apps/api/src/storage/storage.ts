@@ -2,9 +2,26 @@
 
 import Database from 'better-sqlite3';
 import * as sqliteVec from 'sqlite-vec';
-import { SCHEMA_SQL, getVecTableSql, getSchemaSqlV2, getSchemaSqlV3, getSchemaSqlV4, getSchemaSqlV5, getSchemaSqlV6, getSchemaSqlV7, getSchemaSqlV8, getSchemaSqlV9, getSchemaSqlV10, getSchemaSqlV11 } from '../schema/schema.js';
+import {
+  SCHEMA_SQL,
+  getVecTableSql,
+  getSchemaSqlV2,
+  getSchemaSqlV3,
+  getSchemaSqlV4,
+  getSchemaSqlV5,
+  getSchemaSqlV6,
+  getSchemaSqlV7,
+  getSchemaSqlV8,
+  getSchemaSqlV9,
+  getSchemaSqlV10,
+  getSchemaSqlV11,
+  getSchemaSqlV12,
+  getSchemaSqlV13,
+} from '../schema/schema.js';
 import { uuid, nowUtc } from '../types/common.js';
 import { createHash } from 'node:crypto';
+import { Kysely, SqliteDialect, type Transaction } from 'kysely';
+import type { DB } from './database.js';
 
 export interface StorageConfig {
   storageDir: string;
@@ -14,6 +31,7 @@ export interface StorageConfig {
 
 export class Storage {
   private db: Database.Database;
+  private kysely: Kysely<DB>;
   private storageDir: string;
   private embeddingDim: number;
   private writeQueue: Promise<unknown> = Promise.resolve();
@@ -47,6 +65,14 @@ export class Storage {
     // Run migrations (placeholder - will be populated)
     this.runMigrations();
 
+    // Kysely shares the same better-sqlite3 handle, so pragmas, WAL and the
+    // sqlite-vec extension stay in force. Raw SQL remains available for
+    // migrations, PRAGMAs and FTS5/vec0 virtual tables that have no Kysely
+    // builder; application queries go through `getKysely()`.
+    this.kysely = new Kysely<DB>({
+      dialect: new SqliteDialect({ database: this.db }),
+    });
+
     // memories_vec is dimension-dependent, so it lives outside the migration
     // chain and is ensured idempotently at every open.
     this.ensureVecTable();
@@ -61,7 +87,9 @@ export class Storage {
     try {
       scratch.exec('CREATE VIRTUAL TABLE _fts_probe USING fts5(content)');
       scratch.exec("INSERT INTO _fts_probe VALUES ('test')");
-      const ftsResult = scratch.prepare("SELECT * FROM _fts_probe WHERE _fts_probe MATCH 'test'").all();
+      const ftsResult = scratch
+        .prepare("SELECT * FROM _fts_probe WHERE _fts_probe MATCH 'test'")
+        .all();
       if (ftsResult.length === 0) throw new Error('FTS5 probe failed');
 
       sqliteVec.load(scratch);
@@ -117,27 +145,43 @@ export class Storage {
     `);
 
     // Check embedding_dim
-    const meta = this.db.prepare("SELECT value FROM schema_meta WHERE key = 'embedding_dim'").get() as { value: string } | undefined;
+    const meta = this.db
+      .prepare("SELECT value FROM schema_meta WHERE key = 'embedding_dim'")
+      .get() as { value: string } | undefined;
     if (meta) {
       if (parseInt(meta.value) !== this.embeddingDim) {
-        throw new Error(`Embedding dimension mismatch: stored=${meta.value}, configured=${this.embeddingDim}`);
+        throw new Error(
+          `Embedding dimension mismatch: stored=${meta.value}, configured=${this.embeddingDim}`,
+        );
       }
     } else {
       // First run - record embedding_dim
-      this.db.prepare("INSERT INTO schema_meta (key, value) VALUES ('embedding_dim', ?)").run(String(this.embeddingDim));
-      this.db.prepare("INSERT INTO schema_meta (key, value) VALUES ('created_at', ?)").run(nowUtc());
-      this.db.prepare("INSERT INTO schema_meta (key, value) VALUES ('file_format', 'self-healing-memory/1')").run();
+      this.db
+        .prepare("INSERT INTO schema_meta (key, value) VALUES ('embedding_dim', ?)")
+        .run(String(this.embeddingDim));
+      this.db
+        .prepare("INSERT INTO schema_meta (key, value) VALUES ('created_at', ?)")
+        .run(nowUtc());
+      this.db
+        .prepare(
+          "INSERT INTO schema_meta (key, value) VALUES ('file_format', 'self-healing-memory/1')",
+        )
+        .run();
     }
 
     // Apply migrations
     const migrations = this.getMigrations();
-    const applied = this.db.prepare('SELECT version FROM schema_migrations').all() as { version: number }[];
-    const appliedVersions = new Set(applied.map(r => r.version));
+    const applied = this.db.prepare('SELECT version FROM schema_migrations').all() as {
+      version: number;
+    }[];
+    const appliedVersions = new Set(applied.map((r) => r.version));
 
     for (const migration of migrations) {
       if (appliedVersions.has(migration.version)) {
         // Verify checksum
-        const stored = this.db.prepare('SELECT checksum FROM schema_migrations WHERE version = ?').get(migration.version) as { checksum: string };
+        const stored = this.db
+          .prepare('SELECT checksum FROM schema_migrations WHERE version = ?')
+          .get(migration.version) as { checksum: string };
         if (stored.checksum !== migration.checksum) {
           throw new Error(`Migration checksum mismatch for version ${migration.version}`);
         }
@@ -145,7 +189,7 @@ export class Storage {
       }
 
       // Check no downgrade
-      const maxApplied = applied.length > 0 ? Math.max(...applied.map(r => r.version)) : 0;
+      const maxApplied = applied.length > 0 ? Math.max(...applied.map((r) => r.version)) : 0;
       if (migration.version <= maxApplied && !appliedVersions.has(migration.version)) {
         // This shouldn't happen if migrations are sequential
       }
@@ -158,9 +202,11 @@ export class Storage {
       try {
         const txn = this.db.transaction(() => {
           this.db.exec(migration.sql);
-          this.db.prepare('INSERT INTO schema_migrations (version, name, applied_at, checksum) VALUES (?, ?, ?, ?)').run(
-            migration.version, migration.name, nowUtc(), migration.checksum
-          );
+          this.db
+            .prepare(
+              'INSERT INTO schema_migrations (version, name, applied_at, checksum) VALUES (?, ?, ?, ?)',
+            )
+            .run(migration.version, migration.name, nowUtc(), migration.checksum);
         });
         txn();
       } finally {
@@ -171,7 +217,13 @@ export class Storage {
     }
   }
 
-  private getMigrations(): Array<{ version: number; name: string; sql: string; checksum: string; disableForeignKeys?: boolean }> {
+  private getMigrations(): Array<{
+    version: number;
+    name: string;
+    sql: string;
+    checksum: string;
+    disableForeignKeys?: boolean;
+  }> {
     // v1 must be dimension-agnostic so its checksum is stable when the
     // embedding dimension changes. memories_vec is created separately at
     // startup with the runtime dimension (see ensureVecTable).
@@ -186,19 +238,111 @@ export class Storage {
     const v9Sql = getSchemaSqlV9();
     const v10Sql = getSchemaSqlV10();
     const v11Sql = getSchemaSqlV11();
+    const v12Sql = getSchemaSqlV12();
+    const v13Sql = getSchemaSqlV13();
     return [
-      { version: 1, name: 'initial_schema', sql: v1Sql, checksum: createHash('sha256').update(v1Sql).digest('hex') },
-      { version: 2, name: 'expand_memory_kinds', sql: v2Sql, checksum: createHash('sha256').update(v2Sql).digest('hex'), disableForeignKeys: true },
-      { version: 3, name: 'knowledge_graph_tables', sql: v3Sql, checksum: createHash('sha256').update(v3Sql).digest('hex') },
-      { version: 4, name: 'knowledge_wiki_tables', sql: v4Sql, checksum: createHash('sha256').update(v4Sql).digest('hex') },
-      { version: 5, name: 'source_ingestion_table', sql: v5Sql, checksum: createHash('sha256').update(v5Sql).digest('hex') },
-      { version: 6, name: 'kb_tasks_table', sql: v6Sql, checksum: createHash('sha256').update(v6Sql).digest('hex') },
-      { version: 7, name: 'procedures_table', sql: v7Sql, checksum: createHash('sha256').update(v7Sql).digest('hex') },
-      { version: 8, name: 'integrations_table', sql: v8Sql, checksum: createHash('sha256').update(v8Sql).digest('hex') },
-      { version: 9, name: 'remove_entity_type_constraint', sql: v9Sql, checksum: createHash('sha256').update(v9Sql).digest('hex'), disableForeignKeys: true },
-      { version: 10, name: 'source_type_free_form', sql: v10Sql, checksum: createHash('sha256').update(v10Sql).digest('hex'), disableForeignKeys: true },
-      { version: 11, name: 'document_mode_extraction', sql: v11Sql, checksum: createHash('sha256').update(v11Sql).digest('hex'), disableForeignKeys: true },
+      {
+        version: 1,
+        name: 'initial_schema',
+        sql: v1Sql,
+        checksum: createHash('sha256').update(v1Sql).digest('hex'),
+      },
+      {
+        version: 2,
+        name: 'expand_memory_kinds',
+        sql: v2Sql,
+        checksum: createHash('sha256').update(v2Sql).digest('hex'),
+        disableForeignKeys: true,
+      },
+      {
+        version: 3,
+        name: 'knowledge_graph_tables',
+        sql: v3Sql,
+        checksum: createHash('sha256').update(v3Sql).digest('hex'),
+      },
+      {
+        version: 4,
+        name: 'knowledge_wiki_tables',
+        sql: v4Sql,
+        checksum: createHash('sha256').update(v4Sql).digest('hex'),
+      },
+      {
+        version: 5,
+        name: 'source_ingestion_table',
+        sql: v5Sql,
+        checksum: createHash('sha256').update(v5Sql).digest('hex'),
+      },
+      {
+        version: 6,
+        name: 'kb_tasks_table',
+        sql: v6Sql,
+        checksum: createHash('sha256').update(v6Sql).digest('hex'),
+      },
+      {
+        version: 7,
+        name: 'procedures_table',
+        sql: v7Sql,
+        checksum: createHash('sha256').update(v7Sql).digest('hex'),
+      },
+      {
+        version: 8,
+        name: 'integrations_table',
+        sql: v8Sql,
+        checksum: createHash('sha256').update(v8Sql).digest('hex'),
+      },
+      {
+        version: 9,
+        name: 'remove_entity_type_constraint',
+        sql: v9Sql,
+        checksum: createHash('sha256').update(v9Sql).digest('hex'),
+        disableForeignKeys: true,
+      },
+      {
+        version: 10,
+        name: 'source_type_free_form',
+        sql: v10Sql,
+        checksum: createHash('sha256').update(v10Sql).digest('hex'),
+        disableForeignKeys: true,
+      },
+      {
+        version: 11,
+        name: 'document_mode_extraction',
+        sql: v11Sql,
+        checksum: createHash('sha256').update(v11Sql).digest('hex'),
+        disableForeignKeys: true,
+      },
+      {
+        version: 12,
+        name: 'document_provenance',
+        sql: v12Sql,
+        checksum: createHash('sha256').update(v12Sql).digest('hex'),
+        disableForeignKeys: true,
+      },
+      {
+        version: 13,
+        name: 'skill_embeddings',
+        sql: v13Sql,
+        checksum: createHash('sha256').update(v13Sql).digest('hex'),
+      },
     ];
+  }
+
+  // Typed query access (Kysely).
+  getKysely(): Kysely<DB> {
+    return this.kysely;
+  }
+
+  /**
+   * Run a Kysely transaction through the same write queue as raw writes, so
+   * extraction/sleep jobs cannot interleave their transactions.
+   */
+  async transact<T>(fn: (trx: Transaction<DB>) => Promise<T>): Promise<T> {
+    const result = this.writeQueue.then(() => this.kysely.transaction().execute(fn));
+    this.writeQueue = result.then(
+      () => {},
+      () => {},
+    );
+    return result;
   }
 
   // Write path: serialised via write queue
@@ -207,7 +351,10 @@ export class Storage {
       const txn = this.db.transaction(() => fn(this.db));
       return txn();
     });
-    this.writeQueue = result.then(() => {}, () => {});
+    this.writeQueue = result.then(
+      () => {},
+      () => {},
+    );
     return result;
   }
 
