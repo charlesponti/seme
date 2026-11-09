@@ -1,67 +1,81 @@
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { semeApi } from '../lib/api'
-import { formatDay } from '../lib/format'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { semeApi } from '../lib/api';
+import { formatDay } from '../lib/format';
+import { AddMemorySheet } from '../components/add-memory-sheet';
 
 export const Route = createFileRoute('/')({
   component: Dashboard,
-})
+});
 
 interface StatCell {
-  label: string
-  value: string
+  label: string;
+  value: string;
 }
 
 interface SearchResults {
-  memories?: any[]
-  profile_text?: string
-  abstain?: boolean
-  procedural_rules?: any[]
+  memories?: any[];
+  profile_text?: string;
+  abstain?: boolean;
+  procedural_rules?: any[];
   graph_summary?: {
-    entities?: { name: string; type: string; mention_count?: number }[]
-    relationships?: { source: string; relation_type: string; target: string }[]
-  }
+    entities?: { name: string; type: string; mention_count?: number }[];
+    relationships?: { source: string; relation_type: string; target: string }[];
+  };
 }
 
 function Dashboard() {
-  const [stats, setStats] = useState<StatCell[] | null>(null)
-  const [memories, setMemories] = useState<any[]>([])
-  const [entities, setEntities] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [stats, setStats] = useState<StatCell[] | null>(null);
+  const [memories, setMemories] = useState<any[]>([]);
+  const [entities, setEntities] = useState<any[]>([]);
+  const [addOpen, setAddOpen] = useState(false);
+  const closeAdd = useCallback(() => setAddOpen(false), []);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
     try {
       const [mems, ents, rels, wiki] = await Promise.all([
         semeApi.memories({ limit: '8' }),
         semeApi.entities({ limit: '8' }),
         semeApi.relationships({ limit: '1' }),
         semeApi.wiki({ limit: '1' }),
-      ])
-      setMemories(Array.isArray(mems?.memories) ? mems.memories : [])
-      setEntities(Array.isArray(ents?.entities) ? ents.entities : [])
+      ]);
+      setMemories(Array.isArray(mems?.memories) ? mems.memories : []);
+      setEntities(Array.isArray(ents?.entities) ? ents.entities : []);
       setStats([
         { label: 'Memories', value: formatCount(mems?.total) },
         { label: 'Entities', value: formatCount(ents?.total) },
         { label: 'Relationships', value: formatCount(rels?.total) },
         { label: 'Wiki pages', value: formatCount(wiki?.total) },
-      ])
+      ]);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load the dashboard')
+      setError(e instanceof Error ? e.message : 'Failed to load the dashboard');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    load()
-  }, [load])
+    load();
+  }, [load]);
 
   return (
     <div>
-      <h1 className="text-[24px] font-medium leading-8 tracking-[-0.01em] text-[#171717]">Dashboard</h1>
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-[24px] font-medium leading-8 tracking-[-0.01em] text-[#171717]">
+          Dashboard
+        </h1>
+        <button
+          type="button"
+          onClick={() => setAddOpen(true)}
+          className="h-9 shrink-0 rounded-[6px] bg-black px-4 text-[13px] font-medium text-white hover:bg-[#171717]"
+        >
+          Add memory
+        </button>
+      </div>
 
       <div className="mt-6 grid grid-cols-2 border-y border-[#eaeaea] sm:grid-cols-4">
         {(stats ?? PLACEHOLDER_STATS).map((cell, i) => (
@@ -72,40 +86,38 @@ function Dashboard() {
             <div className="font-mono text-[28px] leading-9 tabular-nums text-[#171717]">
               {stats ? cell.value : '—'}
             </div>
-            <div className="mt-1 text-[12px] uppercase leading-4 tracking-[0.08em] text-[#888888]">{cell.label}</div>
+            <div className="mt-1 text-[12px] uppercase leading-4 tracking-[0.08em] text-[#888888]">
+              {cell.label}
+            </div>
           </div>
         ))}
+      </div>
+
+      <div className="mt-8">
+        <SearchBlock />
       </div>
 
       {error ? (
         <ErrorBox message={error} onRetry={load} />
       ) : (
-        <>
-          <SearchBlock />
-
-          <div className="mt-10 grid gap-10 lg:grid-cols-2">
-            <RecentMemories rows={memories} loading={loading} />
-            <RecentEntities rows={entities} loading={loading} />
-          </div>
-
-          <div className="mt-8 flex flex-wrap gap-2">
-            <Link
-              to="/submit"
-              className="inline-flex h-8 items-center rounded-[6px] border border-[#d4d4d4] bg-white px-3 text-[12px] font-medium text-[#171717] hover:bg-[#f5f5f5]"
-            >
-              Submit memory
-            </Link>
-            <Link
-              to="/graph"
-              className="inline-flex h-8 items-center rounded-[6px] border border-[#d4d4d4] bg-white px-3 text-[12px] font-medium text-[#171717] hover:bg-[#f5f5f5]"
-            >
-              Open graph
-            </Link>
-          </div>
-        </>
+        <div className="mt-10 grid gap-10 lg:grid-cols-2">
+          <RecentMemories rows={memories} loading={loading} />
+          <RecentEntities rows={entities} loading={loading} />
+        </div>
       )}
+
+      <div className="mt-8 flex flex-wrap gap-2">
+        <Link
+          to="/graph"
+          className="inline-flex h-8 items-center rounded-[6px] border border-[#d4d4d4] bg-white px-3 text-[12px] font-medium text-[#171717] hover:bg-[#f5f5f5]"
+        >
+          Open graph
+        </Link>
+      </div>
+
+      <AddMemorySheet open={addOpen} onClose={closeAdd} onSaved={load} />
     </div>
-  )
+  );
 }
 
 const PLACEHOLDER_STATS: StatCell[] = [
@@ -113,23 +125,30 @@ const PLACEHOLDER_STATS: StatCell[] = [
   { label: 'Entities', value: '—' },
   { label: 'Relationships', value: '—' },
   { label: 'Wiki pages', value: '—' },
-]
+];
 
 // Hairline dividers without a background-gap grid (which leaves a 1px sliver at
 // fractional widths): a left border on every cell except the first of each row.
-const CELL_BORDERS = ['border-l-0', '', 'border-l-0 border-t sm:border-l sm:border-t-0', 'border-t sm:border-t-0']
+const CELL_BORDERS = [
+  'border-l-0',
+  '',
+  'border-l-0 border-t sm:border-l sm:border-t-0',
+  'border-t sm:border-t-0',
+];
 
 function formatCount(value: unknown): string {
-  return typeof value === 'number' ? value.toLocaleString('en-US') : '—'
+  return typeof value === 'number' ? value.toLocaleString('en-US') : '—';
 }
 
 function RecentMemories({ rows, loading }: { rows: any[]; loading: boolean }) {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
 
   return (
     <section className="min-w-0">
       <div className="flex items-baseline justify-between gap-3 border-b border-[#eaeaea] pb-2">
-        <h2 className="text-[11px] uppercase leading-4 tracking-[0.08em] text-[#888888]">Recent memories</h2>
+        <h2 className="text-[11px] uppercase leading-4 tracking-[0.08em] text-[#888888]">
+          Recent memories
+        </h2>
         <Link to="/memories" className="text-[12px] text-[#666666] hover:text-[#171717]">
           View all →
         </Link>
@@ -147,8 +166,12 @@ function RecentMemories({ rows, loading }: { rows: any[]; loading: boolean }) {
                 onClick={() => navigate({ to: '/memories', search: { memory: m.id } })}
                 className="flex w-full items-center gap-3 border-b border-[#eaeaea] py-2.5 text-left hover:bg-[#f5f5f5]"
               >
-                <span className="min-w-0 flex-1 truncate text-[13px] leading-5 text-[#171717]">{m.value_text}</span>
-                <span className="shrink-0 font-mono text-[11px] uppercase leading-[18px] text-[#888888]">{m.kind}</span>
+                <span className="min-w-0 flex-1 truncate text-[13px] leading-5 text-[#171717]">
+                  {m.value_text}
+                </span>
+                <span className="shrink-0 font-mono text-[11px] uppercase leading-[18px] text-[#888888]">
+                  {m.kind}
+                </span>
                 <span className="w-20 shrink-0 text-right font-mono text-[11px] leading-[18px] tabular-nums text-[#666666]">
                   {formatDay(m.observed_at)}
                 </span>
@@ -158,16 +181,18 @@ function RecentMemories({ rows, loading }: { rows: any[]; loading: boolean }) {
         </ul>
       )}
     </section>
-  )
+  );
 }
 
 function RecentEntities({ rows, loading }: { rows: any[]; loading: boolean }) {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
 
   return (
     <section className="min-w-0">
       <div className="flex items-baseline justify-between gap-3 border-b border-[#eaeaea] pb-2">
-        <h2 className="text-[11px] uppercase leading-4 tracking-[0.08em] text-[#888888]">Recent entities</h2>
+        <h2 className="text-[11px] uppercase leading-4 tracking-[0.08em] text-[#888888]">
+          Recent entities
+        </h2>
         <Link to="/entities" className="text-[12px] text-[#666666] hover:text-[#171717]">
           View all →
         </Link>
@@ -185,8 +210,12 @@ function RecentEntities({ rows, loading }: { rows: any[]; loading: boolean }) {
                 onClick={() => navigate({ to: '/entities', search: { entity: e.id } })}
                 className="flex w-full items-center gap-3 border-b border-[#eaeaea] py-2.5 text-left hover:bg-[#f5f5f5]"
               >
-                <span className="min-w-0 flex-1 truncate text-[13px] leading-5 text-[#171717]">{e.name}</span>
-                <span className="shrink-0 font-mono text-[11px] uppercase leading-[18px] text-[#888888]">{e.type}</span>
+                <span className="min-w-0 flex-1 truncate text-[13px] leading-5 text-[#171717]">
+                  {e.name}
+                </span>
+                <span className="shrink-0 font-mono text-[11px] uppercase leading-[18px] text-[#888888]">
+                  {e.type}
+                </span>
                 <span className="w-20 shrink-0 text-right font-mono text-[11px] leading-[18px] tabular-nums text-[#666666]">
                   {formatDay(e.last_seen_at)}
                 </span>
@@ -196,7 +225,7 @@ function RecentEntities({ rows, loading }: { rows: any[]; loading: boolean }) {
         </ul>
       )}
     </section>
-  )
+  );
 }
 
 function SkeletonRows() {
@@ -206,7 +235,7 @@ function SkeletonRows() {
         <div key={i} className="h-9 w-full bg-[#f5f5f5]" />
       ))}
     </div>
-  )
+  );
 }
 
 const SEARCH_TABS = [
@@ -214,66 +243,66 @@ const SEARCH_TABS = [
   { id: 'profile', label: 'Profile' },
   { id: 'graph', label: 'Graph' },
   { id: 'rules', label: 'Rules' },
-] as const
+] as const;
 
-type SearchTab = (typeof SEARCH_TABS)[number]['id']
+type SearchTab = (typeof SEARCH_TABS)[number]['id'];
 
 function SearchBlock() {
-  const navigate = useNavigate()
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<SearchResults | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [tab, setTab] = useState<SearchTab>('memories')
-  const [opening, setOpening] = useState<string | null>(null)
+  const navigate = useNavigate();
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<SearchResults | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<SearchTab>('memories');
+  const [opening, setOpening] = useState<string | null>(null);
 
   const doSearch = useCallback(async () => {
-    const q = query.trim()
-    if (!q || loading) return
-    setLoading(true)
-    setError(null)
+    const q = query.trim();
+    if (!q || loading) return;
+    setLoading(true);
+    setError(null);
     try {
-      const data = await semeApi.search(q)
-      if (data?.error) throw new Error(data.error.message ?? 'Search failed')
-      setResults(data as SearchResults)
-      setTab('memories')
+      const data = await semeApi.search(q);
+      if (data?.error) throw new Error(data.error.message ?? 'Search failed');
+      setResults(data as SearchResults);
+      setTab('memories');
     } catch (e) {
-      setResults(null)
-      setError(e instanceof Error ? e.message : 'Search failed')
+      setResults(null);
+      setError(e instanceof Error ? e.message : 'Search failed');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [query, loading])
+  }, [query, loading]);
 
   const openEntity = useCallback(
     async (name: string) => {
-      if (opening) return
-      setOpening(name)
-      setError(null)
+      if (opening) return;
+      setOpening(name);
+      setError(null);
       try {
-        const entity = await semeApi.entityByName(name)
-        const id = entity?.id ?? entity?.entity?.id
-        if (!id) throw new Error(`No entity found for ${name}`)
-        await navigate({ to: '/graph', search: { focus: id } })
+        const entity = await semeApi.entityByName(name);
+        const id = entity?.id ?? entity?.entity?.id;
+        if (!id) throw new Error(`No entity found for ${name}`);
+        await navigate({ to: '/graph', search: { focus: id } });
       } catch (e) {
-        setOpening(null)
-        setError(e instanceof Error ? e.message : 'Could not open that entity')
+        setOpening(null);
+        setError(e instanceof Error ? e.message : 'Could not open that entity');
       }
     },
     [navigate, opening],
-  )
+  );
 
-  const memories = useMemo(() => results?.memories ?? [], [results])
-  const rules = useMemo(() => results?.procedural_rules ?? [], [results])
-  const graph = results?.graph_summary
+  const memories = useMemo(() => results?.memories ?? [], [results]);
+  const rules = useMemo(() => results?.procedural_rules ?? [], [results]);
+  const graph = results?.graph_summary;
 
   return (
     <section className="mt-8">
       <form
         className="flex gap-2"
         onSubmit={(e) => {
-          e.preventDefault()
-          doSearch()
+          e.preventDefault();
+          doSearch();
         }}
       >
         <input
@@ -311,7 +340,8 @@ function SearchBlock() {
             </span>
             {graph && (
               <span className="normal-case tracking-normal tabular-nums">
-                {graph.entities?.length ?? 0} entities · {graph.relationships?.length ?? 0} relationships
+                {graph.entities?.length ?? 0} entities · {graph.relationships?.length ?? 0}{' '}
+                relationships
               </span>
             )}
             {rules.length > 0 && (
@@ -323,7 +353,7 @@ function SearchBlock() {
 
           <div role="tablist" className="mt-3 flex gap-6 border-b border-[#eaeaea]">
             {SEARCH_TABS.map((t) => {
-              const active = t.id === tab
+              const active = t.id === tab;
               const count =
                 t.id === 'memories'
                   ? memories.length
@@ -331,7 +361,7 @@ function SearchBlock() {
                     ? graph?.entities?.length
                     : t.id === 'rules'
                       ? rules.length
-                      : undefined
+                      : undefined;
               return (
                 <button
                   key={t.id}
@@ -347,10 +377,12 @@ function SearchBlock() {
                 >
                   {t.label}
                   {typeof count === 'number' && (
-                    <span className="ml-1.5 font-mono text-[11px] tabular-nums text-[#888888]">{count}</span>
+                    <span className="ml-1.5 font-mono text-[11px] tabular-nums text-[#888888]">
+                      {count}
+                    </span>
                   )}
                 </button>
-              )
+              );
             })}
           </div>
 
@@ -366,7 +398,9 @@ function SearchBlock() {
                       {[
                         m.kind,
                         m.slot ? `slot ${m.slot}` : null,
-                        typeof m.confidence === 'number' ? `confidence ${m.confidence.toFixed(2)}` : null,
+                        typeof m.confidence === 'number'
+                          ? `confidence ${m.confidence.toFixed(2)}`
+                          : null,
                         m.source_type,
                       ]
                         .filter(Boolean)
@@ -386,11 +420,14 @@ function SearchBlock() {
               ))}
 
             {tab === 'graph' &&
-              (!graph || ((graph.entities?.length ?? 0) === 0 && (graph.relationships?.length ?? 0) === 0) ? (
+              (!graph ||
+              ((graph.entities?.length ?? 0) === 0 && (graph.relationships?.length ?? 0) === 0) ? (
                 <p className="py-6 text-center text-[13px] text-[#888888]">No graph context.</p>
               ) : (
                 <div className="py-3">
-                  <div className="text-[11px] uppercase leading-4 tracking-[0.08em] text-[#888888]">Entities</div>
+                  <div className="text-[11px] uppercase leading-4 tracking-[0.08em] text-[#888888]">
+                    Entities
+                  </div>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {(graph.entities ?? []).map((e) => (
                       <button
@@ -401,7 +438,9 @@ function SearchBlock() {
                         className="inline-flex items-center gap-1.5 rounded-[6px] border border-[#eaeaea] bg-white px-2 py-1 text-[12px] leading-4 text-[#171717] hover:bg-[#f5f5f5] disabled:opacity-50"
                       >
                         <span className="truncate">{e.name}</span>
-                        <span className="font-mono text-[10px] uppercase text-[#888888]">{e.type}</span>
+                        <span className="font-mono text-[10px] uppercase text-[#888888]">
+                          {e.type}
+                        </span>
                         <span aria-hidden className="font-mono text-[11px] text-[#888888]">
                           →
                         </span>
@@ -417,8 +456,8 @@ function SearchBlock() {
                     <ul className="mt-2 space-y-1">
                       {(graph.relationships ?? []).map((r, i) => (
                         <li key={i} className="font-mono text-[12px] leading-[18px] text-[#171717]">
-                          {r.source}{' '}
-                          <span className="text-[#888888]">—{r.relation_type}→</span> {r.target}
+                          {r.source} <span className="text-[#888888]">—{r.relation_type}→</span>{' '}
+                          {r.target}
                         </li>
                       ))}
                     </ul>
@@ -428,10 +467,15 @@ function SearchBlock() {
 
             {tab === 'rules' &&
               (rules.length === 0 ? (
-                <p className="py-6 text-center text-[13px] text-[#888888]">No active procedural rules.</p>
+                <p className="py-6 text-center text-[13px] text-[#888888]">
+                  No active procedural rules.
+                </p>
               ) : (
                 rules.map((r: any) => (
-                  <div key={r.id} className="flex items-start gap-3 border-b border-[#eaeaea] py-3 last:border-b-0">
+                  <div
+                    key={r.id}
+                    className="flex items-start gap-3 border-b border-[#eaeaea] py-3 last:border-b-0"
+                  >
                     <span className="mt-0.5 shrink-0 rounded-[4px] border border-[#eaeaea] px-1.5 font-mono text-[11px] leading-[18px] tabular-nums text-[#666666]">
                       {r.priority}
                     </span>
@@ -443,7 +487,7 @@ function SearchBlock() {
         </div>
       )}
     </section>
-  )
+  );
 }
 
 function ErrorBox({ message, onRetry }: { message: string; onRetry: () => void }) {
@@ -458,5 +502,5 @@ function ErrorBox({ message, onRetry }: { message: string; onRetry: () => void }
         Retry
       </button>
     </div>
-  )
+  );
 }

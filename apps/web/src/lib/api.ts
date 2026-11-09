@@ -1,19 +1,23 @@
 // src/lib/api.ts — Seme API client
-const API_BASE = import.meta.env.VITE_SEME_API_URL || 'http://localhost:3000'
+// Dev goes through the Vite proxy (same origin, see vite.config.ts). Prod keeps
+// the build-time URL until the production proxy lands.
+const API_BASE = import.meta.env.DEV
+  ? '/api'
+  : import.meta.env.VITE_SEME_API_URL || 'http://localhost:3000';
 
-export const SEME_API_KEY_STORAGE = 'seme_api_key'
+export const SEME_API_KEY_STORAGE = 'seme_api_key';
 
 export function getApiKey(): string | null {
   try {
-    return sessionStorage.getItem(SEME_API_KEY_STORAGE)
+    return sessionStorage.getItem(SEME_API_KEY_STORAGE);
   } catch {
-    return null
+    return null;
   }
 }
 
 export function setApiKey(value: string) {
   try {
-    sessionStorage.setItem(SEME_API_KEY_STORAGE, value)
+    sessionStorage.setItem(SEME_API_KEY_STORAGE, value);
   } catch {
     /* ignore */
   }
@@ -21,35 +25,35 @@ export function setApiKey(value: string) {
 
 export function clearApiKey() {
   try {
-    sessionStorage.removeItem(SEME_API_KEY_STORAGE)
+    sessionStorage.removeItem(SEME_API_KEY_STORAGE);
   } catch {
     /* ignore */
   }
 }
 
 export async function apiFetch(path: string, options?: RequestInit) {
-  const key = getApiKey()
-  const headers = new Headers(options?.headers || {})
-  if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
-  if (key) headers.set('Authorization', `Bearer ${key}`)
+  const key = getApiKey();
+  const headers = new Headers(options?.headers || {});
+  if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  if (key) headers.set('Authorization', `Bearer ${key}`);
 
-  const res = await fetch(API_BASE + path, { ...options, headers })
+  const res = await fetch(API_BASE + path, { ...options, headers });
 
   if (res.status === 401) {
-    clearApiKey()
+    clearApiKey();
     try {
-      window.dispatchEvent(new Event('seme:unauthorized'))
+      window.dispatchEvent(new Event('seme:unauthorized'));
     } catch {
       /* ignore */
     }
-    throw new Error('Unauthorized')
+    throw new Error('Unauthorized');
   }
 
-  return res.json()
+  return res.json();
 }
 
 function qs(params?: Record<string, string>) {
-  return params ? '?' + new URLSearchParams(params).toString() : ''
+  return params ? '?' + new URLSearchParams(params).toString() : '';
 }
 
 export const semeApi = {
@@ -57,7 +61,11 @@ export const semeApi = {
   memories: (params?: Record<string, string>) => apiFetch('/memories' + qs(params)),
   entities: (params?: Record<string, string>) => apiFetch('/entities' + qs(params)),
   entityByName: (name: string) => apiFetch('/entities/name/' + encodeURIComponent(name)),
+  entityProvenance: (id: string) => apiFetch('/entities/' + encodeURIComponent(id) + '/provenance'),
   relationships: (params?: Record<string, string>) => apiFetch('/relationships' + qs(params)),
+  relationshipProvenance: (id: string) =>
+    apiFetch('/relationships/' + encodeURIComponent(id) + '/provenance'),
+  sources: () => apiFetch('/sources'),
   wiki: (params?: Record<string, string>) => apiFetch('/wiki' + qs(params)),
   tasks: (params?: Record<string, string>) => apiFetch('/tasks' + qs(params)),
   profile: () => apiFetch('/profile'),
@@ -85,6 +93,8 @@ export const semeApi = {
       method: 'POST',
       body: JSON.stringify({ url, session_id: 'web' }),
     }),
+  ingestStatus: (episodeId: string) =>
+    apiFetch('/ingest/episodes/' + encodeURIComponent(episodeId) + '/status'),
   recordTurn: (sessionId: string, role: string, content: string) =>
     apiFetch(`/sessions/${encodeURIComponent(sessionId)}/turns`, {
       method: 'POST',
@@ -106,6 +116,6 @@ export const semeApi = {
   // Knowledge base
   lint: () => apiFetch('/kb/lint', { method: 'POST' }),
   stats: () => apiFetch('/kb/lint', { method: 'POST' }),
-}
+};
 
-export { API_BASE }
+export { API_BASE };

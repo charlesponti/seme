@@ -1,8 +1,15 @@
-import { HeadContent, Scripts, createRootRoute, Outlet, Link, useRouterState } from '@tanstack/react-router'
-import appCss from '../styles.css?url'
-import { ToastProvider } from '../components/ui/toast'
-import { useState, useEffect } from 'react'
-import { getApiKey, setApiKey, API_BASE } from '../lib/api'
+import {
+  HeadContent,
+  Scripts,
+  createRootRoute,
+  Outlet,
+  Link,
+  useRouterState,
+} from '@tanstack/react-router';
+import appCss from '../styles.css?url';
+import { ToastProvider } from '../components/ui/toast';
+import { useState, useEffect } from 'react';
+import { getApiKey, setApiKey, API_BASE } from '../lib/api';
 
 export const Route = createRootRoute({
   head: () => ({
@@ -27,20 +34,20 @@ export const Route = createRootRoute({
   }),
   shellComponent: RootDocument,
   component: RootLayout,
-})
+});
 
 function RootLayout() {
-  const [apiKey, setApiKeyState] = useState<string | null>(() => getApiKey())
-  const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const [apiKey, setApiKeyState] = useState<string | null>(() => getApiKey());
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
 
   useEffect(() => {
-    const handler = () => setApiKeyState(getApiKey())
-    window.addEventListener('seme:unauthorized', handler)
-    return () => window.removeEventListener('seme:unauthorized', handler)
-  }, [])
+    const handler = () => setApiKeyState(getApiKey());
+    window.addEventListener('seme:unauthorized', handler);
+    return () => window.removeEventListener('seme:unauthorized', handler);
+  }, []);
 
   if (!apiKey) {
-    return <PasswordGate onAuth={setApiKeyState} />
+    return <PasswordGate onAuth={setApiKeyState} />;
   }
 
   return (
@@ -66,7 +73,6 @@ function RootLayout() {
               { to: '/graph', label: 'Graph' },
               { to: '/wiki', label: 'Wiki' },
               { to: '/tasks', label: 'Tasks' },
-              { to: '/submit', label: 'Submit' },
             ].map(({ to, label }) => (
               <Link
                 key={to}
@@ -80,44 +86,50 @@ function RootLayout() {
           </nav>
         </div>
       </header>
-      <main className={pathname === '/graph' ? 'h-[calc(100dvh-3rem)] overflow-hidden' : 'mx-auto max-w-7xl px-6 py-8'}>
+      <main
+        className={
+          pathname === '/graph'
+            ? 'h-[calc(100dvh-3rem)] overflow-hidden'
+            : 'mx-auto max-w-7xl px-6 py-8'
+        }
+      >
         <ToastProvider>
           <Outlet />
         </ToastProvider>
       </main>
     </div>
-  )
+  );
 }
 
 function PasswordGate({ onAuth }: { onAuth: (key: string) => void }) {
-  const [password, setPassword] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [password, setPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!password || submitting) return
-    setSubmitting(true)
-    setError(null)
+    e.preventDefault();
+    if (!password || submitting) return;
+    setSubmitting(true);
+    setError(null);
     try {
       const res = await fetch(API_BASE + '/entities?limit=1', {
         headers: { Authorization: `Bearer ${password}` },
-      })
+      });
       if (res.status === 401) {
-        setError('Incorrect password')
-        setSubmitting(false)
-        return
+        setError('Incorrect password');
+        setSubmitting(false);
+        return;
       }
       if (!res.ok) {
-        setError(`Request failed (${res.status})`)
-        setSubmitting(false)
-        return
+        setError(`Request failed (${res.status})`);
+        setSubmitting(false);
+        return;
       }
-      setApiKey(password)
-      onAuth(password)
+      setApiKey(password);
+      onAuth(password);
     } catch (err: any) {
-      setError(err?.message || 'Failed to verify password')
-      setSubmitting(false)
+      setError(err?.message || 'Failed to verify password');
+      setSubmitting(false);
     }
   }
 
@@ -157,14 +169,19 @@ function PasswordGate({ onAuth }: { onAuth: (key: string) => void }) {
         {error && <p className="text-sm text-muted-foreground mt-3">{error}</p>}
       </form>
     </div>
-  )
+  );
 }
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="bg-background">
-      <head><HeadContent /></head>
-      <body>{children}<Scripts /></body>
+      <head>
+        <HeadContent />
+      </head>
+      <body>
+        {children}
+        <Scripts />
+      </body>
     </html>
-  )
+  );
 }

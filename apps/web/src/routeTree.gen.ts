@@ -14,7 +14,6 @@ import { Route as EntitiesRouteImport } from './routes/entities'
 import { Route as GraphRouteImport } from './routes/graph'
 import { Route as MemoriesRouteImport } from './routes/memories'
 import { Route as SearchRouteImport } from './routes/search'
-import { Route as SubmitRouteImport } from './routes/submit'
 import { Route as TasksRouteImport } from './routes/tasks'
 import { Route as WikiRouteImport } from './routes/wiki'
 
@@ -43,11 +42,6 @@ const SearchRoute = SearchRouteImport.update({
   path: '/search',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SubmitRoute = SubmitRouteImport.update({
-  id: '/submit',
-  path: '/submit',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const TasksRoute = TasksRouteImport.update({
   id: '/tasks',
   path: '/tasks',
@@ -65,7 +59,6 @@ export interface FileRoutesByFullPath {
   '/graph': typeof GraphRoute
   '/memories': typeof MemoriesRoute
   '/search': typeof SearchRoute
-  '/submit': typeof SubmitRoute
   '/tasks': typeof TasksRoute
   '/wiki': typeof WikiRoute
 }
@@ -75,7 +68,6 @@ export interface FileRoutesByTo {
   '/graph': typeof GraphRoute
   '/memories': typeof MemoriesRoute
   '/search': typeof SearchRoute
-  '/submit': typeof SubmitRoute
   '/tasks': typeof TasksRoute
   '/wiki': typeof WikiRoute
 }
@@ -86,31 +78,16 @@ export interface FileRoutesById {
   '/graph': typeof GraphRoute
   '/memories': typeof MemoriesRoute
   '/search': typeof SearchRoute
-  '/submit': typeof SubmitRoute
   '/tasks': typeof TasksRoute
   '/wiki': typeof WikiRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/'
-    | '/entities'
-    | '/graph'
-    | '/memories'
-    | '/search'
-    | '/submit'
-    | '/tasks'
-    | '/wiki'
+    '/' | '/entities' | '/graph' | '/memories' | '/search' | '/tasks' | '/wiki'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
-    | '/entities'
-    | '/graph'
-    | '/memories'
-    | '/search'
-    | '/submit'
-    | '/tasks'
-    | '/wiki'
+    '/' | '/entities' | '/graph' | '/memories' | '/search' | '/tasks' | '/wiki'
   id:
     | '__root__'
     | '/'
@@ -118,7 +95,6 @@ export interface FileRouteTypes {
     | '/graph'
     | '/memories'
     | '/search'
-    | '/submit'
     | '/tasks'
     | '/wiki'
   fileRoutesById: FileRoutesById
@@ -129,7 +105,6 @@ export interface RootRouteChildren {
   GraphRoute: typeof GraphRoute
   MemoriesRoute: typeof MemoriesRoute
   SearchRoute: typeof SearchRoute
-  SubmitRoute: typeof SubmitRoute
   TasksRoute: typeof TasksRoute
   WikiRoute: typeof WikiRoute
 }
@@ -171,13 +146,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SearchRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/submit': {
-      id: '/submit'
-      path: '/submit'
-      fullPath: '/submit'
-      preLoaderRoute: typeof SubmitRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/tasks': {
       id: '/tasks'
       path: '/tasks'
@@ -201,7 +169,6 @@ const rootRouteChildren: RootRouteChildren = {
   GraphRoute: GraphRoute,
   MemoriesRoute: MemoriesRoute,
   SearchRoute: SearchRoute,
-  SubmitRoute: SubmitRoute,
   TasksRoute: TasksRoute,
   WikiRoute: WikiRoute,
 }
