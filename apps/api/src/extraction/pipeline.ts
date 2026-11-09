@@ -62,6 +62,35 @@ export class ExtractionPipeline {
     this.relationshipResolver = relationshipResolver || new RelationshipResolver(storage);
   }
 
+  /**
+   * Entity and relationship extraction for one episode. Retries once on invalid output and
+   * never rejects: a failure becomes an empty result, so an unawaited call can't crash the run.
+   */
+  private async extractEntities(
+    entityInput: Parameters<EntityExtractor['extract']>[0],
+    episodeId: string,
+  ): Promise<EntityExtractOutput> {
+    const empty: EntityExtractOutput = {
+      extractor_version: 'unknown',
+      entity_candidates: [],
+      relationship_candidates: [],
+    };
+    try {
+      return await this.entityExtractor.extract(entityInput);
+    } catch (e: any) {
+      if (e.message !== 'invalid_output') {
+        console.error('Entity extractor unavailable for episode', episodeId);
+        return empty;
+      }
+    }
+    try {
+      return await this.entityExtractor.extract(entityInput);
+    } catch {
+      console.error('Entity extraction failed twice for episode', episodeId);
+      return empty;
+    }
+  }
+
   async run(
     episodeId: string,
     options: {
@@ -108,6 +137,21 @@ export class ExtractionPipeline {
 
     // Entities-only retries skip the memory call entirely; the existing
     // memories for the episode are reused for entity→memory links.
+    // Entity extraction reads only the turns, so it runs alongside memory extraction. Its
+    // stage is reported where its result is consumed, below.
+    const entityInput = {
+      episode_id: episodeId,
+      mode,
+      turns: turns.map((t) => ({
+        id: t.id,
+        role: t.role,
+        content: t.content,
+        ts: t.ts,
+        source_id: (t as any).source_id ?? null,
+      })),
+    };
+    const entityExtraction = this.extractEntities(entityInput, episodeId);
+
     let output: ExtractOutput = {
       extractor_version: options.entitiesOnly ? 'entities-only' : 'unknown',
       memory_candidates: [],
@@ -223,43 +267,8 @@ export class ExtractionPipeline {
     let entitiesCreated = 0;
     let relationshipsCreated = 0;
     try {
-      const entityInput = {
-        episode_id: episodeId,
-        mode,
-        turns: turns.map((t) => ({
-          id: t.id,
-          role: t.role,
-          content: t.content,
-          ts: t.ts,
-          source_id: (t as any).source_id ?? null,
-        })),
-      };
-
       options.onStage?.('extracting_entities');
-      let entityOutput: EntityExtractOutput;
-      try {
-        entityOutput = await this.entityExtractor.extract(entityInput);
-      } catch (e: any) {
-        if (e.message === 'invalid_output') {
-          try {
-            entityOutput = await this.entityExtractor.extract(entityInput);
-          } catch {
-            console.error('Entity extraction failed twice for episode', episodeId);
-            entityOutput = {
-              extractor_version: 'unknown',
-              entity_candidates: [],
-              relationship_candidates: [],
-            };
-          }
-        } else {
-          console.error('Entity extractor unavailable for episode', episodeId);
-          entityOutput = {
-            extractor_version: 'unknown',
-            entity_candidates: [],
-            relationship_candidates: [],
-          };
-        }
-      }
+      const entityOutput = await entityExtraction;
 
       // Resolve entities
       const entityNameToId = new Map<string, string>();
