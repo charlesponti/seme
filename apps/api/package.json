@@ -12,14 +12,18 @@
     "start": "node dist/server.js",
     "mcp": "node dist/mcp/mcp-server.js",
     "demo": "node dist/index.js",
-    "dev": "npm run build && npm run start",
+    "dev": "npm run build && node scripts/dev.mjs",
     "bench": "node dist/benchmarks/perf.js",
-    "test:mcp": "python3 tests/mcp_protocol_test.py"
+    "test:mcp": "python3 tests/mcp_protocol_test.py",
+    "eval": "node dist/evals/suite/run.js",
+    "test": "tsc && node --test dist/skills/skills.test.js"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.5",
+    "@huggingface/transformers": "^4.3.2",
     "better-sqlite3": "^13.0.3",
     "hono": "^4.13.13",
+    "kysely": "^0.29.7",
     "sqlite-vec": "^0.1.9",
     "uuid": "^14.0.3"
   },
@@ -28,5 +32,8 @@
     "@types/node": "^26.6.5",
     "@types/uuid": "^11.0.0",
     "typescript": "^7.0.2"
+  },
+  "portless": {
+    "name": "api.seme"
   }
 }
