@@ -1,12 +1,13 @@
 {
   "name": "seme-monorepo",
+  "packageManager": "pnpm@11.23.0",
   "private": true,
   "scripts": {
-    "dev:api": "cd apps/api && npm run dev",
-    "dev:web": "cd apps/web && npm run dev",
-    "build:api": "cd apps/api && npm run build",
-    "build:web": "cd apps/web && npm run build",
-    "build": "npm run build:api && npm run build:web",
+    "dev:api": "pnpm --filter seme dev",
+    "dev:web": "pnpm --filter seme-web dev",
+    "build:api": "pnpm --filter seme build",
+    "build:web": "pnpm --filter seme-web build",
+    "build": "pnpm run build:api && pnpm run build:web",
     "lint": "oxlint .",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",

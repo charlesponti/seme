@@ -1,0 +1,9 @@
+packages:
+  - apps/*
+
+# Packages whose install scripts may run. better-sqlite3 compiles the native addon,
+# onnxruntime-node loads the runtime for the NLI judge. protobufjs only prints a notice.
+allowBuilds:
+  better-sqlite3: true
+  onnxruntime-node: true
+  protobufjs: false
