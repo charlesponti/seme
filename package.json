@@ -1,6 +1,5 @@
 {
   "name": "seme-monorepo",
-  "packageManager": "pnpm@11.23.0",
   "private": true,
   "scripts": {
     "dev:api": "pnpm --filter seme dev",
@@ -21,6 +20,7 @@
     "portless": "^0.16.0"
   },
   "lint-staged": {
-    "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts,json,jsonc,json5,css,scss,html,md,mdx,yaml,yml,graphql}": "oxfmt --write"
-  }
+    "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts,json,jsonc,json5,css,scss,html,md,mdx,graphql}": "oxfmt --write"
+  },
+  "packageManager": "pnpm@11.23.0"
 }
