@@ -12,7 +12,11 @@ export class OllamaEmbeddingProvider implements EmbeddingProvider {
   private model: string;
   public dim: number;
 
-  constructor(model: string = 'qwen3-embedding:0.6b', baseUrl: string = 'http://localhost:11434', dim: number = 1024) {
+  constructor(
+    model: string = 'qwen3-embedding:0.6b',
+    baseUrl: string = 'http://localhost:11434',
+    dim: number = 1024,
+  ) {
     this.model = model;
     this.baseUrl = baseUrl;
     this.dim = dim;
@@ -25,7 +29,7 @@ export class OllamaEmbeddingProvider implements EmbeddingProvider {
       body: JSON.stringify({ model: this.model, input: text }),
     });
     if (!res.ok) throw new Error(`Ollama embed failed: ${res.status} ${await res.text()}`);
-    const data = await res.json() as { embeddings: number[][] };
+    const data = (await res.json()) as { embeddings: number[][] };
     return data.embeddings[0];
   }
 
@@ -36,7 +40,7 @@ export class OllamaEmbeddingProvider implements EmbeddingProvider {
       body: JSON.stringify({ model: this.model, input: texts }),
     });
     if (!res.ok) throw new Error(`Ollama embed failed: ${res.status} ${await res.text()}`);
-    const data = await res.json() as { embeddings: number[][] };
+    const data = (await res.json()) as { embeddings: number[][] };
     return data.embeddings;
   }
 }
@@ -57,12 +61,12 @@ export class OpenRouterEmbeddingProvider implements EmbeddingProvider {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.apiKey}`,
+        Authorization: `Bearer ${this.apiKey}`,
       },
       body: JSON.stringify({ model: this.model, input: text }),
     });
     if (!res.ok) throw new Error(`OpenRouter embed failed: ${res.status} ${await res.text()}`);
-    const data = await res.json() as { data: { embedding: number[] }[] };
+    const data = (await res.json()) as { data: { embedding: number[] }[] };
     return data.data[0].embedding;
   }
 
@@ -71,20 +75,24 @@ export class OpenRouterEmbeddingProvider implements EmbeddingProvider {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.apiKey}`,
+        Authorization: `Bearer ${this.apiKey}`,
       },
       body: JSON.stringify({ model: this.model, input: texts }),
     });
     if (!res.ok) throw new Error(`OpenRouter embed failed: ${res.status} ${await res.text()}`);
-    const data = await res.json() as { data: { embedding: number[] }[] };
-    return data.data.map(d => d.embedding);
+    const data = (await res.json()) as { data: { embedding: number[] }[] };
+    return data.data.map((d) => d.embedding);
   }
 }
 
 export class NoOpEmbeddingProvider implements EmbeddingProvider {
   public dim: number = 0;
-  async embed(_text: string): Promise<number[]> { return []; }
-  async embedBatch(_texts: string[]): Promise<number[][]> { return []; }
+  async embed(_text: string): Promise<number[]> {
+    return [];
+  }
+  async embedBatch(_texts: string[]): Promise<number[][]> {
+    return [];
+  }
 }
 
 /**
@@ -96,6 +104,18 @@ export class NoOpEmbeddingProvider implements EmbeddingProvider {
  * Ollama answers, otherwise OpenRouter when a key is present, otherwise none
  * (retrieval degrades to keyword + graph only).
  */
+/** Identifies the model createEmbeddingProvider() will use, so caches can tell when it changes. */
+export function embeddingModelId(): string {
+  const choice = (process.env.SEME_EMBED_PROVIDER || 'auto').toLowerCase();
+  const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
+  const dim = process.env.SEME_EMBED_DIM || '1024';
+  if (choice === 'none') return 'none';
+  if (choice === 'openrouter' || (choice === 'auto' && !ollamaUrl)) {
+    return `openrouter:${process.env.OPENROUTER_EMBED_MODEL || 'openai/text-embedding-3-small'}:${dim}`;
+  }
+  return `ollama:${process.env.OLLAMA_EMBED_MODEL || 'qwen3-embedding:0.6b'}:${dim}`;
+}
+
 export function createEmbeddingProvider(): EmbeddingProvider {
   const choice = (process.env.SEME_EMBED_PROVIDER || 'auto').toLowerCase();
   const apiKey = process.env.OPENROUTER_API_KEY;
@@ -108,7 +128,11 @@ export function createEmbeddingProvider(): EmbeddingProvider {
 
   if (choice === 'openrouter' || (choice === 'auto' && !ollamaUrl)) {
     return apiKey
-      ? new OpenRouterEmbeddingProvider(apiKey, process.env.OPENROUTER_EMBED_MODEL || 'openai/text-embedding-3-small', dim)
+      ? new OpenRouterEmbeddingProvider(
+          apiKey,
+          process.env.OPENROUTER_EMBED_MODEL || 'openai/text-embedding-3-small',
+          dim,
+        )
       : new NoOpEmbeddingProvider();
   }
 
