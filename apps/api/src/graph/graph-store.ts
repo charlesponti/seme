@@ -16,6 +16,8 @@ export interface GraphEntity {
   source_type: string;
   profile_included: number;
   pinned: number;
+  first_seen_turn_id: string | null;
+  first_seen_source_id: string | null;
 }
 
 export interface GraphRelationship {
@@ -32,6 +34,8 @@ export interface GraphRelationship {
   source_type: string;
   source_turn_id: string;
   source_episode_id: string;
+  source_document_id: string | null;
+  evidence_quote: string | null;
   valid_from: string | null;
   valid_to: string | null;
 }
@@ -45,18 +49,51 @@ export class GraphStore {
 
   // --- Entity CRUD ---
 
-  createEntity(name: string, type: string, aliases: string[] = [], description: string | null = null, sourceType: string = 'user_stated', confidence: number = 0.9): string {
+  createEntity(
+    name: string,
+    type: string,
+    aliases: string[] = [],
+    description: string | null = null,
+    sourceType: string = 'user_stated',
+    confidence: number = 0.9,
+    firstSeenTurnId: string | null = null,
+    firstSeenSourceId: string | null = null,
+  ): string {
     const id = uuid();
     const now = nowUtc();
-    this.storage.getDb().prepare(`
-      INSERT INTO entities (id, name, type, aliases, description, first_seen_at, last_seen_at, mention_count, confidence, source_type, profile_included, pinned)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, name, type, JSON.stringify(aliases), description, now, now, 1, confidence, sourceType, 0, 0);
+    this.storage
+      .getDb()
+      .prepare(`
+      INSERT INTO entities (
+        id, name, type, aliases, description, first_seen_at, last_seen_at,
+        mention_count, confidence, source_type, profile_included, pinned,
+        first_seen_turn_id, first_seen_source_id
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+      .run(
+        id,
+        name,
+        type,
+        JSON.stringify(aliases),
+        description,
+        now,
+        now,
+        1,
+        confidence,
+        sourceType,
+        0,
+        0,
+        firstSeenTurnId,
+        firstSeenSourceId,
+      );
     return id;
   }
 
   getEntity(id: string): GraphEntity | null {
-    const row = this.storage.read((db: any) => db.prepare('SELECT * FROM entities WHERE id = ?').get(id) as any);
+    const row = this.storage.read(
+      (db: any) => db.prepare('SELECT * FROM entities WHERE id = ?').get(id) as any,
+    );
     if (!row) return null;
     return this.rowToEntity(row);
   }
@@ -64,25 +101,42 @@ export class GraphStore {
   getEntityByName(name: string): GraphEntity | null {
     const row = this.storage.read((db: any) => {
       // Match by canonical name or alias
-      const byName = db.prepare('SELECT * FROM entities WHERE LOWER(name) = LOWER(?) LIMIT 1').get(name) as any;
+      const byName = db
+        .prepare('SELECT * FROM entities WHERE LOWER(name) = LOWER(?) LIMIT 1')
+        .get(name) as any;
       if (byName) return byName;
-      const byAlias = db.prepare('SELECT * FROM entities WHERE aliases IS NOT NULL AND aliases LIKE ? LIMIT 1').get(`%"${name}"%`) as any;
+      const byAlias = db
+        .prepare('SELECT * FROM entities WHERE aliases IS NOT NULL AND aliases LIKE ? LIMIT 1')
+        .get(`%"${name}"%`) as any;
       return byAlias || null;
     });
     if (!row) return null;
     return this.rowToEntity(row);
   }
 
-  listEntities(type?: string, search?: string, limit: number = 50, offset: number = 0): { entities: GraphEntity[]; total: number } {
+  listEntities(
+    type?: string,
+    search?: string,
+    limit: number = 50,
+    offset: number = 0,
+  ): { entities: GraphEntity[]; total: number } {
     return this.storage.read((db: any) => {
       let query = 'SELECT * FROM entities';
       const conditions: string[] = [];
       const params: any[] = [];
-      if (type) { conditions.push('type = ?'); params.push(type); }
-      if (search) { conditions.push('(LOWER(name) LIKE ? OR aliases LIKE ?)'); params.push(`%${search.toLowerCase()}%`, `%${search}%`); }
+      if (type) {
+        conditions.push('type = ?');
+        params.push(type);
+      }
+      if (search) {
+        conditions.push('(LOWER(name) LIKE ? OR aliases LIKE ?)');
+        params.push(`%${search.toLowerCase()}%`, `%${search}%`);
+      }
       if (conditions.length > 0) query += ' WHERE ' + conditions.join(' AND ');
       query += ' ORDER BY mention_count DESC, confidence DESC';
-      const countQuery = 'SELECT COUNT(*) as c FROM entities' + (conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '');
+      const countQuery =
+        'SELECT COUNT(*) as c FROM entities' +
+        (conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '');
       const total = (db.prepare(countQuery).get(...params) as { c: number }).c;
       query += ' LIMIT ? OFFSET ?';
       params.push(limit, offset);
@@ -91,28 +145,62 @@ export class GraphStore {
     });
   }
 
-  updateEntity(id: string, updates: { name?: string; type?: string; aliases?: string[]; description?: string; profile_included?: number; pinned?: number }): void {
+  updateEntity(
+    id: string,
+    updates: {
+      name?: string;
+      type?: string;
+      aliases?: string[];
+      description?: string;
+      profile_included?: number;
+      pinned?: number;
+    },
+  ): void {
     this.storage.getDb().transaction(() => {
       const sets: string[] = [];
       const params: any[] = [];
-      if (updates.name !== undefined) { sets.push('name = ?'); params.push(updates.name); }
-      if (updates.type !== undefined) { sets.push('type = ?'); params.push(updates.type); }
-      if (updates.aliases !== undefined) { sets.push('aliases = ?'); params.push(JSON.stringify(updates.aliases)); }
-      if (updates.description !== undefined) { sets.push('description = ?'); params.push(updates.description); }
-      if (updates.profile_included !== undefined) { sets.push('profile_included = ?'); params.push(updates.profile_included); }
-      if (updates.pinned !== undefined) { sets.push('pinned = ?'); params.push(updates.pinned); }
+      if (updates.name !== undefined) {
+        sets.push('name = ?');
+        params.push(updates.name);
+      }
+      if (updates.type !== undefined) {
+        sets.push('type = ?');
+        params.push(updates.type);
+      }
+      if (updates.aliases !== undefined) {
+        sets.push('aliases = ?');
+        params.push(JSON.stringify(updates.aliases));
+      }
+      if (updates.description !== undefined) {
+        sets.push('description = ?');
+        params.push(updates.description);
+      }
+      if (updates.profile_included !== undefined) {
+        sets.push('profile_included = ?');
+        params.push(updates.profile_included);
+      }
+      if (updates.pinned !== undefined) {
+        sets.push('pinned = ?');
+        params.push(updates.pinned);
+      }
       if (sets.length === 0) return;
       sets.push('last_seen_at = ?');
       params.push(nowUtc());
       params.push(id);
-      this.storage.getDb().prepare(`UPDATE entities SET ${sets.join(', ')} WHERE id = ?`).run(...params);
+      this.storage
+        .getDb()
+        .prepare(`UPDATE entities SET ${sets.join(', ')} WHERE id = ?`)
+        .run(...params);
     })();
   }
 
   deleteEntity(id: string): void {
     this.storage.getDb().transaction(() => {
       // Delete relationships involving this entity
-      this.storage.getDb().prepare('DELETE FROM relationships WHERE source_id = ? OR target_id = ?').run(id, id);
+      this.storage
+        .getDb()
+        .prepare('DELETE FROM relationships WHERE source_id = ? OR target_id = ?')
+        .run(id, id);
       // Delete links
       this.storage.getDb().prepare('DELETE FROM entity_memory_links WHERE entity_id = ?').run(id);
       this.storage.getDb().prepare('DELETE FROM entity_turn_links WHERE entity_id = ?').run(id);
@@ -123,33 +211,89 @@ export class GraphStore {
 
   // --- Relationship CRUD ---
 
-  createRelationship(sourceId: string, targetId: string, relationType: string, description: string | null = null, sourceTurnId: string = '', sourceEpisodeId: string = '', sourceType: string = 'user_stated', confidence: number = 0.9): string {
+  createRelationship(
+    sourceId: string,
+    targetId: string,
+    relationType: string,
+    description: string | null = null,
+    sourceTurnId: string = '',
+    sourceEpisodeId: string = '',
+    sourceType: string = 'user_stated',
+    confidence: number = 0.9,
+    sourceDocumentId: string | null = null,
+    evidenceQuote: string | null = null,
+  ): string {
     const id = uuid();
     const now = nowUtc();
-    this.storage.getDb().prepare(`
-      INSERT INTO relationships (id, source_id, target_id, relation_type, description, weight, first_seen_at, last_seen_at, mention_count, confidence, source_type, source_turn_id, source_episode_id, valid_from, valid_to)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, sourceId, targetId, relationType, description, 1.0, now, now, 1, confidence, sourceType, sourceTurnId, sourceEpisodeId, now, null);
+    this.storage
+      .getDb()
+      .prepare(`
+      INSERT INTO relationships (
+        id, source_id, target_id, relation_type, description, weight,
+        first_seen_at, last_seen_at, mention_count, confidence, source_type,
+        source_turn_id, source_episode_id, valid_from, valid_to,
+        source_document_id, evidence_quote
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+      .run(
+        id,
+        sourceId,
+        targetId,
+        relationType,
+        description,
+        1.0,
+        now,
+        now,
+        1,
+        confidence,
+        sourceType,
+        sourceTurnId,
+        sourceEpisodeId,
+        now,
+        null,
+        sourceDocumentId,
+        evidenceQuote,
+      );
     return id;
   }
 
   getRelationship(id: string): GraphRelationship | null {
-    const row = this.storage.read((db: any) => db.prepare('SELECT * FROM relationships WHERE id = ?').get(id) as any);
+    const row = this.storage.read(
+      (db: any) => db.prepare('SELECT * FROM relationships WHERE id = ?').get(id) as any,
+    );
     if (!row) return null;
     return this.rowToRelationship(row);
   }
 
-  listRelationships(sourceId?: string, targetId?: string, relationType?: string, limit: number = 50, offset: number = 0): { relationships: GraphRelationship[]; total: number } {
+  listRelationships(
+    sourceId?: string,
+    targetId?: string,
+    relationType?: string,
+    limit: number = 50,
+    offset: number = 0,
+  ): { relationships: GraphRelationship[]; total: number } {
     return this.storage.read((db: any) => {
       let query = 'SELECT * FROM relationships';
       const conditions: string[] = [];
       const params: any[] = [];
-      if (sourceId) { conditions.push('source_id = ?'); params.push(sourceId); }
-      if (targetId) { conditions.push('target_id = ?'); params.push(targetId); }
-      if (relationType) { conditions.push('relation_type = ?'); params.push(relationType); }
+      if (sourceId) {
+        conditions.push('source_id = ?');
+        params.push(sourceId);
+      }
+      if (targetId) {
+        conditions.push('target_id = ?');
+        params.push(targetId);
+      }
+      if (relationType) {
+        conditions.push('relation_type = ?');
+        params.push(relationType);
+      }
       if (conditions.length > 0) query += ' WHERE ' + conditions.join(' AND ');
       query += ' ORDER BY last_seen_at DESC';
-      const countQuery = 'SELECT COUNT(*) as c FROM relationships' + (conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '');
+      const countQuery =
+        'SELECT COUNT(*) as c FROM relationships' +
+        (conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '');
       const total = (db.prepare(countQuery).get(...params) as { c: number }).c;
       query += ' LIMIT ? OFFSET ?';
       params.push(limit, offset);
@@ -164,10 +308,14 @@ export class GraphStore {
 
   // --- Graph Traversal ---
 
-  getNeighborhood(entityId: string, depth: number = 2): { entities: GraphEntity[]; relationships: GraphRelationship[] } {
+  getNeighborhood(
+    entityId: string,
+    depth: number = 2,
+  ): { entities: GraphEntity[]; relationships: GraphRelationship[] } {
     return this.storage.read((db: any) => {
       // Recursive CTE for N-hop traversal
-      const traversal = db.prepare(`
+      const traversal = db
+        .prepare(`
         WITH RECURSIVE traversal(entity_id, depth, path) AS (
           SELECT id, 0, id FROM entities WHERE id = ?
           UNION ALL
@@ -177,17 +325,22 @@ export class GraphStore {
           WHERE t.depth < ? AND t.path NOT LIKE '%' || r.target_id || '%'
         )
         SELECT DISTINCT entity_id, depth FROM traversal
-      `).all(entityId, depth) as { entity_id: string; depth: number }[];
+      `)
+        .all(entityId, depth) as { entity_id: string; depth: number }[];
 
-      const entityIds = [...new Set(traversal.map(t => t.entity_id))];
+      const entityIds = [...new Set(traversal.map((t) => t.entity_id))];
       if (entityIds.length === 0) return { entities: [], relationships: [] };
 
       const placeholders = entityIds.map(() => '?').join(',');
-      const entities = db.prepare(`SELECT * FROM entities WHERE id IN (${placeholders})`).all(...entityIds) as any[];
-      const relationships = db.prepare(`
+      const entities = db
+        .prepare(`SELECT * FROM entities WHERE id IN (${placeholders})`)
+        .all(...entityIds) as any[];
+      const relationships = db
+        .prepare(`
         SELECT * FROM relationships
         WHERE source_id IN (${placeholders}) AND target_id IN (${placeholders})
-      `).all(...entityIds, ...entityIds) as any[];
+      `)
+        .all(...entityIds, ...entityIds) as any[];
 
       return {
         entities: entities.map((r: any) => this.rowToEntity(r)),
@@ -196,10 +349,14 @@ export class GraphStore {
     });
   }
 
-  findPath(fromId: string, toId: string): { path: GraphEntity[]; relationships: GraphRelationship[] } | null {
+  findPath(
+    fromId: string,
+    toId: string,
+  ): { path: GraphEntity[]; relationships: GraphRelationship[] } | null {
     return this.storage.read((db: any) => {
       // BFS via recursive CTE
-      const result = db.prepare(`
+      const result = db
+        .prepare(`
         WITH RECURSIVE path_search(entity_id, depth, path, rel_path) AS (
           SELECT id, 0, id, '' FROM entities WHERE id = ?
           UNION ALL
@@ -209,17 +366,25 @@ export class GraphStore {
           WHERE ps.depth < 10 AND ps.path NOT LIKE '%' || r.target_id || '%'
         )
         SELECT path, rel_path FROM path_search WHERE entity_id = ? ORDER BY depth LIMIT 1
-      `).get(fromId, toId) as { path: string; rel_path: string } | undefined;
+      `)
+        .get(fromId, toId) as { path: string; rel_path: string } | undefined;
 
       if (!result) return null;
 
       const entityIds = result.path.split(',');
       const relIds = result.rel_path.split(',').filter(Boolean);
 
-      const entities = db.prepare(`SELECT * FROM entities WHERE id IN (${entityIds.map(() => '?').join(',')})`).all(...entityIds) as any[];
-      const relationships = relIds.length > 0
-        ? db.prepare(`SELECT * FROM relationships WHERE id IN (${relIds.map(() => '?').join(',')})`).all(...relIds) as any[]
-        : [];
+      const entities = db
+        .prepare(`SELECT * FROM entities WHERE id IN (${entityIds.map(() => '?').join(',')})`)
+        .all(...entityIds) as any[];
+      const relationships =
+        relIds.length > 0
+          ? (db
+              .prepare(
+                `SELECT * FROM relationships WHERE id IN (${relIds.map(() => '?').join(',')})`,
+              )
+              .all(...relIds) as any[])
+          : [];
 
       return {
         path: entities.map((r: any) => this.rowToEntity(r)),
@@ -230,8 +395,12 @@ export class GraphStore {
 
   getGraphSnapshot(): { entities: GraphEntity[]; relationships: GraphRelationship[] } {
     return this.storage.read((db: any) => {
-      const entities = db.prepare('SELECT * FROM entities ORDER BY mention_count DESC, confidence DESC').all() as any[];
-      const relationships = db.prepare('SELECT * FROM relationships ORDER BY last_seen_at DESC').all() as any[];
+      const entities = db
+        .prepare('SELECT * FROM entities ORDER BY mention_count DESC, confidence DESC')
+        .all() as any[];
+      const relationships = db
+        .prepare('SELECT * FROM relationships ORDER BY last_seen_at DESC')
+        .all() as any[];
       return {
         entities: entities.map((r: any) => this.rowToEntity(r)),
         relationships: relationships.map((r: any) => this.rowToRelationship(r)),
@@ -255,6 +424,8 @@ export class GraphStore {
       source_type: row.source_type,
       profile_included: row.profile_included,
       pinned: row.pinned,
+      first_seen_turn_id: row.first_seen_turn_id ?? null,
+      first_seen_source_id: row.first_seen_source_id ?? null,
     };
   }
 
@@ -273,6 +444,8 @@ export class GraphStore {
       source_type: row.source_type,
       source_turn_id: row.source_turn_id,
       source_episode_id: row.source_episode_id,
+      source_document_id: row.source_document_id ?? null,
+      evidence_quote: row.evidence_quote ?? null,
       valid_from: row.valid_from,
       valid_to: row.valid_to,
     };

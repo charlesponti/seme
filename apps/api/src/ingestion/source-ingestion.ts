@@ -8,6 +8,7 @@ import * as path from 'node:path';
 
 export interface IngestSourceResult {
   source_id: string;
+  episode_id: string;
   title: string;
   content_length: number;
   chunks: number;
@@ -25,7 +26,6 @@ export class SourceIngestion {
 
   async ingestUrl(url: string, sessionId: string): Promise<IngestSourceResult> {
     const sourceId = uuid();
-    const now = nowUtc();
 
     // Fetch URL content
     const response = await fetch(url);
@@ -44,7 +44,10 @@ export class SourceIngestion {
     const title = path.basename(pdfPath, '.pdf');
 
     // Use pdftotext
-    const text = execSync(`pdftotext -layout "${pdfPath}" -`, { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 });
+    const text = execSync(`pdftotext -layout "${pdfPath}" -`, {
+      encoding: 'utf-8',
+      maxBuffer: 10 * 1024 * 1024,
+    });
 
     return this.processContent(sourceId, title, text, pdfPath, 'pdf', sessionId);
   }
@@ -58,9 +61,16 @@ export class SourceIngestion {
     // Try to get transcript via youtube-transcript or yt-dlp
     let text = '';
     try {
-      text = execSync(`yt-dlp --write-auto-sub --sub-lang en --skip-download --sub-format vtt -o /tmp/scratchpad/yt_%(id)s "${url}" 2>/dev/null && cat /tmp/scratchpad/yt_${videoId}.en.vtt 2>/dev/null || echo ""`, { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 });
+      text = execSync(
+        `yt-dlp --write-auto-sub --sub-lang en --skip-download --sub-format vtt -o /tmp/scratchpad/yt_%(id)s "${url}" 2>/dev/null && cat /tmp/scratchpad/yt_${videoId}.en.vtt 2>/dev/null || echo ""`,
+        { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 },
+      );
       // Clean VTT
-      text = text.replace(/WEBVTT.*/g, '').replace(/\d{2}:\d{2}:\d{2}\.\d{3} --> \d{2}:\d{2}:\d{2}\.\d{3}.*/g, '').replace(/<[^>]+>/g, '').trim();
+      text = text
+        .replace(/WEBVTT.*/g, '')
+        .replace(/\d{2}:\d{2}:\d{2}\.\d{3} --> \d{2}:\d{2}:\d{2}\.\d{3}.*/g, '')
+        .replace(/<[^>]+>/g, '')
+        .trim();
     } catch {
       text = `YouTube video: ${url} (transcript unavailable)`;
     }
@@ -68,51 +78,84 @@ export class SourceIngestion {
     return this.processContent(sourceId, title, text, url, 'youtube', sessionId);
   }
 
-  async ingestText(text: string, title: string, sessionId: string, sourceType: string = 'text'): Promise<IngestSourceResult> {
+  async ingestText(
+    text: string,
+    title: string,
+    sessionId: string,
+    sourceType: string = 'text',
+  ): Promise<IngestSourceResult> {
     const sourceId = uuid();
     return this.processContent(sourceId, title, text, null, sourceType, sessionId);
   }
 
-  private async processContent(sourceId: string, title: string, text: string, sourceUrl: string | null, sourceType: string, sessionId: string): Promise<IngestSourceResult> {
+  private async processContent(
+    sourceId: string,
+    title: string,
+    text: string,
+    sourceUrl: string | null,
+    sourceType: string,
+    sessionId: string,
+  ): Promise<IngestSourceResult> {
     const now = nowUtc();
 
+    const db = this.storage.getKysely();
+
     // Store source record
-    this.storage.getDb().prepare(`
-      INSERT INTO sources (id, title, url, source_type, content_length, created_at) VALUES (?, ?, ?, ?, ?, ?)
-    `).run(sourceId, title, sourceUrl, sourceType, text.length, now);
+    await db
+      .insertInto('sources')
+      .values({
+        id: sourceId,
+        title,
+        url: sourceUrl,
+        source_type: sourceType,
+        content_length: text.length,
+        created_at: now,
+      })
+      .execute();
+
+    // Each submission is its own closed episode. Extraction runs on exactly
+    // this content and never re-reads whatever else landed in the session.
+    // Pasted text is something the user said; URLs, PDFs and transcripts are
+    // documents and get document-mode extraction.
+    const mode = sourceType === 'text' ? 'user' : 'document';
+    const episodeId = uuid();
+    await db
+      .insertInto('episodes')
+      .values({
+        id: episodeId,
+        session_id: sessionId,
+        started_at: now,
+        ended_at: now,
+        extraction_mode: mode,
+      })
+      .execute();
 
     // Chunk content (max ~2000 chars per chunk)
     const chunks = this.chunkText(text, 2000);
 
-    // Create turns for each chunk
-    let turnCount = 0;
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i];
+    for (const chunk of chunks) {
       const content = `[Source: ${title}${sourceUrl ? ` (${sourceUrl})` : ''}] ${chunk}`;
-      // Create a turn
-      const turnId = uuid();
-      // Need an episode first
-      // Check if episode exists
-      let episode = this.storage.read((db: any) => db.prepare('SELECT id, extraction_mode FROM episodes WHERE session_id = ? AND ended_at IS NULL').get(sessionId) as any);
-      if (!episode) {
-        const epId = uuid();
-        this.storage.getDb().prepare('INSERT INTO episodes (id, session_id, started_at, extraction_mode) VALUES (?, ?, ?, ?)').run(epId, sessionId, now, 'document');
-        episode = { id: epId };
-      } else if (episode.extraction_mode !== 'document') {
-        // Content arriving through source ingestion is a document, not a
-        // conversation: extraction must read it in document mode.
-        this.storage.getDb().prepare('UPDATE episodes SET extraction_mode = ? WHERE id = ?').run('document', episode.id);
-      }
-      this.storage.getDb().prepare('INSERT INTO turns (id, episode_id, session_id, role, content, ts) VALUES (?, ?, ?, ?, ?, ?)').run(turnId, episode.id, sessionId, 'user', content, now);
-      turnCount++;
+      await db
+        .insertInto('turns')
+        .values({
+          id: uuid(),
+          episode_id: episodeId,
+          session_id: sessionId,
+          role: 'user',
+          content,
+          ts: now,
+          source_id: sourceId,
+        })
+        .execute();
     }
 
     return {
       source_id: sourceId,
+      episode_id: episodeId,
       title,
       content_length: text.length,
       chunks: chunks.length,
-      turns_created: turnCount,
+      turns_created: chunks.length,
     };
   }
 
@@ -154,14 +197,21 @@ export class SourceIngestion {
     // Remove HTML tags
     text = text.replace(/<[^>]+>/g, ' ');
     // Decode HTML entities
-    text = text.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+    text = text
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'");
     // Clean up whitespace
     text = text.replace(/\s+/g, ' ').trim();
     return text;
   }
 
   private extractYouTubeId(url: string): string {
-    const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+    const match = url.match(
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+    );
     return match ? match[1] : url;
   }
 }
