@@ -1,18 +1,23 @@
 # Generic container image for the Seme web dashboard.
-# VITE_SEME_API_URL is baked at build time (it is a client-visible URL), so pass
-# it as a build arg. Nothing provider-specific lives in this file.
+# Build from the repository root (the pnpm workspace lives there):
+#   docker build -f apps/web/Dockerfile --build-arg VITE_SEME_API_URL=<url> .
+# VITE_SEME_API_URL is baked at build time (it is a client-visible URL).
+# Nothing provider-specific lives in this file.
 
 FROM node:24-bookworm-slim AS build
-WORKDIR /app
+WORKDIR /repo
+RUN corepack enable
 
-COPY package.json ./
-RUN npm install
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY apps/api/package.json apps/api/
+COPY apps/web/package.json apps/web/
+RUN pnpm install --frozen-lockfile --filter seme-web...
 
-COPY . .
-
+COPY apps/web apps/web
 ARG VITE_SEME_API_URL=http://localhost:3000
 ENV VITE_SEME_API_URL=$VITE_SEME_API_URL
-RUN npm run build && npm prune --omit=dev
+RUN pnpm --filter seme-web run build \
+  && pnpm --filter seme-web --prod deploy --legacy /out
 
 FROM node:24-bookworm-slim AS runtime
 WORKDIR /app
@@ -20,10 +25,10 @@ ENV NODE_ENV=production \
     PORT=3000 \
     HOST=0.0.0.0
 
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/serve.mjs ./serve.mjs
-COPY --from=build /app/package.json ./package.json
+COPY --from=build /out/node_modules ./node_modules
+COPY --from=build /out/package.json ./package.json
+COPY --from=build /repo/apps/web/dist ./dist
+COPY --from=build /repo/apps/web/serve.mjs ./serve.mjs
 
 EXPOSE 3000
 

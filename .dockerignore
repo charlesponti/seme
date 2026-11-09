@@ -1,14 +1,19 @@
-node_modules
-dist
+# Patterns match at any depth: the build context is the repo root, so the app folders are nested.
+**/node_modules
+**/dist
 .git
-.gitignore
-*.log
-.DS_Store
+**/.gitignore
+**/*.log
+**/.DS_Store
 
 # local data and secrets never enter an image
-.env
-.env.*
-data
-*.db
-*.db-shm
-*.db-wal
+**/.env
+**/.env.*
+**/data
+**/*.db
+**/*.db-shm
+**/*.db-wal
+
+# eval output and test fixtures are not needed in an image
+apps/api/evals
+**/tests
