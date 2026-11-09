@@ -6,6 +6,20 @@
     "dev:web": "cd apps/web && npm run dev",
     "build:api": "cd apps/api && npm run build",
     "build:web": "cd apps/web && npm run build",
-    "build": "npm run build:api && npm run build:web"
+    "build": "npm run build:api && npm run build:web",
+    "lint": "oxlint .",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "oxfmt": "^0.77.0",
+    "oxlint": "^1.92.0",
+    "portless": "^0.16.0"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts,json,jsonc,json5,css,scss,html,md,mdx,yaml,yml,graphql}": "oxfmt --write"
   }
 }
