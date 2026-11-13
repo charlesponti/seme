@@ -37,14 +37,25 @@ export const Route = createRootRoute({
 });
 
 function RootLayout() {
-  const [apiKey, setApiKeyState] = useState<string | null>(() => getApiKey());
+  // The key lives in sessionStorage, which the server can't see. Reading it during
+  // the first render made SSR (gate) and the client (app) disagree, so hydration
+  // failed and the gate flashed on every refresh. Start blank on both sides, then
+  // read the key after mount.
+  const [apiKey, setApiKeyState] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
 
   useEffect(() => {
+    setApiKeyState(getApiKey());
+    setReady(true);
     const handler = () => setApiKeyState(getApiKey());
     window.addEventListener('seme:unauthorized', handler);
     return () => window.removeEventListener('seme:unauthorized', handler);
   }, []);
+
+  if (!ready) {
+    return <div className="min-h-screen bg-background" />;
+  }
 
   if (!apiKey) {
     return <PasswordGate onAuth={setApiKeyState} />;
