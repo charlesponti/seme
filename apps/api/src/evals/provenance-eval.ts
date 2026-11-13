@@ -92,7 +92,6 @@ async function main() {
       ],
       source_type: 'document_stated',
       modality: 'stated',
-      importance: 0.7,
       confidence: 0.92,
     };
 
@@ -114,7 +113,6 @@ async function main() {
       ],
       source_type: 'document_stated',
       modality: 'stated',
-      importance: 0.6,
       confidence: 0.9,
     };
 
@@ -149,7 +147,6 @@ async function main() {
       evidence_quote: relationshipQuote,
       source_type: 'document_stated',
       modality: 'stated',
-      importance: 0.6,
       confidence: 0.88,
     };
 

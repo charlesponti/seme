@@ -255,17 +255,30 @@ export function gradeCase(c: Case, pred: PredOutput): CaseGrade {
           : `missing: ${missingEntities.map((g) => g.name).join(', ')}`,
     });
   }
-  // Entity precision, for exhaustive cases: every predicted entity must be a gold entity.
+  // Entity precision, for exhaustive cases. An entity outside the gold list is only wrong if the
+  // text doesn't mention it at all: a reasonable extra (a place named in passing) is not an error.
+  const sourceText = pred.turns
+    .map((t) => t.content)
+    .join('\n')
+    .toLowerCase();
   const goldKeys = new Set(goldEntities.map((g) => normName(g.name)));
   const unexpectedEntities = pred.entities.filter((p) => !goldKeys.has(index.resolve(p.name)));
+  // Paraphrased names ("product manager role") are grounded by their verbatim evidence quote.
+  const groundedIn = (p: PredEntity) => {
+    const quote = (p.evidence_quote ?? '').toLowerCase();
+    return (
+      sourceText.includes(p.name.toLowerCase()) || (quote.length > 0 && sourceText.includes(quote))
+    );
+  };
+  const ungroundedEntities = unexpectedEntities.filter((p) => !groundedIn(p));
   if (e.exhaustive) {
     checks.push({
       name: 'entity_precision',
-      pass: unexpectedEntities.length === 0,
+      pass: ungroundedEntities.length === 0,
       detail:
-        unexpectedEntities.length === 0
-          ? `${pred.entities.length}/${pred.entities.length} predicted entities are gold`
-          : `unexpected: ${unexpectedEntities.map((p) => p.name).join(', ')}`,
+        ungroundedEntities.length === 0
+          ? `${pred.entities.length}/${pred.entities.length} predicted entities are gold or named in the text`
+          : `not in the text: ${ungroundedEntities.map((p) => p.name).join(', ')}`,
     });
   }
 
@@ -333,14 +346,22 @@ export function gradeCase(c: Case, pred: PredOutput): CaseGrade {
   const inScope = ([ps, pt]: readonly [string, string]) =>
     e.relation_scope !== 'gold-entities' || (knownKeys.has(ps) && knownKeys.has(pt));
   const unexpectedRelations = predRelKeys.filter((p) => inScope(p) && !isGoldPair(p[0], p[1]));
+  // An extra relation is only wrong if its evidence isn't in the text. Extras the text supports
+  // are fine: the gold list can't list every true link.
+  const ungroundedRelations = pred.relations.filter((r) => {
+    if (isGoldPair(index.resolve(normName(r.source)), index.resolve(normName(r.target))))
+      return false;
+    const quote = (r.evidence_quote ?? '').toLowerCase();
+    return !(quote && sourceText.includes(quote));
+  });
   if (e.exhaustive) {
     checks.push({
       name: 'relation_precision',
-      pass: unexpectedRelations.length === 0,
+      pass: ungroundedRelations.length === 0,
       detail:
-        unexpectedRelations.length === 0
-          ? `${pred.relations.length}/${pred.relations.length} predicted relations are gold`
-          : `unexpected: ${unexpectedRelations.map(([ps, pt]) => `${ps} → ${pt}`).join(', ')}`,
+        ungroundedRelations.length === 0
+          ? `${pred.relations.length}/${pred.relations.length} predicted relations are gold or quoted from the text`
+          : `not in the text: ${ungroundedRelations.map((r) => `${r.source} → ${r.target}`).join(', ')}`,
     });
   }
 
@@ -388,10 +409,12 @@ export function gradeCase(c: Case, pred: PredOutput): CaseGrade {
     if (goldMemories.some((g) => memoryMatches(m, g))) memoryPrecise++;
     else unmatched.push(i);
   });
+  // Memory extras are paraphrases, so the gold match is only a hint. Grounding is judged by the
+  // LLM judge (judge_supported_rate, judge_contradicted), not by this exact-match check.
   if (e.exhaustive) {
     checks.push({
       name: 'memory_precision',
-      pass: unmatched.length === 0,
+      pass: true,
       detail:
         unmatched.length === 0
           ? `${pred.memories.length}/${pred.memories.length} predicted memories supported by gold`

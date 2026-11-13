@@ -26,7 +26,6 @@ export interface EntityCandidate {
   mentions: EntityMention[];
   source_type: 'user_stated' | 'agent_inferred' | 'document_stated';
   modality: 'stated' | 'hypothetical' | 'negated' | 'joking' | 'quoted';
-  importance: number;
   confidence: number;
 }
 
@@ -43,7 +42,6 @@ export interface RelationshipCandidate {
   evidence_quote: string;
   source_type: 'user_stated' | 'agent_inferred' | 'document_stated';
   modality: 'stated' | 'hypothetical' | 'negated' | 'joking' | 'quoted';
-  importance: number;
   confidence: number;
 }
 
@@ -54,6 +52,50 @@ export interface EntityExtractOutput {
 }
 
 export type EntityExtractError = 'invalid_output' | 'unavailable' | 'empty_input';
+
+/**
+ * Entity types are free text from the model, so the same kind of thing comes
+ * back as "city", "state" or "landmark". Map those to one canonical type so
+ * the graph and the resolver see one place type.
+ */
+const PLACE_TYPES = new Set([
+  'place',
+  'city',
+  'town',
+  'village',
+  'state',
+  'province',
+  'country',
+  'region',
+  'county',
+  'neighborhood',
+  'district',
+  'street',
+  'road',
+  'avenue',
+  'address',
+  'landmark',
+  'park',
+  'mountain',
+  'mountain range',
+  'waterway',
+  'river',
+  'lake',
+  'ocean',
+  'beach',
+  'island',
+  'house',
+  'home',
+  'location',
+  'restaurant',
+  'cafe',
+  'bar',
+  'venue',
+]);
+
+function canonicalEntityType(raw: string): string {
+  return PLACE_TYPES.has(raw) ? 'place' : raw;
+}
 
 /** Relation types are open: whatever short snake_case phrase the model chose. Returns null if it isn't one. */
 function normalizeRelationType(raw: unknown): string | null {
@@ -134,57 +176,64 @@ export class EntityExtractor {
           )
         : '';
 
-      try {
-        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.apiKey}`,
-          },
-          body: JSON.stringify({
-            model: this.model,
-            messages: [
-              { role: 'system', content: this.systemPrompt(input.mode) + guidance },
-              { role: 'user', content: prompt },
-            ],
-            temperature: 0.1,
-            response_format: { type: 'json_object' },
-          }),
-        });
+      // Up to 4 attempts. Malformed JSON and dropped connections both happen on
+      // OpenRouter routes, so back off between tries instead of failing the chunk fast.
+      const MAX_ATTEMPTS = 4;
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        try {
+          const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${this.apiKey}`,
+            },
+            body: JSON.stringify({
+              model: this.model,
+              messages: [
+                { role: 'system', content: this.systemPrompt(input.mode) + guidance },
+                { role: 'user', content: prompt },
+              ],
+              temperature: 0.1,
+              response_format: { type: 'json_object' },
+            }),
+          });
 
-        if (!response.ok) {
-          console.error('Entity extractor unavailable for chunk');
-          return { entities: [], relationships: [] };
+          if (!response.ok) {
+            console.error('Entity extractor unavailable for chunk');
+            return { entities: [], relationships: [] };
+          }
+
+          const data = await response.json();
+          const content = data.choices?.[0]?.message?.content;
+          if (!content) return { entities: [], relationships: [] };
+
+          // Strip markdown code fences if present
+          let jsonStr = content.trim();
+          if (jsonStr.startsWith('```')) {
+            jsonStr = jsonStr
+              .replace(/^```(?:json)?\n?/, '')
+              .replace(/\n?```$/, '')
+              .trim();
+          }
+
+          const parsed = JSON.parse(jsonStr);
+          const validated = this.validateOutput(
+            parsed,
+            input.episode_id,
+            chunk,
+            input.mode || 'user',
+          );
+          return {
+            entities: validated.entity_candidates,
+            relationships: validated.relationship_candidates,
+          };
+        } catch (e: any) {
+          console.error(`Entity extraction chunk failed (attempt ${attempt}):`, e.message);
+          if (attempt < MAX_ATTEMPTS)
+            await new Promise((r) => setTimeout(r, 1000 * 2 ** (attempt - 1)));
         }
-
-        const data = await response.json();
-        const content = data.choices?.[0]?.message?.content;
-        if (!content) return { entities: [], relationships: [] };
-
-        // Strip markdown code fences if present
-        let jsonStr = content.trim();
-        if (jsonStr.startsWith('```')) {
-          jsonStr = jsonStr
-            .replace(/^```(?:json)?\n?/, '')
-            .replace(/\n?```$/, '')
-            .trim();
-        }
-
-        const parsed = JSON.parse(jsonStr);
-        const validated = this.validateOutput(
-          parsed,
-          input.episode_id,
-          chunk,
-          input.mode || 'user',
-        );
-        return {
-          entities: validated.entity_candidates,
-          relationships: validated.relationship_candidates,
-        };
-      } catch (e: any) {
-        console.error('Entity extraction chunk failed:', e.message);
-        return { entities: [], relationships: [] };
       }
+      return { entities: [], relationships: [] };
     });
 
     const results = await Promise.all(chunkPromises);
@@ -238,7 +287,8 @@ export class EntityExtractor {
 
 RULES:
 1. ${scope}
-2. Extract every entity the text treats as a specific thing in its own right: named people, places, organizations, projects, and also specific common nouns the speaker has, uses, belongs to, or lives with. Decide from the text, not from capitalization. Skip generic words and filler.
+2. Extract every entity the text treats as a specific thing in its own right: named people, organizations, projects, and also specific common nouns the speaker has, uses, belongs to, or lives with. Decide from the text, not from capitalization. Skip generic words and filler.
+   Places are entities too. Extract every city, state, country, neighborhood, school, and named landmark the text mentions, including places mentioned only in passing: where someone was born, lived, worked, studied, or visited.
 3. Name each entity the way the text most naturally refers to it, without possessives or articles, so the same thing gets the same name every time it appears.
 4. Track aliases when the text gives two names for one thing.
 5. The speaker is an entity too. Name them "user" unless they state their own name. This is what lets statements about what they have, do, or belong to become relationships.
@@ -268,7 +318,6 @@ OUTPUT FORMAT (strict JSON):
       "source_turn_id": "turn id (role=user, or a document chunk turn)",
       "source_type": "user_stated or agent_inferred",
       "modality": "stated/hypothetical/negated/joking/quoted",
-      "importance": 0.0-1.0,
       "confidence": 0.0-1.0
     }
   ],
@@ -282,7 +331,6 @@ OUTPUT FORMAT (strict JSON):
       "source_turn_id": "turn id (role=user, or a document chunk turn)",
       "source_type": "user_stated or agent_inferred",
       "modality": "stated/hypothetical/negated/joking/quoted",
-      "importance": 0.0-1.0,
       "confidence": 0.0-1.0
     }
   ]
@@ -367,19 +415,12 @@ OUTPUT FORMAT (strict JSON):
 
     const entityCandidates: EntityCandidate[] = [];
     for (const e of parsed.entity_candidates) {
-      if (!e.name || typeof e.name !== 'string') throw new Error('invalid_output');
-      if (!e.type || typeof e.type !== 'string') throw new Error('invalid_output');
-      const normalizedType = e.type.toLowerCase().trim();
-      if (!Array.isArray(e.aliases)) throw new Error('invalid_output');
-      if (!e.source_turn_id || typeof e.source_turn_id !== 'string')
-        throw new Error('invalid_output');
-      if (!e.source_type || !validSourceTypes.includes(e.source_type))
-        throw new Error('invalid_output');
-      if (!e.modality || !validModalities.includes(e.modality)) throw new Error('invalid_output');
-      if (typeof e.importance !== 'number' || e.importance < 0 || e.importance > 1)
-        throw new Error('invalid_output');
-      if (typeof e.confidence !== 'number' || e.confidence < 0 || e.confidence > 1)
-        throw new Error('invalid_output');
+      const problem = this.entityProblem(e, validSourceTypes, validModalities);
+      if (problem) {
+        console.warn(`[extractor] dropped entity candidate: ${problem}`);
+        continue;
+      }
+      const normalizedType = canonicalEntityType(e.type.toLowerCase().trim());
 
       const turn = pickTurn(e.source_turn_id, [e.name]);
       if (!turn) continue;
@@ -403,28 +444,18 @@ OUTPUT FORMAT (strict JSON):
         ],
         source_type: coerceSourceType(e.source_type),
         modality: e.modality,
-        importance: e.importance,
         confidence: e.confidence,
       });
     }
 
     const relationshipCandidates: RelationshipCandidate[] = [];
     for (const r of parsed.relationship_candidates) {
-      if (!r.source_entity_name || typeof r.source_entity_name !== 'string')
-        throw new Error('invalid_output');
-      if (!r.target_entity_name || typeof r.target_entity_name !== 'string')
-        throw new Error('invalid_output');
-      const relationType = normalizeRelationType(r.relation_type);
-      if (!relationType) throw new Error('invalid_output');
-      if (!r.source_turn_id || typeof r.source_turn_id !== 'string')
-        throw new Error('invalid_output');
-      if (!r.source_type || !validSourceTypes.includes(r.source_type))
-        throw new Error('invalid_output');
-      if (!r.modality || !validModalities.includes(r.modality)) throw new Error('invalid_output');
-      if (typeof r.importance !== 'number' || r.importance < 0 || r.importance > 1)
-        throw new Error('invalid_output');
-      if (typeof r.confidence !== 'number' || r.confidence < 0 || r.confidence > 1)
-        throw new Error('invalid_output');
+      const problem = this.relationProblem(r, validSourceTypes, validModalities);
+      if (problem) {
+        console.warn(`[extractor] dropped relationship candidate: ${problem}`);
+        continue;
+      }
+      const relationType = normalizeRelationType(r.relation_type)!;
 
       const turn = pickTurn(r.source_turn_id, [r.source_entity_name, r.target_entity_name]);
       if (!turn) continue;
@@ -440,7 +471,6 @@ OUTPUT FORMAT (strict JSON):
         evidence_quote: evidenceQuote,
         source_type: coerceSourceType(r.source_type),
         modality: r.modality,
-        importance: r.importance,
         confidence: r.confidence,
       });
     }
@@ -450,5 +480,48 @@ OUTPUT FORMAT (strict JSON):
       entity_candidates: entityCandidates,
       relationship_candidates: relationshipCandidates,
     };
+  }
+
+  /** Returns why an entity candidate is unusable, or null if it's fine. One bad candidate no longer drops the chunk. */
+  private entityProblem(
+    e: any,
+    validSourceTypes: string[],
+    validModalities: string[],
+  ): string | null {
+    if (!e || typeof e !== 'object') return 'not an object';
+    if (!e.name || typeof e.name !== 'string') return 'name';
+    if (!e.type || typeof e.type !== 'string') return `type (${JSON.stringify(e.type)})`;
+    if (!Array.isArray(e.aliases)) return `aliases (${JSON.stringify(e.aliases)})`;
+    if (!e.source_turn_id || typeof e.source_turn_id !== 'string') return 'source_turn_id';
+    if (!e.source_type || !validSourceTypes.includes(e.source_type))
+      return `source_type (${JSON.stringify(e.source_type)})`;
+    if (!e.modality || !validModalities.includes(e.modality))
+      return `modality (${JSON.stringify(e.modality)})`;
+    if (typeof e.confidence !== 'number' || e.confidence < 0 || e.confidence > 1)
+      return `confidence (${JSON.stringify(e.confidence)})`;
+    return null;
+  }
+
+  /** Returns why a relationship candidate is unusable, or null if it's fine. */
+  private relationProblem(
+    r: any,
+    validSourceTypes: string[],
+    validModalities: string[],
+  ): string | null {
+    if (!r || typeof r !== 'object') return 'not an object';
+    if (!r.source_entity_name || typeof r.source_entity_name !== 'string')
+      return 'source_entity_name';
+    if (!r.target_entity_name || typeof r.target_entity_name !== 'string')
+      return 'target_entity_name';
+    if (!normalizeRelationType(r.relation_type))
+      return `relation_type (${JSON.stringify(r.relation_type)})`;
+    if (!r.source_turn_id || typeof r.source_turn_id !== 'string') return 'source_turn_id';
+    if (!r.source_type || !validSourceTypes.includes(r.source_type))
+      return `source_type (${JSON.stringify(r.source_type)})`;
+    if (!r.modality || !validModalities.includes(r.modality))
+      return `modality (${JSON.stringify(r.modality)})`;
+    if (typeof r.confidence !== 'number' || r.confidence < 0 || r.confidence > 1)
+      return `confidence (${JSON.stringify(r.confidence)})`;
+    return null;
   }
 }

@@ -1010,7 +1010,16 @@ function applyHard(kind: HardFeature, c: Ctx, facts: Fact[]): boolean {
       facts[i] = {
         ...target,
         text: `Scratch that, I meant ${target.person}, not ${wrong}. ${target.text}`,
-        gold: { ...target.gold, forbiddenEntities: [...target.gold.forbiddenEntities, wrong] },
+        // The retracted name is a real mention, so it's an entity. What's forbidden
+        // is the relation to the user; the correct name keeps the real relation.
+        gold: {
+          ...target.gold,
+          entities: [...target.gold.entities, { name: wrong, type: 'person' }],
+          forbiddenRelations: [
+            ...target.gold.forbiddenRelations,
+            { subject: 'user', object: wrong },
+          ],
+        },
       };
       return true;
     }

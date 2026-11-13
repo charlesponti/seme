@@ -18,7 +18,10 @@ interface TestResult {
   time_ms: number;
 }
 
-async function runTest(name: string, fn: (svc: MemoryService) => Promise<{ passed: boolean; details: string }>): Promise<TestResult> {
+async function runTest(
+  name: string,
+  fn: (svc: MemoryService) => Promise<{ passed: boolean; details: string }>,
+): Promise<TestResult> {
   const dir = STORAGE_DIR + '-' + Date.now() + '-' + Math.random().toString(36).slice(2);
   cleanup(dir);
   const svc = new MemoryService({ storageDir: dir, embeddingDim: EMBEDDING_DIM });
@@ -36,7 +39,10 @@ async function runTest(name: string, fn: (svc: MemoryService) => Promise<{ passe
   }
 }
 
-const tests: { name: string; fn: (svc: MemoryService) => Promise<{ passed: boolean; details: string }> }[] = [];
+const tests: {
+  name: string;
+  fn: (svc: MemoryService) => Promise<{ passed: boolean; details: string }>;
+}[] = [];
 
 // ============================================================
 // GOLDEN-SET ENTITY EXTRACTION (LLM)
@@ -50,18 +56,21 @@ tests.push({
     await svc.endSession('s1');
     // Wait for async extraction to complete (poll for entities)
     for (let i = 0; i < 30; i++) {
-      await new Promise(r => setTimeout(r, 1000));
+      await new Promise((r) => setTimeout(r, 1000));
       const check = svc.getGraphSnapshot();
       if (check.entities.length > 0) break;
     }
     const snap = svc.getGraphSnapshot();
-    const names = snap.entities.map(e => e.name.toLowerCase());
-    const types = snap.entities.map(e => e.type);
-    const hasPonti = names.some(n => n.includes('ponti'));
-    const hasEdinburgh = names.some(n => n.includes('edinburgh'));
+    const names = snap.entities.map((e) => e.name.toLowerCase());
+    const types = snap.entities.map((e) => e.type);
+    const hasPonti = names.some((n) => n.includes('ponti'));
+    const hasEdinburgh = names.some((n) => n.includes('edinburgh'));
     const hasOrg = types.includes('organization');
     const hasPlace = types.includes('place');
-    return { passed: hasPonti && hasEdinburgh && hasOrg && hasPlace, details: `Entities: ${snap.entities.map(e => e.name + '(' + e.type + ')').join(', ')}` };
+    return {
+      passed: hasPonti && hasEdinburgh && hasOrg && hasPlace,
+      details: `Entities: ${snap.entities.map((e) => e.name + '(' + e.type + ')').join(', ')}`,
+    };
   },
 });
 
@@ -74,15 +83,18 @@ tests.push({
     await svc.recordTurn('s1', 'assistant', 'Noted.');
     await svc.endSession('s1');
     for (let i = 0; i < 30; i++) {
-      await new Promise(r => setTimeout(r, 1000));
+      await new Promise((r) => setTimeout(r, 1000));
       const check = svc.getGraphSnapshot();
       if (check.entities.length > 0) break;
     }
     const snap = svc.getGraphSnapshot();
-    const names = snap.entities.map(e => e.name.toLowerCase());
-    const hasTS = names.some(n => n.includes('typescript'));
-    const hasReact = names.some(n => n.includes('react'));
-    return { passed: hasTS && hasReact, details: `Entities: ${snap.entities.map(e => e.name + '(' + e.type + ')').join(', ')}` };
+    const names = snap.entities.map((e) => e.name.toLowerCase());
+    const hasTS = names.some((n) => n.includes('typescript'));
+    const hasReact = names.some((n) => n.includes('react'));
+    return {
+      passed: hasTS && hasReact,
+      details: `Entities: ${snap.entities.map((e) => e.name + '(' + e.type + ')').join(', ')}`,
+    };
   },
 });
 
@@ -93,11 +105,14 @@ tests.push({
     await svc.recordTurn('s1', 'assistant', 'Noted.');
     await svc.endSession('s1');
     // Wait for async extraction to complete (poll for entities)
-    await new Promise(r => setTimeout(r, 25000));
+    await new Promise((r) => setTimeout(r, 25000));
     const snap = svc.getGraphSnapshot();
-    const relTypes = snap.relationships.map(r => r.relation_type);
+    const relTypes = snap.relationships.map((r) => r.relation_type);
     const hasLocatedIn = relTypes.includes('located_in');
-    return { passed: hasLocatedIn, details: `Rels: ${snap.relationships.map(r => r.relation_type).join(', ')}` };
+    return {
+      passed: hasLocatedIn,
+      details: `Rels: ${snap.relationships.map((r) => r.relation_type).join(', ')}`,
+    };
   },
 });
 
@@ -108,12 +123,15 @@ tests.push({
     await svc.recordTurn('s1', 'assistant', 'Noted.');
     await svc.endSession('s1');
     // Wait for async extraction to complete (poll for entities)
-    await new Promise(r => setTimeout(r, 25000));
+    await new Promise((r) => setTimeout(r, 25000));
     const snap = svc.getGraphSnapshot();
-    const relTypes = snap.relationships.map(r => r.relation_type);
+    const relTypes = snap.relationships.map((r) => r.relation_type);
     const hasMarriedTo = relTypes.includes('married_to');
     const hasIsA = relTypes.includes('is_a');
-    return { passed: hasMarriedTo || hasIsA, details: `Rels: ${snap.relationships.map(r => r.relation_type).join(', ')}` };
+    return {
+      passed: hasMarriedTo || hasIsA,
+      details: `Rels: ${snap.relationships.map((r) => r.relation_type).join(', ')}`,
+    };
   },
 });
 
@@ -125,7 +143,7 @@ tests.push({
     await svc.endSession('s1');
     // Wait for async extraction to complete (poll for entities)
     for (let i = 0; i < 30; i++) {
-      await new Promise(r => setTimeout(r, 1000));
+      await new Promise((r) => setTimeout(r, 1000));
       const check = svc.getGraphSnapshot();
       if (check.entities.length > 0) break;
     }
@@ -144,11 +162,34 @@ tests.push({
     const r1 = await svc.createEntity('John', 'person', ['Johnny'], 'Friend', 'user_stated', 0.9);
     const { EntityResolver } = require('../resolver/entity-resolver.js');
     const resolver = new EntityResolver(svc.getStorage());
-    await resolver.resolve({ name: 'Johnny', type: 'person', aliases: [], description: 'Friend John', source_turn_id: 't1', source_type: 'user_stated', modality: 'stated', importance: 0.7, confidence: 0.9 });
-    await resolver.resolve({ name: 'John', type: 'person', aliases: ['J'], description: 'Friend John', source_turn_id: 't1', source_type: 'user_stated', modality: 'stated', importance: 0.7, confidence: 0.9 });
+    await resolver.resolve({
+      name: 'Johnny',
+      type: 'person',
+      aliases: [],
+      description: 'Friend John',
+      source_turn_id: 't1',
+      source_type: 'user_stated',
+      modality: 'stated',
+      confidence: 0.9,
+    });
+    await resolver.resolve({
+      name: 'John',
+      type: 'person',
+      aliases: ['J'],
+      description: 'Friend John',
+      source_turn_id: 't1',
+      source_type: 'user_stated',
+      modality: 'stated',
+      confidence: 0.9,
+    });
     const snap = svc.getGraphSnapshot();
-    const johnEntities = snap.entities.filter(e => e.name.toLowerCase() === 'john' || e.aliases.some(a => a.toLowerCase() === 'johnny'));
-    return { passed: johnEntities.length === 1, details: `John entities: ${johnEntities.length}, Total entities: ${snap.entities.length}` };
+    const johnEntities = snap.entities.filter(
+      (e) => e.name.toLowerCase() === 'john' || e.aliases.some((a) => a.toLowerCase() === 'johnny'),
+    );
+    return {
+      passed: johnEntities.length === 1,
+      details: `John entities: ${johnEntities.length}, Total entities: ${snap.entities.length}`,
+    };
   },
 });
 
@@ -158,8 +199,11 @@ tests.push({
     svc.createEntity('Apple', 'organization', [], 'Tech company', 'user_stated', 0.9);
     svc.createEntity('Apple', 'concept', [], 'Fruit', 'user_stated', 0.9);
     const snap = svc.getGraphSnapshot();
-    const apples = snap.entities.filter(e => e.name.toLowerCase() === 'apple');
-    return { passed: apples.length === 2, details: `Apple entities: ${apples.length} (org + concept)` };
+    const apples = snap.entities.filter((e) => e.name.toLowerCase() === 'apple');
+    return {
+      passed: apples.length === 2,
+      details: `Apple entities: ${apples.length} (org + concept)`,
+    };
   },
 });
 
@@ -169,8 +213,20 @@ tests.push({
     const r1 = svc.createEntity('John', 'person', ['Johnny'], 'Friend', 'user_stated', 0.9);
     const { EntityResolver } = require('../resolver/entity-resolver.js');
     const resolver = new EntityResolver(svc.getStorage());
-    const r2 = await resolver.resolve({ name: 'Johnny', type: 'person', aliases: [], description: 'Friend John', source_turn_id: 't1', source_type: 'user_stated', modality: 'stated', importance: 0.7, confidence: 0.9 });
-    return { passed: r2.decision === 'MERGE' && r2.target_id === r1, details: `Decision: ${r2.decision}, Target: ${r2.target_id === r1 ? 'same' : 'different'}` };
+    const r2 = await resolver.resolve({
+      name: 'Johnny',
+      type: 'person',
+      aliases: [],
+      description: 'Friend John',
+      source_turn_id: 't1',
+      source_type: 'user_stated',
+      modality: 'stated',
+      confidence: 0.9,
+    });
+    return {
+      passed: r2.decision === 'MERGE' && r2.target_id === r1,
+      details: `Decision: ${r2.decision}, Target: ${r2.target_id === r1 ? 'same' : 'different'}`,
+    };
   },
 });
 
@@ -186,7 +242,14 @@ tests.push({
       const episode = (svc as any).ingest.getOpenEpisode('s1');
       await svc.endSession('s1');
       const charles = svc.createEntity('Charles', 'person', [], 'User', 'user_stated', 0.9);
-      const ponti = svc.createEntity('Ponti Studios', 'organization', [], 'Company', 'user_stated', 0.9);
+      const ponti = svc.createEntity(
+        'Ponti Studios',
+        'organization',
+        [],
+        'Company',
+        'user_stated',
+        0.9,
+      );
       const edinburgh = svc.createEntity('Edinburgh', 'place', [], 'City', 'user_stated', 0.9);
       const ts = svc.createEntity('TypeScript', 'tool', ['TS'], 'Language', 'user_stated', 0.9);
       svc.createRelationship(charles, ponti, 'works_at', 'works at', t.turn_id, episode.id);
@@ -195,7 +258,7 @@ tests.push({
       return { charles, ponti, edinburgh, ts };
     })();
     const neigh = svc.getNeighborhood(charles, 2);
-    const names = neigh.entities.map(e => e.name);
+    const names = neigh.entities.map((e) => e.name);
     const hasEdinburgh = names.includes('Edinburgh');
     const hasTS = names.includes('TypeScript');
     const hasPonti = names.includes('Ponti Studios');
@@ -211,14 +274,24 @@ tests.push({
       const episode = (svc as any).ingest.getOpenEpisode('s1');
       await svc.endSession('s1');
       const charles = svc.createEntity('Charles', 'person', [], 'User', 'user_stated', 0.9);
-      const ponti = svc.createEntity('Ponti Studios', 'organization', [], 'Company', 'user_stated', 0.9);
+      const ponti = svc.createEntity(
+        'Ponti Studios',
+        'organization',
+        [],
+        'Company',
+        'user_stated',
+        0.9,
+      );
       const edinburgh = svc.createEntity('Edinburgh', 'place', [], 'City', 'user_stated', 0.9);
       svc.createRelationship(charles, ponti, 'works_at', 'works at', t.turn_id, episode.id);
       svc.createRelationship(ponti, edinburgh, 'located_in', 'located in', t.turn_id, episode.id);
       return { charles, edinburgh };
     })();
     const path = svc.findPath(charles, edinburgh);
-    return { passed: path !== null && path.path.length === 3, details: `Path: ${path?.path.map(e => e.name).join(' → ')}` };
+    return {
+      passed: path !== null && path.path.length === 3,
+      details: `Path: ${path?.path.map((e) => e.name).join(' → ')}`,
+    };
   },
 });
 
@@ -230,11 +303,18 @@ tests.push({
       const episode = (svc as any).ingest.getOpenEpisode('s1');
       await svc.endSession('s1');
       const charles = svc.createEntity('Charles', 'person', [], 'User', 'user_stated', 0.9);
-      const isolated = svc.createEntity('Isolated', 'concept', [], 'No connections', 'user_stated', 0.9);
+      const isolated = svc.createEntity(
+        'Isolated',
+        'concept',
+        [],
+        'No connections',
+        'user_stated',
+        0.9,
+      );
       return { charles, isolated };
     })();
     const neigh = svc.getNeighborhood(charles, 2);
-    const hasIsolated = neigh.entities.some(e => e.name === 'Isolated');
+    const hasIsolated = neigh.entities.some((e) => e.name === 'Isolated');
     return { passed: !hasIsolated, details: `Isolated in neighborhood: ${hasIsolated}` };
   },
 });
@@ -253,7 +333,14 @@ tests.push({
       const charles = svc.createEntity('Charles', 'person', [], 'User', 'user_stated', 0.9);
       const edinburgh = svc.createEntity('Edinburgh', 'place', [], 'City', 'user_stated', 0.9);
       const london = svc.createEntity('London', 'place', [], 'City', 'user_stated', 0.9);
-      svc.createRelationship(charles, edinburgh, 'lives_in', 'Lives in Edinburgh', t.turn_id, episode.id);
+      svc.createRelationship(
+        charles,
+        edinburgh,
+        'lives_in',
+        'Lives in Edinburgh',
+        t.turn_id,
+        episode.id,
+      );
       svc.createRelationship(charles, london, 'lives_in', 'Lives in London', t.turn_id, episode.id);
       return { charles };
     })();
@@ -286,12 +373,22 @@ tests.push({
       const episode = (svc as any).ingest.getOpenEpisode('s1');
       await svc.endSession('s1');
       const charles = svc.createEntity('Charles', 'person', [], 'User', 'user_stated', 0.9);
-      const ponti = svc.createEntity('Ponti Studios', 'organization', [], 'Company', 'user_stated', 0.9);
+      const ponti = svc.createEntity(
+        'Ponti Studios',
+        'organization',
+        [],
+        'Company',
+        'user_stated',
+        0.9,
+      );
       svc.createRelationship(charles, ponti, 'works_at', 'works at', t.turn_id, episode.id);
       return { charles };
     })();
     const ctx = await svc.retrieveContext('s2', 'Where does Charles work?');
-    return { passed: ctx.graph_summary !== undefined && ctx.graph_summary.entities.length > 0, details: `Entities: ${ctx.graph_summary?.entities.length}, Rels: ${ctx.graph_summary?.relationships.length}` };
+    return {
+      passed: ctx.graph_summary !== undefined && ctx.graph_summary.entities.length > 0,
+      details: `Entities: ${ctx.graph_summary?.entities.length}, Rels: ${ctx.graph_summary?.relationships.length}`,
+    };
   },
 });
 
@@ -299,7 +396,10 @@ tests.push({
   name: 'KGQ-Retrieve: query with no entity match returns no graph summary',
   fn: async (svc) => {
     const ctx = await svc.retrieveContext('s2', 'What is the weather today?');
-    return { passed: ctx.graph_summary === undefined, details: `Graph summary: ${ctx.graph_summary ? 'present' : 'absent'}` };
+    return {
+      passed: ctx.graph_summary === undefined,
+      details: `Graph summary: ${ctx.graph_summary ? 'present' : 'absent'}`,
+    };
   },
 });
 
@@ -310,13 +410,36 @@ tests.push({
     const episode = (svc as any).ingest.getOpenEpisode('s1');
     const mem = await svc.rememberCommand('s1', 'I work at Ponti Studios.', t.turn_id, 'fact');
     await svc.endSession('s1');
-    const entity = svc.createEntity('Ponti Studios', 'organization', [], 'Company', 'user_stated', 0.9);
-    svc.createRelationship(svc.createEntity('Charles', 'person', [], 'User', 'user_stated', 0.9), entity, 'works_at', 'works at', t.turn_id, episode.id);
+    const entity = svc.createEntity(
+      'Ponti Studios',
+      'organization',
+      [],
+      'Company',
+      'user_stated',
+      0.9,
+    );
+    svc.createRelationship(
+      svc.createEntity('Charles', 'person', [], 'User', 'user_stated', 0.9),
+      entity,
+      'works_at',
+      'works at',
+      t.turn_id,
+      episode.id,
+    );
     // Link entity to memory
-    svc.getStorage().getDb().prepare('INSERT INTO entity_memory_links (entity_id, memory_id, role, created_at) VALUES (?, ?, ?, ?)').run(entity, mem.memory_id, 'mentioned', new Date().toISOString());
+    svc
+      .getStorage()
+      .getDb()
+      .prepare(
+        'INSERT INTO entity_memory_links (entity_id, memory_id, role, created_at) VALUES (?, ?, ?, ?)',
+      )
+      .run(entity, mem.memory_id, 'mentioned', new Date().toISOString());
     const ctx = await svc.retrieveContext('s2', 'Ponti Studios');
-    const hasMemory = ctx.memories.some(m => m.value_text.includes('Ponti'));
-    return { passed: hasMemory, details: `Memories: ${ctx.memories.length}, Has Ponti memory: ${hasMemory}` };
+    const hasMemory = ctx.memories.some((m) => m.value_text.includes('Ponti'));
+    return {
+      passed: hasMemory,
+      details: `Memories: ${ctx.memories.length}, Has Ponti memory: ${hasMemory}`,
+    };
   },
 });
 
@@ -331,7 +454,7 @@ tests.push({
     await svc.recordTurn('s1', 'assistant', 'Noted.');
     await svc.endSession('s1');
     for (let i = 0; i < 30; i++) {
-      await new Promise(r => setTimeout(r, 1000));
+      await new Promise((r) => setTimeout(r, 1000));
       const check = svc.getGraphSnapshot();
       if (check.entities.length > 0) break;
     }
@@ -348,7 +471,7 @@ tests.push({
     await svc.recordTurn('s1', 'assistant', 'Noted.');
     await svc.endSession('s1');
     for (let i = 0; i < 30; i++) {
-      await new Promise(r => setTimeout(r, 1000));
+      await new Promise((r) => setTimeout(r, 1000));
       const check = svc.getGraphSnapshot();
       if (check.entities.length > 0) break;
     }
@@ -370,9 +493,9 @@ tests.push({
     await svc.endSession('s1');
     svc.createEntity('Ponti Studios', 'organization', [], 'Company 1', 'user_stated', 0.9);
     svc.createEntity('Ponti Studios', 'organization', ['Ponti'], 'Company 2', 'user_stated', 0.8);
-    const before = svc.getGraphSnapshot().entities.filter(e => e.name === 'Ponti Studios').length;
+    const before = svc.getGraphSnapshot().entities.filter((e) => e.name === 'Ponti Studios').length;
     await svc.runSleepJob('manual');
-    const after = svc.getGraphSnapshot().entities.filter(e => e.name === 'Ponti Studios').length;
+    const after = svc.getGraphSnapshot().entities.filter((e) => e.name === 'Ponti Studios').length;
     return { passed: after < before, details: `Before: ${before}, After: ${after}` };
   },
 });
@@ -386,8 +509,13 @@ tests.push({
     // Create a low-confidence entity with old last_seen_at
     const id = svc.createEntity('Obsolete', 'concept', [], 'Old concept', 'agent_inferred', 0.2);
     const db = svc.getStorage().getDb();
-    const oldDate = new Date(Date.now() - 200 * 24 * 60 * 60 * 1000).toISOString().replace(/\\.\\d{3}Z$/, 'Z');
-    db.prepare('UPDATE entities SET last_seen_at = ?, mention_count = 1 WHERE id = ?').run(oldDate, id);
+    const oldDate = new Date(Date.now() - 200 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .replace(/\\.\\d{3}Z$/, 'Z');
+    db.prepare('UPDATE entities SET last_seen_at = ?, mention_count = 1 WHERE id = ?').run(
+      oldDate,
+      id,
+    );
     const before = svc.getGraphSnapshot().entities.length;
     await svc.runSleepJob('manual');
     const after = svc.getGraphSnapshot().entities.length;
@@ -411,11 +539,17 @@ async function main() {
   }
 
   console.log(`\\n${'='.repeat(70)}`);
-  console.log(`TOTAL: ${passed}/${total} (${((passed/total)*100).toFixed(1)}%)`);
+  console.log(`TOTAL: ${passed}/${total} (${((passed / total) * 100).toFixed(1)}%)`);
   console.log(`Total time: ${results.reduce((s, r) => s + r.time_ms, 0)}ms`);
   console.log('='.repeat(70));
 
-  const report = { timestamp: new Date().toISOString(), passed, total, percentage: ((passed/total)*100).toFixed(1), results };
+  const report = {
+    timestamp: new Date().toISOString(),
+    passed,
+    total,
+    percentage: ((passed / total) * 100).toFixed(1),
+    results,
+  };
   fs.writeFileSync('/tmp/scratchpad/seme-kgq-eval-results.json', JSON.stringify(report, null, 2));
   console.log('\\nResults written to /tmp/scratchpad/seme-kgq-eval-results.json');
 }
