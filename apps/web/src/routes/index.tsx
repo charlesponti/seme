@@ -1,8 +1,8 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { semeApi } from '../lib/api';
-import { formatDay } from '../lib/format';
 import { AddMemorySheet } from '../components/add-memory-sheet';
+import { formatDay } from '../lib/format';
 
 export const Route = createFileRoute('/')({
   component: Dashboard,
@@ -28,10 +28,11 @@ function Dashboard() {
   const [stats, setStats] = useState<StatCell[] | null>(null);
   const [memories, setMemories] = useState<any[]>([]);
   const [entities, setEntities] = useState<any[]>([]);
-  const [addOpen, setAddOpen] = useState(false);
-  const closeAdd = useCallback(() => setAddOpen(false), []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const closeAdd = useCallback(() => setAddOpen(false), []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,18 +65,9 @@ function Dashboard() {
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-[24px] font-medium leading-8 tracking-[-0.01em] text-[#171717]">
-          Dashboard
-        </h1>
-        <button
-          type="button"
-          onClick={() => setAddOpen(true)}
-          className="h-9 shrink-0 rounded-[6px] bg-black px-4 text-[13px] font-medium text-white hover:bg-[#171717]"
-        >
-          Add memory
-        </button>
-      </div>
+      <h1 className="text-[24px] font-medium leading-8 tracking-[-0.01em] text-[#171717]">
+        Dashboard
+      </h1>
 
       <div className="mt-6 grid grid-cols-2 border-y border-[#eaeaea] sm:grid-cols-4">
         {(stats ?? PLACEHOLDER_STATS).map((cell, i) => (
@@ -93,27 +85,36 @@ function Dashboard() {
         ))}
       </div>
 
-      <div className="mt-8">
-        <SearchBlock />
-      </div>
-
       {error ? (
         <ErrorBox message={error} onRetry={load} />
       ) : (
-        <div className="mt-10 grid gap-10 lg:grid-cols-2">
-          <RecentMemories rows={memories} loading={loading} />
-          <RecentEntities rows={entities} loading={loading} />
-        </div>
-      )}
+        <>
+          <SearchBlock onComposingChange={setSearching} />
 
-      <div className="mt-8 flex flex-wrap gap-2">
-        <Link
-          to="/graph"
-          className="inline-flex h-8 items-center rounded-[6px] border border-[#d4d4d4] bg-white px-3 text-[12px] font-medium text-[#171717] hover:bg-[#f5f5f5]"
-        >
-          Open graph
-        </Link>
-      </div>
+          <Collapse open={!searching}>
+            <div className="grid gap-10 pt-10 lg:grid-cols-2">
+              <RecentMemories rows={memories} loading={loading} />
+              <RecentEntities rows={entities} loading={loading} />
+            </div>
+          </Collapse>
+
+          <div className="mt-8 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setAddOpen(true)}
+              className="inline-flex h-8 items-center rounded-[6px] border border-[#d4d4d4] bg-white px-3 text-[12px] font-medium text-[#171717] hover:bg-[#f5f5f5]"
+            >
+              Add memory
+            </button>
+            <Link
+              to="/graph"
+              className="inline-flex h-8 items-center rounded-[6px] border border-[#d4d4d4] bg-white px-3 text-[12px] font-medium text-[#171717] hover:bg-[#f5f5f5]"
+            >
+              Open graph
+            </Link>
+          </div>
+        </>
+      )}
 
       <AddMemorySheet open={addOpen} onClose={closeAdd} onSaved={load} />
     </div>
@@ -138,6 +139,32 @@ const CELL_BORDERS = [
 
 function formatCount(value: unknown): string {
   return typeof value === 'number' ? value.toLocaleString('en-US') : '—';
+}
+
+// Animates height and opacity with grid-template-rows, so content can enter and
+// leave without the rows below jumping. Closed panels go `inert` (nothing inside
+// takes focus or clicks) and `invisible` once the fade ends.
+function Collapse({ open, children }: { open: boolean; children: ReactNode }) {
+  return (
+    <div
+      inert={!open}
+      className={`grid transition-[grid-template-rows,opacity,transform,visibility] duration-300 ease-out motion-reduce:transition-none ${
+        open
+          ? 'translate-y-0 grid-rows-[1fr] opacity-100'
+          : '-translate-y-1 invisible grid-rows-[0fr] opacity-0'
+      }`}
+    >
+      <div className="min-h-0 overflow-hidden">{children}</div>
+    </div>
+  );
+}
+
+// Returns the current value, or the last non-null one while a panel animates out,
+// so its content does not blank before it collapses.
+function useHeld<T>(value: T | null): T | null {
+  const [held, setHeld] = useState(value);
+  if (value !== null && value !== held) setHeld(value);
+  return value ?? held;
 }
 
 function RecentMemories({ rows, loading }: { rows: any[]; loading: boolean }) {
@@ -247,14 +274,24 @@ const SEARCH_TABS = [
 
 type SearchTab = (typeof SEARCH_TABS)[number]['id'];
 
-function SearchBlock() {
+function SearchBlock({ onComposingChange }: { onComposingChange: (composing: boolean) => void }) {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
+  const [focused, setFocused] = useState(false);
+  // Composing = typing or holding a query. The recent lists step aside until it's cleared.
+  const composing = focused || query.trim() !== '';
+  useEffect(() => {
+    onComposingChange(composing);
+  }, [composing, onComposingChange]);
   const [results, setResults] = useState<SearchResults | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<SearchTab>('memories');
   const [opening, setOpening] = useState<string | null>(null);
+  const [answer, setAnswer] = useState<
+    { status: 'loading' } | { status: 'ready'; text: string } | null
+  >(null);
+  const answerRun = useRef(0);
 
   const doSearch = useCallback(async () => {
     const q = query.trim();
@@ -266,8 +303,30 @@ function SearchBlock() {
       if (data?.error) throw new Error(data.error.message ?? 'Search failed');
       setResults(data as SearchResults);
       setTab('memories');
+      const texts = ((data as SearchResults).memories ?? [])
+        .map((m: any) => m.value_text)
+        .filter((t: unknown): t is string => typeof t === 'string' && t.trim().length > 0);
+      if (texts.length > 0) {
+        const run = ++answerRun.current;
+        setAnswer({ status: 'loading' });
+        semeApi
+          .answer(q, texts)
+          .then((res) => {
+            if (run !== answerRun.current) return;
+            // Unconfigured or failed: the memories list stands on its own, so show nothing.
+            setAnswer(res?.answer ? { status: 'ready', text: res.answer } : null);
+          })
+          .catch(() => {
+            if (run === answerRun.current) setAnswer(null);
+          });
+      } else {
+        answerRun.current++;
+        setAnswer(null);
+      }
     } catch (e) {
       setResults(null);
+      answerRun.current++;
+      setAnswer(null);
       setError(e instanceof Error ? e.message : 'Search failed');
     } finally {
       setLoading(false);
@@ -292,9 +351,12 @@ function SearchBlock() {
     [navigate, opening],
   );
 
-  const memories = useMemo(() => results?.memories ?? [], [results]);
-  const rules = useMemo(() => results?.procedural_rules ?? [], [results]);
-  const graph = results?.graph_summary;
+  const shown = useHeld(results);
+  const shownAnswer = useHeld(answer);
+  const answerOpen = results !== null && answer !== null;
+  const memories = useMemo(() => shown?.memories ?? [], [shown]);
+  const rules = useMemo(() => shown?.procedural_rules ?? [], [shown]);
+  const graph = shown?.graph_summary;
 
   return (
     <section className="mt-8">
@@ -308,6 +370,8 @@ function SearchBlock() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           placeholder="Ask anything — e.g. what kind of pet does he have?"
           aria-label="Search memories"
           className="h-11 min-w-0 flex-1 rounded-[6px] border border-[#d4d4d4] bg-white px-3 text-[16px] leading-6 text-[#171717] placeholder:text-[#888888] focus:border-[#171717] focus:outline-none"
@@ -323,169 +387,207 @@ function SearchBlock() {
 
       {error && <p className="mt-2 font-mono text-[12px] leading-[18px] text-[#666666]">{error}</p>}
 
-      {loading && !results && (
-        <div className="mt-4 space-y-px">
+      <Collapse open={loading && results === null}>
+        <div className="space-y-px pt-4">
           {[0, 1, 2].map((i) => (
             <div key={i} className="h-12 w-full bg-[#f5f5f5]" />
           ))}
         </div>
-      )}
+      </Collapse>
 
-      {results && (
-        <div className="mt-5">
-          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 font-mono text-[11px] uppercase leading-[18px] tracking-[0.08em] text-[#888888]">
-            <span className="text-[#171717]">{results.abstain ? 'abstained' : 'answered'}</span>
-            <span className="normal-case tracking-normal tabular-nums">
-              {memories.length} {memories.length === 1 ? 'memory' : 'memories'}
-            </span>
-            {graph && (
-              <span className="normal-case tracking-normal tabular-nums">
-                {graph.entities?.length ?? 0} entities · {graph.relationships?.length ?? 0}{' '}
-                relationships
-              </span>
-            )}
-            {rules.length > 0 && (
-              <span className="normal-case tracking-normal tabular-nums">
-                {rules.length} {rules.length === 1 ? 'rule' : 'rules'}
-              </span>
-            )}
-          </div>
-
-          <div role="tablist" className="mt-3 flex gap-6 border-b border-[#eaeaea]">
-            {SEARCH_TABS.map((t) => {
-              const active = t.id === tab;
-              const count =
-                t.id === 'memories'
-                  ? memories.length
-                  : t.id === 'graph'
-                    ? graph?.entities?.length
-                    : t.id === 'rules'
-                      ? rules.length
-                      : undefined;
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => setTab(t.id)}
-                  className={`-mb-px border-b-2 pb-2 text-[13px] leading-5 transition-colors duration-150 ease-out motion-reduce:transition-none ${
-                    active
-                      ? 'border-[#171717] font-medium text-[#171717]'
-                      : 'border-transparent text-[#888888] hover:text-[#171717]'
+      <Collapse open={answerOpen}>
+        {shownAnswer && (
+          <div className="pt-5">
+            <div className="border border-[#eaeaea] bg-[#fafafa] px-4 py-3" aria-live="polite">
+              <div className="text-[11px] uppercase leading-4 tracking-[0.08em] text-[#888888]">
+                Quick answer
+              </div>
+              {/* Skeleton and answer share one grid cell, so the card keeps its height when the text lands. */}
+              <div className="mt-1.5 grid">
+                <div
+                  aria-hidden
+                  className={`col-start-1 row-start-1 flex h-6 items-center transition-opacity duration-200 ease-out motion-reduce:transition-none ${
+                    shownAnswer.status === 'loading' ? 'opacity-100' : 'opacity-0'
                   }`}
                 >
-                  {t.label}
-                  {typeof count === 'number' && (
-                    <span className="ml-1.5 font-mono text-[11px] tabular-nums text-[#888888]">
-                      {count}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="border-b border-[#eaeaea]">
-            {tab === 'memories' &&
-              (memories.length === 0 ? (
-                <p className="py-6 text-center text-[13px] text-[#888888]">No memories matched.</p>
-              ) : (
-                memories.map((m: any) => (
-                  <div key={m.id} className="border-b border-[#eaeaea] py-3 last:border-b-0">
-                    <p className="text-[14px] leading-5 text-[#171717]">{m.value_text}</p>
-                    <p className="mt-1 font-mono text-[11px] leading-[18px] tabular-nums text-[#888888]">
-                      {[
-                        m.kind,
-                        m.slot ? `slot ${m.slot}` : null,
-                        typeof m.confidence === 'number'
-                          ? `confidence ${m.confidence.toFixed(2)}`
-                          : null,
-                        m.source_type,
-                      ]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </p>
-                  </div>
-                ))
-              ))}
-
-            {tab === 'profile' &&
-              (results.profile_text ? (
-                <pre className="whitespace-pre-wrap bg-white py-3 text-[13px] leading-5 text-[#171717]">
-                  {results.profile_text}
-                </pre>
-              ) : (
-                <p className="py-6 text-center text-[13px] text-[#888888]">No profile text.</p>
-              ))}
-
-            {tab === 'graph' &&
-              (!graph ||
-              ((graph.entities?.length ?? 0) === 0 && (graph.relationships?.length ?? 0) === 0) ? (
-                <p className="py-6 text-center text-[13px] text-[#888888]">No graph context.</p>
-              ) : (
-                <div className="py-3">
-                  <div className="text-[11px] uppercase leading-4 tracking-[0.08em] text-[#888888]">
-                    Entities
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {(graph.entities ?? []).map((e) => (
-                      <button
-                        key={e.name}
-                        type="button"
-                        onClick={() => openEntity(e.name)}
-                        disabled={opening !== null}
-                        className="inline-flex items-center gap-1.5 rounded-[6px] border border-[#eaeaea] bg-white px-2 py-1 text-[12px] leading-4 text-[#171717] hover:bg-[#f5f5f5] disabled:opacity-50"
-                      >
-                        <span className="truncate">{e.name}</span>
-                        <span className="font-mono text-[10px] uppercase text-[#888888]">
-                          {e.type}
-                        </span>
-                        <span aria-hidden className="font-mono text-[11px] text-[#888888]">
-                          →
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                  <div className="mt-4 text-[11px] uppercase leading-4 tracking-[0.08em] text-[#888888]">
-                    Relationships
-                  </div>
-                  {(graph.relationships ?? []).length === 0 ? (
-                    <p className="mt-1 text-[13px] text-[#888888]">None.</p>
-                  ) : (
-                    <ul className="mt-2 space-y-1">
-                      {(graph.relationships ?? []).map((r, i) => (
-                        <li key={i} className="font-mono text-[12px] leading-[18px] text-[#171717]">
-                          {r.source} <span className="text-[#888888]">—{r.relation_type}→</span>{' '}
-                          {r.target}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                  <div className="h-3 w-3/4 bg-[#eeeeee]" />
                 </div>
-              ))}
-
-            {tab === 'rules' &&
-              (rules.length === 0 ? (
-                <p className="py-6 text-center text-[13px] text-[#888888]">
-                  No active procedural rules.
+                <p
+                  className={`col-start-1 row-start-1 text-[16px] leading-6 text-[#171717] transition-opacity duration-200 ease-out motion-reduce:transition-none ${
+                    shownAnswer.status === 'ready' ? 'opacity-100' : 'opacity-0'
+                  }`}
+                >
+                  {shownAnswer.status === 'ready' ? shownAnswer.text : ''}
                 </p>
-              ) : (
-                rules.map((r: any) => (
-                  <div
-                    key={r.id}
-                    className="flex items-start gap-3 border-b border-[#eaeaea] py-3 last:border-b-0"
-                  >
-                    <span className="mt-0.5 shrink-0 rounded-[4px] border border-[#eaeaea] px-1.5 font-mono text-[11px] leading-[18px] tabular-nums text-[#666666]">
-                      {r.priority}
-                    </span>
-                    <p className="text-[14px] leading-5 text-[#171717]">{r.rule_text}</p>
-                  </div>
-                ))
-              ))}
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </Collapse>
+
+      <Collapse open={results !== null}>
+        {shown && (
+          <div className="pt-5">
+            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 font-mono text-[11px] uppercase leading-[18px] tracking-[0.08em] text-[#888888]">
+              <span className="text-[#171717]">{shown.abstain ? 'abstained' : 'answered'}</span>
+              <span className="normal-case tracking-normal tabular-nums">
+                {memories.length} {memories.length === 1 ? 'memory' : 'memories'}
+              </span>
+              {graph && (
+                <span className="normal-case tracking-normal tabular-nums">
+                  {graph.entities?.length ?? 0} entities · {graph.relationships?.length ?? 0}{' '}
+                  relationships
+                </span>
+              )}
+              {rules.length > 0 && (
+                <span className="normal-case tracking-normal tabular-nums">
+                  {rules.length} {rules.length === 1 ? 'rule' : 'rules'}
+                </span>
+              )}
+            </div>
+
+            <div role="tablist" className="mt-3 flex gap-6 border-b border-[#eaeaea]">
+              {SEARCH_TABS.map((t) => {
+                const active = t.id === tab;
+                const count =
+                  t.id === 'memories'
+                    ? memories.length
+                    : t.id === 'graph'
+                      ? graph?.entities?.length
+                      : t.id === 'rules'
+                        ? rules.length
+                        : undefined;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setTab(t.id)}
+                    className={`-mb-px border-b-2 pb-2 text-[13px] leading-5 transition-colors duration-150 ease-out motion-reduce:transition-none ${
+                      active
+                        ? 'border-[#171717] font-medium text-[#171717]'
+                        : 'border-transparent text-[#888888] hover:text-[#171717]'
+                    }`}
+                  >
+                    {t.label}
+                    {typeof count === 'number' && (
+                      <span className="ml-1.5 font-mono text-[11px] tabular-nums text-[#888888]">
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="border-b border-[#eaeaea]">
+              {tab === 'memories' &&
+                (memories.length === 0 ? (
+                  <p className="py-6 text-center text-[13px] text-[#888888]">
+                    No memories matched.
+                  </p>
+                ) : (
+                  memories.map((m: any) => (
+                    <div key={m.id} className="border-b border-[#eaeaea] py-3 last:border-b-0">
+                      <p className="text-[14px] leading-5 text-[#171717]">{m.value_text}</p>
+                      <p className="mt-1 font-mono text-[11px] leading-[18px] tabular-nums text-[#888888]">
+                        {[
+                          m.kind,
+                          m.slot ? `slot ${m.slot}` : null,
+                          typeof m.confidence === 'number'
+                            ? `confidence ${m.confidence.toFixed(2)}`
+                            : null,
+                          m.source_type,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </p>
+                    </div>
+                  ))
+                ))}
+
+              {tab === 'profile' &&
+                (shown.profile_text ? (
+                  <pre className="whitespace-pre-wrap bg-white py-3 text-[13px] leading-5 text-[#171717]">
+                    {shown.profile_text}
+                  </pre>
+                ) : (
+                  <p className="py-6 text-center text-[13px] text-[#888888]">No profile text.</p>
+                ))}
+
+              {tab === 'graph' &&
+                (!graph ||
+                ((graph.entities?.length ?? 0) === 0 &&
+                  (graph.relationships?.length ?? 0) === 0) ? (
+                  <p className="py-6 text-center text-[13px] text-[#888888]">No graph context.</p>
+                ) : (
+                  <div className="py-3">
+                    <div className="text-[11px] uppercase leading-4 tracking-[0.08em] text-[#888888]">
+                      Entities
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {(graph.entities ?? []).map((e) => (
+                        <button
+                          key={e.name}
+                          type="button"
+                          onClick={() => openEntity(e.name)}
+                          disabled={opening !== null}
+                          className="inline-flex items-center gap-1.5 rounded-[6px] border border-[#eaeaea] bg-white px-2 py-1 text-[12px] leading-4 text-[#171717] hover:bg-[#f5f5f5] disabled:opacity-50"
+                        >
+                          <span className="truncate">{e.name}</span>
+                          <span className="font-mono text-[10px] uppercase text-[#888888]">
+                            {e.type}
+                          </span>
+                          <span aria-hidden className="font-mono text-[11px] text-[#888888]">
+                            →
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="mt-4 text-[11px] uppercase leading-4 tracking-[0.08em] text-[#888888]">
+                      Relationships
+                    </div>
+                    {(graph.relationships ?? []).length === 0 ? (
+                      <p className="mt-1 text-[13px] text-[#888888]">None.</p>
+                    ) : (
+                      <ul className="mt-2 space-y-1">
+                        {(graph.relationships ?? []).map((r, i) => (
+                          <li
+                            key={i}
+                            className="font-mono text-[12px] leading-[18px] text-[#171717]"
+                          >
+                            {r.source} <span className="text-[#888888]">—{r.relation_type}→</span>{' '}
+                            {r.target}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+
+              {tab === 'rules' &&
+                (rules.length === 0 ? (
+                  <p className="py-6 text-center text-[13px] text-[#888888]">
+                    No active procedural rules.
+                  </p>
+                ) : (
+                  rules.map((r: any) => (
+                    <div
+                      key={r.id}
+                      className="flex items-start gap-3 border-b border-[#eaeaea] py-3 last:border-b-0"
+                    >
+                      <span className="mt-0.5 shrink-0 rounded-[4px] border border-[#eaeaea] px-1.5 font-mono text-[11px] leading-[18px] tabular-nums text-[#666666]">
+                        {r.priority}
+                      </span>
+                      <p className="text-[14px] leading-5 text-[#171717]">{r.rule_text}</p>
+                    </div>
+                  ))
+                ))}
+            </div>
+          </div>
+        )}
+      </Collapse>
     </section>
   );
 }

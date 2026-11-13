@@ -6,6 +6,7 @@ import { cors } from 'hono/cors';
 import { timingSafeEqual } from 'node:crypto';
 import { MemoryService } from './api/service.js';
 import { uuid } from './types/common.js';
+import { answerFromMemories, AnswerUnavailableError } from './search/answer.js';
 
 const STORAGE_DIR = process.env.SEME_STORAGE_DIR || `${process.env.HOME}/.hominem`;
 const EMBEDDING_DIM = parseInt(
@@ -613,6 +614,28 @@ app.post('/graph/search', async (c) => {
       { error: { code: parseErrorCode(e.message), message: e.message, operation: 'graph_search' } },
       400,
     );
+  }
+});
+
+// Quick answer: one DeepSeek call over the memories the dashboard already retrieved
+app.post('/search/answer', async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  try {
+    const result = await answerFromMemories(
+      String(body.query || ''),
+      Array.isArray(body.memories) ? body.memories : [],
+    );
+    return c.json(result);
+  } catch (e: any) {
+    if (e instanceof AnswerUnavailableError) {
+      return c.json(
+        { error: { code: 'ERR_UNAVAILABLE', message: e.message, operation: 'search_answer' } },
+        503,
+      );
+    }
+    const code = parseErrorCode(e.message);
+    const status = code === 'ERR_VALIDATION' ? 400 : 502;
+    return c.json({ error: { code, message: e.message, operation: 'search_answer' } }, status);
   }
 });
 

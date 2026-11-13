@@ -39,6 +39,7 @@ Visit http://localhost:5173 in your browser.
 - `SEME_STORAGE_DIR` — Storage directory (default: `~/.hominem`)
 - `SEME_API_URL` / `VITE_SEME_API_URL` — API URL for the web app (default: `http://localhost:3000`)
 - `OPENROUTER_API_KEY` — OpenRouter API key for LLM extraction
+- `DEEPSEEK_API_KEY` — enables the quick answer above dashboard search results (optional; `DEEPSEEK_MODEL` defaults to `deepseek-chat`, `DEEPSEEK_BASE_URL` to `https://api.deepseek.com`)
 
 ## Building
 
