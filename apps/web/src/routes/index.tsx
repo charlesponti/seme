@@ -65,9 +65,18 @@ function Dashboard() {
 
   return (
     <div>
-      <h1 className="text-[24px] font-medium leading-8 tracking-[-0.01em] text-[#171717]">
-        Dashboard
-      </h1>
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-[24px] font-medium leading-8 tracking-[-0.01em] text-[#171717]">
+          Dashboard
+        </h1>
+        <button
+          type="button"
+          onClick={() => setAddOpen(true)}
+          className="h-9 shrink-0 rounded-[6px] bg-black px-4 text-[13px] font-medium text-white hover:bg-[#171717]"
+        >
+          Add memory
+        </button>
+      </div>
 
       <div className="mt-6 grid grid-cols-2 border-y border-[#eaeaea] sm:grid-cols-4">
         {(stats ?? PLACEHOLDER_STATS).map((cell, i) => (
@@ -99,13 +108,6 @@ function Dashboard() {
           </Collapse>
 
           <div className="mt-8 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setAddOpen(true)}
-              className="inline-flex h-8 items-center rounded-[6px] border border-[#d4d4d4] bg-white px-3 text-[12px] font-medium text-[#171717] hover:bg-[#f5f5f5]"
-            >
-              Add memory
-            </button>
             <Link
               to="/graph"
               className="inline-flex h-8 items-center rounded-[6px] border border-[#d4d4d4] bg-white px-3 text-[12px] font-medium text-[#171717] hover:bg-[#f5f5f5]"
