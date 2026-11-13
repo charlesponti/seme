@@ -10,20 +10,23 @@ Status as of 2026-11-13, branch `feat/store-snapshot-restore`.
 - **Quality over speed.** GLM is slower than Haiku, but it passes more cases. A fast extractor that misses the hard ones isn't useful.
 - **Thinking tokens aren't the differentiator.** All three models we compared spend about 40% of their output on reasoning, and visible output is about the same.
 - **The numbers are noisy.** Two identical GLM runs on the full suite landed at 58.9% and 53.9% pass. Treat anything under about 5 points as a tie.
-- **Not done yet:** Haiku and GPT 6 Luna haven't been run on the full suite with the current grader. The Haiku comparison below uses an offline regrade of old runs, so the gap is indicative, not exact. `SEME_EXTRACTOR_MODEL` is still Haiku.
+- **Like-for-like full-suite pass rates (2026-11-13, current grader, 508 runs each):** GLM 53.9% and 58.9% (two runs), GPT 6 Luna 39.6%, Haiku 36.4%. GLM leads by about 15 to 20 points. `SEME_EXTRACTOR_MODEL` is still Haiku.
+- **Luna's metrics are missing.** Its run finished all 508 cases, then crashed on a judge HTTP 403 (the OpenRouter spend limit) before saving. Only its pass count (201 of 508) survives, from the log. Rerun it once the budget is topped up.
 - **Still broken:** about 36 of 508 runs lose their extraction to dropped connections (`fetch failed`, `terminated`) even with 4 retries and backoff.
 
 ## Scoreboard
 
 Full people suite: 254 cases × 2 repeats = 508 runs, judge on (Sonnet), skills on, current grader unless noted.
 
-| Run                                                                                  | Pass rate | Entity F1 | Relation F1 | Memory recall | Notes                                                        |
-| ------------------------------------------------------------------------------------ | --------- | --------- | ----------- | ------------- | ------------------------------------------------------------ |
-| Haiku 5.5 baseline (`2026-11-09T13-00-50-531Z`), old grader as stored                | 19.7%     | 94.4%     | 77.4%       | 69.8%         | Not comparable on pass rate                                  |
-| Haiku 5.5, same runs, regraded offline with the current grader                       | 34%       | 94.4%     | 77.4%       | 69.8%         | Grader fix alone                                             |
-| GLM 5.3 Flash, first full run (`glm-5.3-flash-people-2026-11-12`)                    | 52.8%     | 81.0%     | 61.9%       | 81.5%         | 96 chunks hit `invalid_output`, 66 runs lost extraction      |
-| GLM, validator fix (`invalid_output` drops one candidate, not the chunk)             | 58.9%     | 92.1%     | 71.8%       | 91.8%         | Only 1 `invalid_output` left; 22 runs lost to network errors |
-| GLM, validator fix + 4 retries with backoff (`glm-5.3-flash-people-fix2-2026-11-13`) | 53.9%     | 92.0%     | 71.7%       | 88.1%         | 36 runs lost to network errors                               |
+| Run                                                                                  | Pass rate | Entity F1 | Relation F1 | Memory recall | Notes                                                                                                                                           |
+| ------------------------------------------------------------------------------------ | --------- | --------- | ----------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Haiku 5.5 baseline (`2026-11-09T13-00-50-531Z`), old grader as stored                | 19.7%     | 94.4%     | 77.4%       | 69.8%         | Not comparable on pass rate                                                                                                                     |
+| Haiku 5.5, same runs, regraded offline with the current grader                       | 34%       | 94.4%     | 77.4%       | 69.8%         | Grader fix alone                                                                                                                                |
+| Haiku 5.5 rerun on the current grader (`haiku-5.5-people-2026-11-13`)                | 36.4%     | 94.7%     | 78.3%       | 72.7%         | 0 failed chunks, 0 lost runs. Latency p50 6.8 s, p95 11.9 s. Judge supported 98.7%. The offline regrade of the old runs said 34%, so it held up |
+| GPT 6 Luna (`openai/gpt-6-luna`, 2026-11-13)                                         | 39.6%     | n/a       | n/a         | n/a           | 201 of 508 runs pass, counted from the log. Metrics lost to a judge 403 at the end of the run. 2 chunks logged as unavailable                   |
+| GLM 5.3 Flash, first full run (`glm-5.3-flash-people-2026-11-12`)                    | 52.8%     | 81.0%     | 61.9%       | 81.5%         | 96 chunks hit `invalid_output`, 66 runs lost extraction                                                                                         |
+| GLM, validator fix (`invalid_output` drops one candidate, not the chunk)             | 58.9%     | 92.1%     | 71.8%       | 91.8%         | Only 1 `invalid_output` left; 22 runs lost to network errors                                                                                    |
+| GLM, validator fix + 4 retries with backoff (`glm-5.3-flash-people-fix2-2026-11-13`) | 53.9%     | 92.0%     | 71.7%       | 88.1%         | 36 runs lost to network errors                                                                                                                  |
 
 Other numbers from the last run: entity recall 96.4%, relation recall 85.7%, entity precision (exhaustive) 88.2%, relation precision (exhaustive) 85.0%, memory precision 94.6%, judge supported 96.8%, judge contradicted 1, provenance 100%, forbidden violations 0, latency p50 7.9 s and p95 16.4 s.
 
@@ -169,7 +172,7 @@ SEME_EXTRACTOR_MODEL=z-ai/glm-5.3-flash node dist/evals/suite/run.js --suite peo
 
 ## Next steps, in order
 
-1. Run Haiku and GPT 6 Luna on the full people suite, same settings (2 repeats, judge on), so all three models are compared on identical runs with the current grader. Then decide on `SEME_EXTRACTOR_MODEL`.
+1. Top up the OpenRouter budget and rerun GPT 6 Luna on the full suite so we have its F1 and recall, not only its pass count. Then decide on `SEME_EXTRACTOR_MODEL`. Haiku is done.
 2. Find the cause of the connection drops. Try `--concurrency 2` and pinning a provider.
 3. Decide memory grounding: judge or informational.
 4. State the Priya friendship in the `friendNews` text, and fix the missing `user → Priya` relation in the correction cases.
