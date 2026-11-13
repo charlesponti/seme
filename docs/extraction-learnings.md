@@ -16,7 +16,7 @@ Status as of 2026-11-13, branch `feat/store-snapshot-restore`.
 
 ## Scoreboard
 
-Full people suite: 254 cases × 2 repeats = 508 runs, judge on (Sonnet), skills on, current grader unless noted.
+Full people suite: 254 cases × 2 repeats = 508 runs, judge on (Sonnet, now replaced by GLM), skills on, current grader unless noted.
 
 | Run                                                                                  | Pass rate | Entity F1 | Relation F1 | Memory recall | Notes                                                                                                                                           |
 | ------------------------------------------------------------------------------------ | --------- | --------- | ----------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -140,6 +140,49 @@ Most failing runs miss things instead of inventing them. What we know from the t
 
 Our best explanation, not proven. Answering is forgiving: it tolerates paraphrase and partial recall, and sees the whole text. Extraction is strict: right entity, type, subject, predicate, object and a verbatim quote, in 6-turn chunks. And some gold asks for facts the text never states.
 
+## Open vs frontier models: what we can and can't claim
+
+The page bullet says open weights beat the frontier models we tried, on this task. That's the only claim this section supports. It doesn't say frontier models are bad at extraction in general.
+
+### What the data shows
+
+Full people suite, 254 cases × 2 repeats, current grader, judge on:
+
+| Model                       | Type         | Pass rate                         | Entity F1    | Relation F1  | Memory recall |
+| --------------------------- | ------------ | --------------------------------- | ------------ | ------------ | ------------- |
+| GLM 5.3 Flash               | open weights | 53.9% and 58.9% (two runs)        | 92.0–92.1%   | 71.7–71.8%   | 88–92%        |
+| GPT 6 Luna                  | closed       | about 40% (log count, no metrics) | not measured | not measured | not measured  |
+| Haiku 5.5 (shipped default) | closed       | 36.4%                             | 94.7%        | 78.3%        | 72.7%         |
+
+On the hard-correction slice, DeepSeek V4 Flash, DeepSeek V4.1 Flash 1017 and Muse Spark 1.3 Contributor (all open weights) didn't beat Haiku. So "open" isn't the variable that matters. The result is closer to "some open models beat some closed models here."
+
+### What's wrong with the evidence
+
+- **Haiku isn't a flagship.** It's the small, cheap tier of its family. Comparing it to open models tells us about the tier we ship, not frontier models in general. Luna is the closest thing we have to a flagship, and we don't have its metrics.
+- **Luna's numbers are incomplete.** Its run crashed at the judge calibration step with an HTTP 403 (the OpenRouter spend limit). We only have the pass count from the log.
+- **One task.** Everything here is structured extraction from fictional diary and people conversations. We haven't tested anything else.
+- **We wrote the grader, and we tuned it on these same cases.** The first grader fixed 20% → 34% for Haiku. Fixes like that can favour outputs that fit our grader's assumptions.
+- **The judge was from the same family as Haiku.** Sonnet judged the Haiku runs. A same-family judge might prefer Claude-styled output. That's a bias we haven't measured. The judge is now GLM, which is also a candidate extractor, so it has its own self-preference risk.
+- **Serving differs by model.** On the hard-slice run, GLM was served by Wafer, Haiku by Claude Platform on AWS, and Luna by OpenAI. We didn't record providers for the full-suite runs. Provider effects (routing, retries, the network drops we saw) aren't separated from model effects.
+- **Run-to-run noise is about 5 points.** Two GLM runs gave 53.9% and 58.9%. Gaps smaller than that aren't real.
+- **Only two repeats per case.** That's enough to see the gap, not to size it.
+
+### Hypotheses (untested)
+
+1. **Schema-exact output.** Extraction rewards exhaustive, exact JSON more than chat-tuned answers. Test: score format compliance separately from content, and see whether the open models' advantage comes from fewer format misses.
+2. **Chat tuning.** Frontier models are tuned to answer questions well, which can make them stop after the obvious facts. Test: compare recall on low-salience facts, such as places mentioned in passing.
+3. **Provider effects.** Some of the gap could be routing, retries and dropped connections rather than the model. Test: pin one provider per model and rerun.
+
+### What would settle it
+
+1. Rerun GPT 6 Luna on the full suite with the judge call made optional, so the metrics save even if calibration fails. Budget first.
+2. Add a flagship-tier model from the same family as the open model's competitors, so the comparison isn't limited to Haiku.
+3. Use a non-Claude judge, or a blind judge with model names stripped, and report the result both ways.
+4. Pin providers and rerun GLM and Haiku, so routing isn't a confound.
+5. Add a second task. `scripts/bbc-corpus.mjs` and `scripts/bbc-load.mjs` build and load a news corpus, but it has no gold yet, so it would need labels first.
+
+Until those are done, the honest sentence is: on our people-and-relationships extraction suite, one open-weight model beat the closed models we tested (Haiku and GPT 6 Luna), and our analysis of why is a guess.
+
 ## Open bugs and decisions
 
 - **Gold the text doesn't state.** The `friendNews` maker in `timeline.ts` (around lines 500–515) adds a `user → Priya` friendship as gold, but the text never says they're friends. The correction cases miss the same relation. Fix: state the friendship in the case text, then rerun. Agreed, not applied.
@@ -150,9 +193,9 @@ Our best explanation, not proven. Answering is forgiving: it tolerates paraphras
 
 ## How we measure
 
-- **Harness.** `apps/api/src/evals/suite/harness.ts` ingests each case into a temp store and reads back turns, entities, relations and memories. `run.ts` drives it. Flags: `--suite core|diary|people`, `--filter`, `--repeats`, `--concurrency` (default 4), `--judge`, `--relation-judge`, `--name`, `--baseline`, `--fail-on-regression`, `--tolerance`.
+- **Harness.** `apps/api/src/evals/suite/harness.ts` ingests each case into a temp store and reads back turns, entities, relations and memories. `run.ts` drives it. Flags: `--suite core|diary|people`, `--filter`, `--repeats`, `--concurrency` (default 4), `--judge` (opt-in, off by default, one paid call per case), `--relation-judge`, `--name`, `--baseline`, `--fail-on-regression`, `--tolerance`.
 - **Cases.** `diary/timeline.ts` generates the people suite and its gold. `diary/cases.ts` exports `PEOPLE_CASES` (254). Gold entity types are canonical: person, place, organization, food, animal, medication, tool, project, product, event, diet, condition, language, instrument, goal, book, beverage.
-- **Judge.** Sonnet via OpenRouter. Produces `judge_supported_rate`, `judge_contradicted`, `judge_coverage_rate`. Calibration was 100% on 8 labelled pairs.
+- **Judge.** Informational only; it doesn't affect pass/fail. The default is now `z-ai/glm-5.3-flash` via OpenRouter (override with `SEME_EVAL_JUDGE_MODEL`). Sonnet was the judge for every run before this change, including the 2026-11-12 and 2026-11-13 runs above, so their `judge_*` numbers aren't comparable to runs judged by GLM. It produces `judge_supported_rate`, `judge_contradicted`, `judge_coverage_rate`. Calibration on the new judge hasn't run yet.
 - **Results store.** `~/.hominem/seme.evals.db`, tables `runs` and `baselines`. The runner has no resume, and a full run takes about an hour at concurrency 4.
 
 Run GLM on the full suite from `apps/api` (build first with `pnpm exec tsc`):

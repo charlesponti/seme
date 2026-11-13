@@ -31,7 +31,7 @@ export function judgeConfig(): JudgeConfig | null {
     }
   }
   if (!apiKey) return null;
-  return { model: process.env.SEME_EVAL_JUDGE_MODEL || 'anthropic/claude-sonnet-5-5', apiKey };
+  return { model: process.env.SEME_EVAL_JUDGE_MODEL || 'z-ai/glm-5.3-flash', apiKey };
 }
 
 const SYSTEM = `You are a strict evaluator for a personal-memory system. You judge only from the source text you are given. Use no outside knowledge and do not reward plausible-sounding claims that the source does not make.
