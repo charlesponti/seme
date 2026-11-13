@@ -15,12 +15,15 @@
   "devDependencies": {
     "husky": "^9.1.7",
     "lint-staged": "^17.6.0",
-    "oxfmt": "^0.77.0",
+    "oxfmt": "^0.78.0",
     "oxlint": "^1.92.0",
-    "portless": "^0.16.0"
+    "portless": "^0.17.0"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,mjs,cjs,mts,cts,json,jsonc,json5,css,scss,html,md,mdx,graphql}": "oxfmt --write"
+  },
+  "engines": {
+    "node": "26.x"
   },
   "packageManager": "pnpm@11.23.0"
 }
