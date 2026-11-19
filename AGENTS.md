@@ -3,7 +3,7 @@
 Seme is a local-first, single-user memory engine for AI companions. SQLite-backed.
 
 - `apps/api` — Hono on Node, Kysely + better-sqlite3, sqlite-vec for embeddings.
-- `apps/web` — TanStack Start dashboard (React, Tailwind). Design spec: `docs/ui-redesign-spec.md`. It is authoritative and wins over any older design doc.
+- `apps/web` — TanStack Start dashboard (React, Tailwind). Look and components come from `@ponti-studios/ui` (the studio design system, kept current by Renovate). `docs/ui-redesign-spec.md` still rules page structure and routes, but its §1 visual rules (monotone palette, no dark mode, fonts) are superseded by the design system.
 
 ## Running things
 
