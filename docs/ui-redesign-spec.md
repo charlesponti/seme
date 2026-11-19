@@ -1,5 +1,7 @@
 # Seme Web — Redesign Spec (authoritative)
 
+> **Update 2026-11-19:** §1 (Design system: palette, type, dark mode) is superseded. Seme web now uses `@ponti-studios/ui`. Page structure and routes below still apply.
+
 Status: APPROVED DIRECTION, Charlie, 2026-10-29. This spec supersedes the design
 direction in `docs/pi-handover-ui-redesign.md`. That brief's repo state, commit
 history and remaining-features list still stand; its aesthetic (ricord.ai, dark

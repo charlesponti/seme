@@ -1,68 +1,9 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+@import '@ponti-studios/ui/styles.css';
 
-@theme {
-  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --font-serif: "Geist Pixel", ui-monospace;
-}
-
-@theme inline {
-  --color-background: #ffffff;
-  --color-foreground: #171717;
-  --color-card: #fafafa;
-  --color-card-foreground: #171717;
-  --color-popover: #ffffff;
-  --color-popover-foreground: #171717;
-  --color-primary: #000000;
-  --color-primary-foreground: #000000;
-  --color-secondary: #eaeaea;
-  --color-secondary-foreground: #171717;
-  --color-muted: #888888;
-  --color-muted-foreground: #888888;
-  --color-border: #eaeaea;
-  --color-input: #f5f5f5;
-  --color-ring: #000000;
-  --radius: 6px;
-}
-
-/* Geist Sans / Geist Mono / Geist Pixel are loaded from Google Fonts (see the
-   <link> tags in src/routes/__root.tsx). No font files are bundled. */
-
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --card: #fafafa;
-  --card-foreground: #171717;
-  --popover: #ffffff;
-  --popover-foreground: #171717;
-  --primary: #000000;
-  --primary-foreground: #000000;
-  --secondary: #eaeaea;
-  --secondary-foreground: #171717;
-  --muted: #888888;
-  --muted-foreground: #888888;
-  --border: #eaeaea;
-  --input: #f5f5f5;
-  --ring: #000000;
-  --radius: 6px;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-html,
-body {
-  background-color: #ffffff;
-}
-
-body {
-  margin: 0;
-  font-family: var(--font-sans);
-  color: #171717;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+/* Tailwind only scans our source by default; the design system's utility
+   classes live in its dist, so point it there. */
+@source "../node_modules/@ponti-studios/ui/dist";
 
 .font-mono,
 code,
