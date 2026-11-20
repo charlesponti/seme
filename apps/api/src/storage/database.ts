@@ -1,8 +1,10 @@
 // src/storage/database.ts — Kysely table types for the Seme SQLite schema.
 //
-// These interfaces mirror the migration chain in schema/schema.ts (v12).
+// These interfaces mirror the migration chain in schema/schema.ts (v14).
 // Keep them in sync when a migration adds or renames a column: Kysely turns
 // any drift into a compile error at the query site, which is the point.
+
+import type { ColumnType } from 'kysely';
 
 export interface TurnsTable {
   id: string;
@@ -183,6 +185,8 @@ export interface EntitiesTable {
   pinned: number;
   first_seen_turn_id: string | null;
   first_seen_source_id: string | null;
+  // 1 for the single entity that is the user. Defaults to 0, so inserts can omit it.
+  is_self: ColumnType<number, number | undefined, number>;
 }
 
 export interface RelationshipsTable {

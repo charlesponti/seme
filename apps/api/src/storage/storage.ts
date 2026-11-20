@@ -17,6 +17,7 @@ import {
   getSchemaSqlV11,
   getSchemaSqlV12,
   getSchemaSqlV13,
+  getSchemaSqlV14,
 } from '../schema/schema.js';
 import { uuid, nowUtc } from '../types/common.js';
 import { createHash } from 'node:crypto';
@@ -240,6 +241,7 @@ export class Storage {
     const v11Sql = getSchemaSqlV11();
     const v12Sql = getSchemaSqlV12();
     const v13Sql = getSchemaSqlV13();
+    const v14Sql = getSchemaSqlV14();
     return [
       {
         version: 1,
@@ -323,6 +325,12 @@ export class Storage {
         name: 'skill_embeddings',
         sql: v13Sql,
         checksum: createHash('sha256').update(v13Sql).digest('hex'),
+      },
+      {
+        version: 14,
+        name: 'entity_is_self',
+        sql: v14Sql,
+        checksum: createHash('sha256').update(v14Sql).digest('hex'),
       },
     ];
   }

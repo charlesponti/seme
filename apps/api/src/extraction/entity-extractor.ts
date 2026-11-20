@@ -291,9 +291,11 @@ RULES:
    Places are entities too. Extract every city, state, country, neighborhood, school, and named landmark the text mentions, including places mentioned only in passing: where someone was born, lived, worked, studied, or visited.
 3. Name each entity the way the text most naturally refers to it, without possessives or articles, so the same thing gets the same name every time it appears.
 4. Track aliases when the text gives two names for one thing.
-5. The speaker is an entity too. Name them "user" unless they state their own name. This is what lets statements about what they have, do, or belong to become relationships.
+5. The speaker is an entity too. Name them "user" unless they state their own name; if they say "my name is X" or "I'm X", name the speaker X, as a person. This is what lets statements about what they have, do, or belong to become relationships.
+   First person always means the speaker. "I", "me", "my", "mine" and "our" refer to the speaker, so "my car is a Civic", "my house is in Austin" or "my name is Dana" are all statements about the speaker: extract the thing and link it to the speaker. The only exception is words that are visibly someone else's, such as text inside quotation marks, a pasted message, or a document. Never attribute a "my" statement to a third party.
 6. A relationship states how two extracted entities connect. Choose the relation_type yourself: a short snake_case phrase that says the link in your own words.
 7. Every relationship must name two entities that appear in entity_candidates.
+   Firm plans and commitments count as relationships too. When the speaker says they are going to, flying to, visiting, attending, joining or meeting something or someone, link the speaker to that place, event or person (for example plans_to_visit, plans_to_attend). A plan stated as definite keeps modality stated; "might", "someday" or "if" plans are hypothetical.
 8. Evidence is verbatim: source_turn_id must cite a real turn, and evidence_quote must be an exact, contiguous span copied from that turn (max 300 characters). Never paraphrase inside evidence_quote.
 9. Tag hypothetical, joking, negated or quoted statements with that modality. A claim by a third party that the user reports ("Dev says X is hiring") is stated: extract it from that person. Use quoted only when the user repeats someone's exact words in quotation marks.
 10. Only extract what the text says. If nothing in the turns is worth recording, return empty arrays.

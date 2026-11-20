@@ -15,6 +15,11 @@ interface Progress {
   memories_created?: number;
   entities_created?: number;
   relationships_created?: number;
+  created?: {
+    memories: { id: string; text: string; type: string | null }[];
+    entities: { id: string; name: string; type: string }[];
+    relationships: { id: string; source: string; target: string; relation_type: string }[];
+  };
   error?: string;
 }
 
@@ -23,10 +28,12 @@ interface AddMemorySheetProps {
   onClose: () => void;
   /** Called once a submission finishes, so the dashboard can refresh its numbers. */
   onSaved: () => void;
+  /** Text typed in the dashboard bar. When set, the sheet opens and submits it straight away. */
+  initialText?: string;
 }
 
 const POLL_MS = 400;
-const LEAVE_MS = 200;
+const LEAVE_MS = 300;
 
 const STEPS = [
   { stage: 'extracting_memories', label: 'Reading for memories' },
@@ -64,7 +71,7 @@ function stepIndex(stage: string): number {
   return STEPS.findIndex((s) => s.stage === stage);
 }
 
-export function AddMemorySheet({ open, onClose, onSaved }: AddMemorySheetProps) {
+export function AddMemorySheet({ open, onClose, onSaved, initialText }: AddMemorySheetProps) {
   const [mounted, setMounted] = useState(open);
   const [entered, setEntered] = useState(false);
 
@@ -147,17 +154,16 @@ export function AddMemorySheet({ open, onClose, onSaved }: AddMemorySheetProps) 
 
   const canSubmit = mode === 'text' ? text.trim().length > 0 : url.trim().length > 0;
 
-  const submit = useCallback(async () => {
-    if (!canSubmit || phase === 'working') return;
+  const send = useCallback(async (kind: Mode, value: string) => {
     setPhase('working');
     setSubmitError(null);
     setStatusLost(false);
     setProgress(null);
     try {
       const res =
-        mode === 'text'
-          ? await semeApi.submitText(text.trim(), 'Web Submission')
-          : await semeApi.submitUrl(url.trim());
+        kind === 'text'
+          ? await semeApi.submitText(value, 'Web Submission')
+          : await semeApi.submitUrl(value);
       if (res?.error) throw new Error(res.error.message ?? 'Ingest failed');
       setEpisodeId(res.episode_id);
       setProgress({
@@ -170,7 +176,27 @@ export function AddMemorySheet({ open, onClose, onSaved }: AddMemorySheetProps) 
       setPhase('error');
       setSubmitError(e instanceof Error ? e.message : 'Submit failed');
     }
-  }, [canSubmit, mode, phase, text, url]);
+  }, []);
+
+  const submit = useCallback(() => {
+    if (!canSubmit || phase === 'working') return;
+    void send(mode, mode === 'text' ? text.trim() : url.trim());
+  }, [canSubmit, mode, phase, text, url, send]);
+
+  // Text from the dashboard bar goes straight in, once per opening.
+  const autoSent = useRef(false);
+  useEffect(() => {
+    if (!open) {
+      autoSent.current = false;
+      return;
+    }
+    const seed = initialText?.trim();
+    if (!seed || autoSent.current) return;
+    autoSent.current = true;
+    setMode('text');
+    setText(seed);
+    void send('text', seed);
+  }, [open, initialText, send]);
 
   const addAnother = () => {
     setText('');
@@ -207,8 +233,8 @@ export function AddMemorySheet({ open, onClose, onSaved }: AddMemorySheetProps) 
         role="dialog"
         aria-modal="true"
         aria-labelledby="add-memory-title"
-        className={`absolute inset-x-0 bottom-0 mx-auto flex max-h-[88vh] w-full max-w-[640px] flex-col rounded-t-[8px] border border-b-0 border-[#eaeaea] bg-white shadow-[0_4px_16px_rgba(0,0,0,0.08)] transition-transform duration-200 ease-out motion-reduce:transition-none ${
-          entered ? 'translate-y-0' : 'translate-y-full'
+        className={`absolute inset-x-4 bottom-4 mx-auto flex max-h-[calc(100vh-32px)] w-auto max-w-[640px] flex-col rounded-[16px] border border-[#eaeaea] bg-white shadow-[0_12px_40px_rgba(0,0,0,0.14)] transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
+          entered ? 'translate-y-0 opacity-100' : 'translate-y-[calc(100%+16px)] opacity-0'
         }`}
       >
         <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-[#d4d4d4]" />
@@ -371,39 +397,58 @@ export function AddMemorySheet({ open, onClose, onSaved }: AddMemorySheetProps) 
                 aria-valuemax={100}
               >
                 <div
-                  className="h-full rounded-full bg-[#171717] transition-[width] duration-300 ease-out motion-reduce:transition-none"
+                  className="relative h-full overflow-hidden rounded-full bg-[#171717] transition-[width] duration-500 ease-out motion-reduce:transition-none"
                   style={{ width: `${percent}%` }}
-                />
+                >
+                  {!finished && !failed && (
+                    <span className="sheet-sweep absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-white/50 to-transparent" />
+                  )}
+                </div>
               </div>
 
-              <ol className="mt-5 space-y-3">
-                <StepRow label="Saved" state="done" />
-                {STEPS.map((step, i) => {
-                  const state =
-                    i < currentIndex
-                      ? 'done'
-                      : i === currentIndex && !finished && !failed
-                        ? 'active'
-                        : finished
-                          ? 'done'
-                          : 'pending';
-                  const detail = state === 'active' ? countFor(progress) : null;
-                  return (
-                    <StepRow key={step.stage} label={step.label} state={state} detail={detail} />
-                  );
-                })}
-              </ol>
+              <div
+                className={`grid transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
+                  finished ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'
+                }`}
+              >
+                <ol className="mt-5 min-h-0 space-y-3 overflow-hidden">
+                  <StepRow label="Saved" state="done" />
+                  {STEPS.map((step, i) => {
+                    const state =
+                      i < currentIndex
+                        ? 'done'
+                        : i === currentIndex && !finished && !failed
+                          ? 'active'
+                          : finished
+                            ? 'done'
+                            : 'pending';
+                    const detail = state === 'active' ? countFor(progress) : null;
+                    return (
+                      <StepRow key={step.stage} label={step.label} state={state} detail={detail} />
+                    );
+                  })}
+                </ol>
+              </div>
 
               {finished && (
-                <div className="mt-6 grid grid-cols-3 border-y border-[#eaeaea]">
-                  <Tally label="Memories" value={progress.memories_created ?? 0} />
-                  <Tally label="Entities" value={progress.entities_created ?? 0} bordered />
-                  <Tally
-                    label="Relationships"
-                    value={progress.relationships_created ?? 0}
-                    bordered
-                  />
-                </div>
+                <>
+                  <div className="mt-6 grid grid-cols-3 border-y border-[#eaeaea]">
+                    <Tally label="Memories" value={progress.memories_created ?? 0} delay={0} />
+                    <Tally
+                      label="Entities"
+                      value={progress.entities_created ?? 0}
+                      bordered
+                      delay={90}
+                    />
+                    <Tally
+                      label="Relationships"
+                      value={progress.relationships_created ?? 0}
+                      bordered
+                      delay={180}
+                    />
+                  </div>
+                  <Results created={progress.created} />
+                </>
               )}
 
               {failed && (
@@ -460,7 +505,7 @@ function StepRow({
     >
       <span className="flex h-4 w-4 shrink-0 items-center justify-center" aria-hidden>
         {state === 'done' && (
-          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#171717]">
+          <span className="sheet-pop flex h-4 w-4 items-center justify-center rounded-full bg-[#171717]">
             <svg width="9" height="9" viewBox="0 0 9 9">
               <path
                 d="M1.5 4.5l2 2 4-4.5"
@@ -492,9 +537,22 @@ function StepRow({
   );
 }
 
-function Tally({ label, value, bordered }: { label: string; value: number; bordered?: boolean }) {
+function Tally({
+  label,
+  value,
+  bordered,
+  delay = 0,
+}: {
+  label: string;
+  value: number;
+  bordered?: boolean;
+  delay?: number;
+}) {
   return (
-    <div className={`px-3 py-4 ${bordered ? 'border-l border-[#eaeaea]' : ''}`}>
+    <div
+      className={`sheet-rise px-3 py-4 ${bordered ? 'border-l border-[#eaeaea]' : ''}`}
+      style={{ animationDelay: `${delay}ms` }}
+    >
       <CountUp
         value={value}
         className="font-mono text-[24px] leading-8 tabular-nums text-[#171717]"
@@ -529,4 +587,75 @@ function CountUp({ value, className }: { value: number; className?: string }) {
   }, [value, instant]);
 
   return <div className={className}>{instant ? value : animated}</div>;
+}
+
+type CreatedItems = NonNullable<Progress['created']>;
+
+/** What this run added, grouped, each row rising in after the one before. */
+function Results({ created }: { created?: CreatedItems }) {
+  if (!created) return null;
+  const groups = [
+    {
+      title: 'Memories',
+      rows: created.memories.map((m) => ({ key: m.id, main: m.text, tag: m.type })),
+    },
+    {
+      title: 'Entities',
+      rows: created.entities.map((e) => ({ key: e.id, main: e.name, tag: e.type })),
+    },
+    {
+      title: 'Relationships',
+      rows: created.relationships.map((r) => ({
+        key: r.id,
+        main: `${r.source} → ${r.target}`,
+        tag: r.relation_type.replace(/_/g, ' '),
+      })),
+    },
+  ].filter((g) => g.rows.length > 0);
+
+  if (groups.length === 0) {
+    return (
+      <p
+        className="sheet-rise mt-5 text-[13px] leading-5 text-[#666666]"
+        style={{ animationDelay: '300ms' }}
+      >
+        Nothing new to add. Seme already knew this.
+      </p>
+    );
+  }
+
+  let n = 0;
+  return (
+    <div className="mt-5 space-y-5">
+      {groups.map((g) => (
+        <section key={g.title}>
+          <h3
+            className="sheet-rise text-[11px] uppercase leading-4 tracking-[0.08em] text-[#888888]"
+            style={{ animationDelay: `${300 + n * 60}ms` }}
+          >
+            {g.title}
+          </h3>
+          <ul className="mt-1 divide-y divide-[#eaeaea] border-y border-[#eaeaea]">
+            {g.rows.map((row) => {
+              const delay = 300 + ++n * 60;
+              return (
+                <li
+                  key={row.key}
+                  className="sheet-rise flex items-baseline justify-between gap-4 py-2"
+                  style={{ animationDelay: `${delay}ms` }}
+                >
+                  <span className="min-w-0 text-[14px] leading-5 text-[#171717]">{row.main}</span>
+                  {row.tag && (
+                    <span className="shrink-0 font-mono text-[11px] uppercase leading-4 tracking-[0.04em] text-[#888888]">
+                      {row.tag}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
 }

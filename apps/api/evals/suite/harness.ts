@@ -4,7 +4,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
-import { MemoryService } from '../../api/service.js';
+import { MemoryService } from '../../src/api/service.js';
 import type { Case, Turn } from './dataset.js';
 import type { PredEntity, PredMemory, PredOutput, PredRelation, SourceTurn } from './grade.js';
 
@@ -17,6 +17,11 @@ export async function runCase(
   const started = Date.now();
   let db: Database.Database | null = null;
   try {
+    // Identity goes in before ingestion so the self entity exists when extraction resolves names.
+    if (c.identity) {
+      const { name, aliases } = c.identity;
+      await svc.seedIdentityCore({ name, ...(aliases ? { aliases } : {}) }, `The user is ${name}.`);
+    }
     let episodeId: string;
     if (c.mode === 'conversation') {
       const sessionId = `eval-${c.id}`;

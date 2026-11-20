@@ -4,6 +4,9 @@ import { sql, type SqlBool } from 'kysely';
 import { Storage } from '../storage/storage.js';
 import { uuid, nowUtc } from '../types/common.js';
 import { EntityCandidate } from '../extraction/entity-extractor.js';
+import { SPEAKER_ALIASES } from '../identity/self-entity.js';
+
+const SPEAKER_WORDS = new Set(SPEAKER_ALIASES.map((a) => a.toLowerCase()));
 
 export interface EntityResolution {
   decision: 'ADD' | 'MERGE' | 'NOOP';
@@ -23,6 +26,10 @@ export class EntityResolver {
   async resolve(candidate: EntityCandidate): Promise<EntityResolution> {
     const now = nowUtc();
     const entityId = uuid();
+
+    // Self rule: speaker words and the identity name resolve to the self entity.
+    const selfResolution = await this.resolveSelf(candidate, now);
+    if (selfResolution) return selfResolution;
 
     const neighbours = await this.findNeighbours(candidate);
 
@@ -118,6 +125,81 @@ export class EntityResolver {
       target_id: targetId,
       decided_by: decidedBy,
       rule_id: ruleId,
+    };
+  }
+
+  /**
+   * Rule 0: the candidate is the user. Speaker words (`user`, `I`, `me`, ...) always
+   * are. Any other name only is when it matches the self entity's name or aliases
+   * (which come from identity) and is a person, so a third-person "Charles" stays
+   * separate unless identity says the user is Charles.
+   */
+  private async resolveSelf(
+    candidate: EntityCandidate,
+    now: string,
+  ): Promise<EntityResolution | null> {
+    const db = this.storage.getKysely();
+    const self = await db
+      .selectFrom('entities')
+      .selectAll()
+      .where('is_self', '=', 1)
+      .executeTakeFirst();
+    if (!self) return null;
+
+    const name = candidate.name.trim().toLowerCase();
+    const selfAliases: string[] = self.aliases ? JSON.parse(self.aliases) : [];
+    const isSpeaker = SPEAKER_WORDS.has(name);
+    const namesSelf =
+      candidate.type === 'person' &&
+      (self.name.toLowerCase() === name || selfAliases.some((a) => a.toLowerCase() === name));
+    if (!isSpeaker && !namesSelf) return null;
+
+    // Fold in new aliases, except ones that are another entity's own name.
+    const known = new Set([self.name.toLowerCase(), ...selfAliases.map((a) => a.toLowerCase())]);
+    const fresh = [...new Set(candidate.aliases.map((a) => a.trim()))].filter(
+      (a) => a && !known.has(a.toLowerCase()),
+    );
+    const others = fresh.length
+      ? await db
+          .selectFrom('entities')
+          .select(sql<string>`LOWER(name)`.as('lname'))
+          .where('is_self', '=', 0)
+          .where(sql<SqlBool>`LOWER(name) IN (${sql.join(fresh.map((a) => a.toLowerCase()))})`)
+          .execute()
+      : [];
+    const taken = new Set(others.map((o) => o.lname));
+    const newAliases = fresh.filter((a) => !taken.has(a.toLowerCase()));
+
+    const betterDescription =
+      !!candidate.description && candidate.description.length > (self.description || '').length;
+    if (newAliases.length === 0 && !betterDescription) {
+      return {
+        decision: 'NOOP',
+        entity_id: self.id,
+        target_id: self.id,
+        decided_by: 'rule',
+        rule_id: 'rule_0_self',
+      };
+    }
+
+    await db
+      .updateTable('entities')
+      .set({
+        aliases: JSON.stringify([...selfAliases, ...newAliases]),
+        description: betterDescription ? candidate.description : self.description,
+        last_seen_at: now,
+        mention_count: self.mention_count + 1,
+        first_seen_turn_id: self.first_seen_turn_id ?? candidate.source_turn_id,
+        first_seen_source_id: self.first_seen_source_id ?? candidate.source_id,
+      })
+      .where('id', '=', self.id)
+      .execute();
+    return {
+      decision: 'MERGE',
+      entity_id: self.id,
+      target_id: self.id,
+      decided_by: 'rule',
+      rule_id: 'rule_0_self',
     };
   }
 

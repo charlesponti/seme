@@ -836,3 +836,12 @@ CREATE TABLE IF NOT EXISTS skill_embeddings (
 );
 `;
 }
+
+// Marks the one entity that is the user themself. The partial unique index
+// means at most one row can have is_self = 1.
+export function getSchemaSqlV14(): string {
+  return `
+ALTER TABLE entities ADD COLUMN is_self INTEGER NOT NULL DEFAULT 0 CHECK (is_self IN (0, 1));
+CREATE UNIQUE INDEX IF NOT EXISTS idx_entities_self ON entities(is_self) WHERE is_self = 1;
+`;
+}

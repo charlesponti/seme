@@ -47,13 +47,13 @@ The old grader failed runs for extra entities that the text really supported. Pa
 | Old grader | 100 / 508 (20%) |
 | New grader | 174 / 508 (34%) |
 
-Current rules in `apps/api/src/evals/suite/grade.ts` (`gradeCase`):
+Current rules in `apps/api/evals/suite/grade.ts` (`gradeCase`):
 
 | Check                             | Rule now                                                                                                                |
 | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `entity_precision` (exhaustive)   | An extra entity fails only if it's not in the text. "In the text" means the name appears, or its `evidence_quote` does. |
 | `relation_precision` (exhaustive) | An extra relation fails only if its `evidence_quote` isn't in the text.                                                 |
-| `memory_precision` (exhaustive)   | Always passes. Informational. Grounding needs the LLM judge (`--judge`).                                                |
+| `memory_precision` (exhaustive)   | Always passes. Informational; grounding is still a documented follow-up.                                                |
 | Forbidden relations / entities    | Unchanged, still hard fails.                                                                                            |
 | Recall (entity, relation, memory) | Unchanged. This is where most failures are.                                                                             |
 
@@ -187,21 +187,20 @@ Until those are done, the honest sentence is: on our people-and-relationships ex
 
 - **Gold the text doesn't state.** The `friendNews` maker in `timeline.ts` (around lines 500–515) adds a `user → Priya` friendship as gold, but the text never says they're friends. The correction cases miss the same relation. Fix: state the friendship in the case text, then rerun. Agreed, not applied.
 - **Memory grounding.** Memory precision always passes. A fabricated memory fails nothing unless the judge runs. Decision pending: wire the judge into memory precision, or keep it informational and document it.
-- **Relation grounding is weak.** Extra relations only need a verbatim quote, which provenance already guarantees. The NLI relation judge (`--relation-judge`) is the real check and is off by default.
+- **Relation grounding is weak.** Extra relations only need a verbatim quote, which provenance already guarantees. The deterministic Seme grader remains the source-specific check; Promptfoo owns evaluation orchestration.
 - **Old stored place types.** Rows saved before `canonicalEntityType()` aren't migrated, so the stored graph still has fragmented place types.
 - **Token capture.** The eval harness doesn't record usage and cost per call. The comparison above came from a scratchpad wrapper that is gone.
 
 ## How we measure
 
-- **Harness.** `apps/api/src/evals/suite/harness.ts` ingests each case into a temp store and reads back turns, entities, relations and memories. `run.ts` drives it. Flags: `--suite core|diary|people`, `--filter`, `--repeats`, `--concurrency` (default 4), `--judge` (opt-in, off by default, one paid call per case), `--relation-judge`, `--name`, `--baseline`, `--fail-on-regression`, `--tolerance`.
+- **Harness.** `apps/api/evals/suite/harness.ts` ingests each case into an isolated temp store and reads back turns, entities, relations and memories. `promptfoo-provider.ts` adapts it to Promptfoo's provider contract; `promptfoo-assertions.ts` adapts the Seme grader to Promptfoo's assertion contract.
 - **Cases.** `diary/timeline.ts` generates the people suite and its gold. `diary/cases.ts` exports `PEOPLE_CASES` (254). Gold entity types are canonical: person, place, organization, food, animal, medication, tool, project, product, event, diet, condition, language, instrument, goal, book, beverage.
-- **Judge.** Informational only; it doesn't affect pass/fail. The default is now `z-ai/glm-5.3-flash` via OpenRouter (override with `SEME_EVAL_JUDGE_MODEL`). Sonnet was the judge for every run before this change, including the 2026-11-12 and 2026-11-13 runs above, so their `judge_*` numbers aren't comparable to runs judged by GLM. It produces `judge_supported_rate`, `judge_contradicted`, `judge_coverage_rate`. Calibration on the new judge hasn't run yet.
-- **Results store.** `~/.hominem/seme.evals.db`, tables `runs` and `baselines`. The runner has no resume, and a full run takes about an hour at concurrency 4.
+- **Runner.** Promptfoo owns concurrency, repeats, result persistence, reporting, and exit status. Select with `SEME_EVAL_SUITE=core|diary|people`, `SEME_EVAL_FILTER`, `SEME_EVAL_REPEATS`, and `SEME_EVAL_CONCURRENCY`.
 
-Run GLM on the full suite from `apps/api` (build first with `pnpm exec tsc`):
+Run the full people suite from the repository root (this may incur model-provider costs):
 
 ```bash
-SEME_EXTRACTOR_MODEL=z-ai/glm-5.3-flash node dist/evals/suite/run.js --suite people --repeats 2 --judge --concurrency 4 --name <run-name>
+SEME_EXTRACTOR_MODEL=z-ai/glm-5.3-flash SEME_EVAL_SUITE=people SEME_EVAL_REPEATS=2 SEME_EVAL_CONCURRENCY=4 pnpm --dir apps/api run eval
 ```
 
 ## Ops notes and mistakes to avoid

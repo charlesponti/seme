@@ -1,5 +1,6 @@
 // src/extraction/pipeline.ts — Extraction pipeline orchestration
 
+import { learnSelfName } from '../identity/learn-self-name.js';
 import { Storage } from '../storage/storage.js';
 import { IngestManager } from '../ingest/ingest.js';
 import { ValidationGate } from '../validation/validation-gate.js';
@@ -25,6 +26,13 @@ export type ExtractionStage =
 export interface StageDetail {
   total?: number;
   done?: number;
+}
+
+/** What one run actually added, so the UI can show it rather than just count it. */
+export interface CreatedItems {
+  memories: { id: string; text: string; type: string | null }[];
+  entities: { id: string; name: string; type: string }[];
+  relationships: { id: string; source: string; target: string; relation_type: string }[];
 }
 
 export class ExtractionPipeline {
@@ -103,7 +111,9 @@ export class ExtractionPipeline {
     feedback_events_created: number;
     entities_created: number;
     relationships_created: number;
+    created: CreatedItems;
   }> {
+    const created: CreatedItems = { memories: [], entities: [], relationships: [] };
     const episode = this.ingest.getEpisode(episodeId);
     if (!episode) throw new Error('ERR_NOT_FOUND: Episode not found');
 
@@ -116,6 +126,7 @@ export class ExtractionPipeline {
         feedback_events_created: 0,
         entities_created: 0,
         relationships_created: 0,
+        created,
       };
     }
 
@@ -176,6 +187,7 @@ export class ExtractionPipeline {
               feedback_events_created: 0,
               entities_created: 0,
               relationships_created: 0,
+              created,
             };
           }
         } else {
@@ -187,6 +199,7 @@ export class ExtractionPipeline {
             feedback_events_created: 0,
             entities_created: 0,
             relationships_created: 0,
+            created,
           };
         }
       }
@@ -245,6 +258,12 @@ export class ExtractionPipeline {
         ) {
           memoriesCreated++;
           triggeringMemoryIds.push(resolution.candidate_id);
+          const cand = gateResult.candidate as any;
+          created.memories.push({
+            id: resolution.candidate_id,
+            text: String(cand?.value_text ?? ''),
+            type: cand?.type ?? null,
+          });
         }
       } catch (e: any) {
         console.error('Candidate processing error:', e.message);
@@ -273,6 +292,16 @@ export class ExtractionPipeline {
       // Resolve entities
       const entityNameToId = new Map<string, string>();
       const entityCandidates = entityOutput.entity_candidates;
+      // "My name is X" teaches the self entity its name before any candidate resolves, so X
+      // folds into it. Only user-mode text counts; a document saying "I'm X" isn't the user.
+      if (mode === 'user') {
+        try {
+          const learned = await learnSelfName(this.storage, turns, entityCandidates);
+          if (learned) console.log(`[identity] learned self name from introduction: ${learned}`);
+        } catch (e: any) {
+          console.error('Self-name learning failed:', e.message);
+        }
+      }
       for (const [index, ec] of entityCandidates.entries()) {
         options.onStage?.('resolving_entities', { total: entityCandidates.length, done: index });
         const resolution = await this.entityResolver.resolve(ec);
@@ -280,6 +309,9 @@ export class ExtractionPipeline {
         entityNameToId.set(ec.name.toLowerCase(), entityId);
         if (resolution.decision === 'ADD' || resolution.decision === 'MERGE') {
           entitiesCreated++;
+          if (!created.entities.some((e) => e.id === entityId)) {
+            created.entities.push({ id: entityId, name: ec.name, type: ec.type });
+          }
         }
       }
 
@@ -293,6 +325,12 @@ export class ExtractionPipeline {
         const resolution = await this.relationshipResolver.resolve(rc, episodeId);
         if (resolution.decision === 'ADD' || resolution.decision === 'MERGE') {
           relationshipsCreated++;
+          created.relationships.push({
+            id: resolution.relationship_id,
+            source: rc.source_entity_name,
+            target: rc.target_entity_name,
+            relation_type: rc.relation_type,
+          });
           await this.storage
             .getKysely()
             .insertInto('relationship_sources')
@@ -423,6 +461,7 @@ export class ExtractionPipeline {
       feedback_events_created: feedbackCreated,
       entities_created: entitiesCreated,
       relationships_created: relationshipsCreated,
+      created,
     };
   }
 }

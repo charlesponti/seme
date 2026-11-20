@@ -32,6 +32,11 @@ function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [addSeed, setAddSeed] = useState<string | undefined>();
+  const openAdd = useCallback((text?: string) => {
+    setAddSeed(text);
+    setAddOpen(true);
+  }, []);
   const closeAdd = useCallback(() => setAddOpen(false), []);
 
   const load = useCallback(async () => {
@@ -69,13 +74,6 @@ function Dashboard() {
         <h1 className="text-[24px] font-medium leading-8 tracking-[-0.01em] text-[#171717]">
           Dashboard
         </h1>
-        <button
-          type="button"
-          onClick={() => setAddOpen(true)}
-          className="h-9 shrink-0 rounded-[6px] bg-black px-4 text-[13px] font-medium text-white hover:bg-[#171717]"
-        >
-          Add memory
-        </button>
       </div>
 
       <div className="mt-6 grid grid-cols-2 border-y border-[#eaeaea] sm:grid-cols-4">
@@ -98,7 +96,7 @@ function Dashboard() {
         <ErrorBox message={error} onRetry={load} />
       ) : (
         <>
-          <SearchBlock onComposingChange={setSearching} />
+          <SearchBlock onComposingChange={setSearching} onAdd={openAdd} />
 
           <Collapse open={!searching}>
             <div className="grid gap-10 pt-10 lg:grid-cols-2">
@@ -118,7 +116,7 @@ function Dashboard() {
         </>
       )}
 
-      <AddMemorySheet open={addOpen} onClose={closeAdd} onSaved={load} />
+      <AddMemorySheet open={addOpen} onClose={closeAdd} onSaved={load} initialText={addSeed} />
     </div>
   );
 }
@@ -276,12 +274,36 @@ const SEARCH_TABS = [
 
 type SearchTab = (typeof SEARCH_TABS)[number]['id'];
 
-function SearchBlock({ onComposingChange }: { onComposingChange: (composing: boolean) => void }) {
+function SearchBlock({
+  onComposingChange,
+  onAdd,
+}: {
+  onComposingChange: (composing: boolean) => void;
+  onAdd: (text: string) => void;
+}) {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [focused, setFocused] = useState(false);
-  // Composing = typing or holding a query. The recent lists step aside until it's cleared.
-  const composing = focused || query.trim() !== '';
+  // The bar adds a memory by default. ⌘K morphs it into search; Esc or ⌘K again morphs it back.
+  const [mode, setMode] = useState<'add' | 'search'>('add');
+  const isSearch = mode === 'search';
+  const [addText, setAddText] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setMode((m) => (m === 'add' ? 'search' : 'add'));
+        requestAnimationFrame(() => inputRef.current?.focus());
+      } else if (e.key === 'Escape') {
+        setMode('add');
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
+  // Composing = typing or holding a query in search. The recent lists step aside until it's cleared.
+  const composing = isSearch && (focused || query.trim() !== '');
   useEffect(() => {
     onComposingChange(composing);
   }, [composing, onComposingChange]);
@@ -355,7 +377,7 @@ function SearchBlock({ onComposingChange }: { onComposingChange: (composing: boo
 
   const shown = useHeld(results);
   const shownAnswer = useHeld(answer);
-  const answerOpen = results !== null && answer !== null;
+  const answerOpen = isSearch && results !== null && answer !== null;
   const memories = useMemo(() => shown?.memories ?? [], [shown]);
   const rules = useMemo(() => shown?.procedural_rules ?? [], [shown]);
   const graph = shown?.graph_summary;
@@ -366,30 +388,107 @@ function SearchBlock({ onComposingChange }: { onComposingChange: (composing: boo
         className="flex gap-2"
         onSubmit={(e) => {
           e.preventDefault();
-          doSearch();
+          if (isSearch) {
+            doSearch();
+            return;
+          }
+          const t = addText.trim();
+          if (!t) return;
+          onAdd(t);
+          setAddText('');
         }}
       >
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          placeholder="Ask anything — e.g. what kind of pet does he have?"
-          aria-label="Search memories"
-          className="h-11 min-w-0 flex-1 rounded-[6px] border border-[#d4d4d4] bg-white px-3 text-[16px] leading-6 text-[#171717] placeholder:text-[#888888] focus:border-[#171717] focus:outline-none"
-        />
+        <div className="relative min-w-0 flex-1">
+          <span
+            aria-hidden
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#888888]"
+          >
+            <svg
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              className={`absolute inset-0 transition-all duration-300 ease-out motion-reduce:transition-none ${
+                isSearch ? 'rotate-90 scale-50 opacity-0' : 'rotate-0 scale-100 opacity-100'
+              }`}
+            >
+              <path d="M8 3v10M3 8h10" />
+            </svg>
+            <svg
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              className={`absolute inset-0 transition-all duration-300 ease-out motion-reduce:transition-none ${
+                isSearch ? 'rotate-0 scale-100 opacity-100' : '-rotate-90 scale-50 opacity-0'
+              }`}
+            >
+              <circle cx="7" cy="7" r="4.25" />
+              <path d="M10.5 10.5L13.5 13.5" />
+            </svg>
+          </span>
+          <input
+            ref={inputRef}
+            value={isSearch ? query : addText}
+            onChange={(e) => (isSearch ? setQuery(e.target.value) : setAddText(e.target.value))}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            aria-label={isSearch ? 'Search memories' : 'Add a memory'}
+            className={`h-11 w-full rounded-[6px] border bg-white pl-9 pr-16 text-[16px] leading-6 text-[#171717] transition-[border-color,box-shadow] duration-300 ease-out focus:outline-none motion-reduce:transition-none ${
+              isSearch
+                ? 'border-[#171717] shadow-[0_0_0_3px_rgba(23,23,23,0.06)]'
+                : 'border-[#d4d4d4] focus:border-[#171717]'
+            }`}
+          />
+          {/* Native placeholders can't animate, so two overlays cross-fade instead. */}
+          {(['add', 'search'] as const).map((m) => {
+            const value = m === 'search' ? query : addText;
+            const visible = mode === m && value === '';
+            return (
+              <span
+                key={m}
+                aria-hidden
+                className={`pointer-events-none absolute left-9 right-16 top-1/2 -translate-y-1/2 truncate text-[16px] leading-6 text-[#888888] transition-all duration-300 ease-out motion-reduce:transition-none ${
+                  visible ? 'translate-x-0 opacity-100' : '-translate-x-2 opacity-0'
+                }`}
+              >
+                {m === 'add'
+                  ? 'Add a memory — e.g. my sister moved to Tokyo in March'
+                  : 'Ask anything — e.g. what kind of pet does he have?'}
+              </span>
+            );
+          })}
+          <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded-[4px] border border-[#eaeaea] bg-[#fafafa] px-1.5 font-mono text-[11px] leading-[18px] text-[#888888]">
+            {isSearch ? 'esc' : '⌘K'}
+          </kbd>
+        </div>
         <button
           type="submit"
-          disabled={loading || !query.trim()}
-          className="h-11 shrink-0 rounded-[6px] bg-black px-5 text-[14px] font-medium text-white hover:bg-[#171717] disabled:opacity-40"
+          disabled={isSearch ? loading || !query.trim() : !addText.trim()}
+          className="grid h-11 w-28 shrink-0 place-items-center rounded-[6px] bg-black text-[14px] font-medium text-white hover:bg-[#171717] disabled:opacity-40"
         >
-          {loading ? 'Searching…' : 'Search'}
+          <span
+            className={`col-start-1 row-start-1 transition-all duration-300 ease-out motion-reduce:transition-none ${
+              isSearch ? '-translate-y-2 opacity-0' : 'translate-y-0 opacity-100'
+            }`}
+          >
+            Add memory
+          </span>
+          <span
+            className={`col-start-1 row-start-1 transition-all duration-300 ease-out motion-reduce:transition-none ${
+              isSearch ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0'
+            }`}
+          >
+            {loading ? 'Searching…' : 'Search'}
+          </span>
         </button>
       </form>
 
       {error && <p className="mt-2 font-mono text-[12px] leading-[18px] text-[#666666]">{error}</p>}
 
-      <Collapse open={loading && results === null}>
+      <Collapse open={isSearch && loading && results === null}>
         <div className="space-y-px pt-4">
           {[0, 1, 2].map((i) => (
             <div key={i} className="h-12 w-full bg-[#f5f5f5]" />
@@ -427,7 +526,7 @@ function SearchBlock({ onComposingChange }: { onComposingChange: (composing: boo
         )}
       </Collapse>
 
-      <Collapse open={results !== null}>
+      <Collapse open={isSearch && results !== null}>
         {shown && (
           <div className="pt-5">
             <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 font-mono text-[11px] uppercase leading-[18px] tracking-[0.08em] text-[#888888]">

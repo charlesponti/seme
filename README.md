@@ -38,8 +38,8 @@ Visit http://localhost:5173 in your browser.
 
 - `SEME_STORAGE_DIR` — Storage directory (default: `~/.hominem`)
 - `SEME_API_URL` / `VITE_SEME_API_URL` — API URL for the web app (default: `http://localhost:3000`)
-- `OPENROUTER_API_KEY` — OpenRouter API key for LLM extraction
-- `DEEPSEEK_API_KEY` — enables the quick answer above dashboard search results (optional; `DEEPSEEK_MODEL` defaults to `deepseek-chat`, `DEEPSEEK_BASE_URL` to `https://api.deepseek.com`)
+- `OPENROUTER_API_KEY` — OpenRouter API key for LLM extraction and the quick answer above dashboard search results
+- `SEME_ANSWER_MODEL` — model for the quick answer (default `z-ai/glm-5.3-flash`)
 
 ## Building
 
@@ -51,6 +51,8 @@ npm run build  # Builds both api and web
 
 ```bash
 cd apps/api
-node dist/evals/system-eval.js
-node dist/evals/extraction-eval.js
+pnpm run eval
+
+# Optional: select a suite, case filter, concurrency, or repeats
+SEME_EVAL_SUITE=people SEME_EVAL_FILTER=relationship SEME_EVAL_CONCURRENCY=4 pnpm run eval
 ```

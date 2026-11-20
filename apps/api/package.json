@@ -15,7 +15,8 @@
     "dev": "pnpm run build && node scripts/dev.mjs",
     "bench": "node dist/benchmarks/perf.js",
     "test:mcp": "python3 tests/mcp_protocol_test.py",
-    "eval": "node dist/evals/suite/run.js",
+    "build:evals": "tsc -p tsconfig.evals.json",
+    "eval": "pnpm run build:evals && node dist/evals/promptfoo-run.js",
     "test": "tsc && node --test dist/skills/skills.test.js"
   },
   "dependencies": {
@@ -31,6 +32,7 @@
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^26.6.5",
     "@types/uuid": "^11.0.0",
+    "promptfoo": "0.126.0",
     "typescript": "^7.0.2"
   },
   "portless": {

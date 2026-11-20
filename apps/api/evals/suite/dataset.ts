@@ -59,6 +59,8 @@ export interface Expect {
   relations?: GoldRelation[];
   memories?: GoldMemory[];
   forbidden_entities?: string[];
+  /** Like forbidden_entities but matched on the raw predicted name, without gold alias mapping. */
+  forbidden_entity_names?: string[];
   forbidden_relations?: { subject: string; object: string }[];
   /** A violation if any predicted memory matches all `must` tokens (and the optional kind/modality filters). */
   forbidden_memories?: GoldMemory[];
@@ -89,6 +91,8 @@ export interface Case {
   tags: string[];
   expect: Expect;
   notes?: string;
+  /** Seeded into identity before the run, so the self entity carries the speaker's name. */
+  identity?: { name: string; aliases?: string[] };
 }
 
 const USER: GoldEntity = {
@@ -96,6 +100,10 @@ const USER: GoldEntity = {
   type: 'person',
   aliases: ['user', 'the user', 'i', 'me', 'speaker', 'myself'],
 };
+
+// Self-entity cases: the identity name replaces `user`, so the speaker's gold carries the real name.
+const CHARLES: GoldEntity = { name: 'Charles', type: 'person', aliases: USER.aliases };
+const ALEX: GoldEntity = { name: 'Alex', type: 'person', aliases: USER.aliases };
 
 export const CASES: Case[] = [
   // ── Facts ─────────────────────────────────────────────────────────────────
@@ -133,6 +141,184 @@ export const CASES: Case[] = [
         { subject: 'Priya', object: 'Q3 budget' },
       ],
       memories: [{ must: ['priya'] }, { must: ['approv'] }],
+    },
+  },
+  {
+    id: 'facts-sibling-move-and-trip',
+    category: 'facts',
+    mode: 'text',
+    input:
+      "My sister Maya moved to Tokyo in March to work at Sony as a game designer. She's training for the Tokyo Marathon with her running partner Kenji, and I'm flying out in April to visit her and cheer her on.",
+    tags: ['core'],
+    notes:
+      'Real memory from a dashboard test drive. The speaker plans a trip: that needs a speaker→destination link, not just a memory.',
+    expect: {
+      entities: [
+        USER,
+        { name: 'Maya', type: 'person' },
+        { name: 'Tokyo', type: 'place' },
+        { name: 'Sony', type: 'organization' },
+        { name: 'Tokyo Marathon', type: 'event', aliases: ['marathon'] },
+        { name: 'Kenji', type: 'person' },
+      ],
+      relations: [
+        { subject: 'user', object: 'Maya', symmetric: true },
+        { subject: 'Maya', object: 'Tokyo' },
+        { subject: 'Maya', object: 'Sony' },
+        { subject: 'Maya', object: 'Kenji', symmetric: true },
+        { subject: 'Maya', object: 'Tokyo Marathon' },
+        // The trip: either the city or the race satisfies it.
+        {
+          subject: 'user',
+          object: 'Tokyo',
+          alternatives: [{ subject: 'user', object: 'Tokyo Marathon' }],
+        },
+      ],
+      memories: [
+        { must: ['maya', 'tokyo'] },
+        { must: ['marathon'] },
+        { must: ['april'], kinds: ['decision', 'fact', 'event', 'relationship'] },
+      ],
+    },
+  },
+  {
+    id: 'people-self-named',
+    category: 'facts',
+    mode: 'text',
+    identity: { name: 'Charles' },
+    input:
+      "I'm Charles, and I live in Austin. I work at Dell as an engineer, and my brother Daniel lives in Denver.",
+    tags: ['core', 'self-entity'],
+    notes:
+      'The speaker names themself and the identity is Charles. There must be one person for the speaker (the user alias list matches it) and no separate `user` or duplicate Charles.',
+    expect: {
+      entities: [
+        CHARLES,
+        { name: 'Austin', type: 'place' },
+        { name: 'Dell', type: 'organization' },
+        { name: 'Daniel', type: 'person' },
+        { name: 'Denver', type: 'place' },
+      ],
+      relations: [
+        { subject: 'Charles', object: 'Austin' },
+        { subject: 'Charles', object: 'Dell' },
+        { subject: 'Charles', object: 'Daniel', symmetric: true },
+        { subject: 'Daniel', object: 'Denver' },
+      ],
+      memories: [{ must: ['austin'] }, { must: ['dell'] }],
+      forbidden_entity_names: ['user', 'the user'],
+      max_entities: 6,
+    },
+  },
+  {
+    id: 'people-self-unnamed',
+    category: 'facts',
+    mode: 'text',
+    identity: { name: 'Charles' },
+    input:
+      'I live in Austin and work at Dell as an engineer. My brother Daniel lives in Denver, and I fly out to see him every spring.',
+    tags: ['core', 'self-entity'],
+    notes:
+      "The text never says the speaker's name, so the extractor emits `user`. With identity set to Charles that must resolve to the one self entity, not a second person.",
+    expect: {
+      entities: [
+        CHARLES,
+        { name: 'Austin', type: 'place' },
+        { name: 'Dell', type: 'organization' },
+        { name: 'Daniel', type: 'person' },
+        { name: 'Denver', type: 'place' },
+      ],
+      relations: [
+        { subject: 'Charles', object: 'Austin' },
+        { subject: 'Charles', object: 'Dell' },
+        { subject: 'Charles', object: 'Daniel', symmetric: true },
+        { subject: 'Daniel', object: 'Denver' },
+      ],
+      memories: [{ must: ['austin'] }, { must: ['dell'] }],
+      forbidden_entity_names: ['user', 'the user'],
+      max_entities: 6,
+    },
+  },
+  {
+    id: 'people-third-person-lookalike',
+    category: 'third_party',
+    mode: 'text',
+    identity: { name: 'Alex' },
+    input:
+      'My coworker Charles just moved to Seattle to run the data team at Stripe. I have lunch with him on Friday.',
+    tags: ['core', 'self-entity'],
+    notes:
+      'The identity is Alex, so a person named Charles is a different human and must stay a separate entity from the speaker.',
+    expect: {
+      entities: [
+        ALEX,
+        { name: 'Charles', type: 'person' },
+        { name: 'Seattle', type: 'place' },
+        { name: 'Stripe', type: 'organization' },
+      ],
+      relations: [
+        { subject: 'Alex', object: 'Charles', symmetric: true },
+        { subject: 'Charles', object: 'Seattle' },
+        {
+          subject: 'Charles',
+          object: 'Stripe',
+          alternatives: [{ subject: 'Charles', object: 'data team' }],
+        },
+      ],
+    },
+  },
+  {
+    id: 'people-self-intro-learns-name',
+    category: 'third_party',
+    mode: 'text',
+    input: 'My name is Charles. I live in Austin, and my brother Daniel lives in Denver.',
+    tags: ['core', 'self-entity'],
+    notes:
+      'No identity is set. An explicit introduction plus a person called Charles teaches the graph that Charles is the speaker, so there is one entity, not user and Charles.',
+    expect: {
+      entities: [
+        CHARLES,
+        { name: 'Austin', type: 'place' },
+        { name: 'Daniel', type: 'person' },
+        { name: 'Denver', type: 'place' },
+      ],
+      relations: [{ subject: 'Daniel', object: 'Denver' }],
+      forbidden_entity_names: ['user', 'the user'],
+    },
+  },
+  {
+    id: 'people-third-person-no-learning',
+    category: 'third_party',
+    mode: 'text',
+    input: 'My coworker Charles just moved to Seattle. I have lunch with him on Friday.',
+    tags: ['core', 'self-entity'],
+    notes:
+      'No identity is set and nobody introduces themself. Charles is mentioned in third person, so he stays a separate person from the speaker.',
+    expect: {
+      entities: [USER, { name: 'Charles', type: 'person' }, { name: 'Seattle', type: 'place' }],
+      relations: [{ subject: 'Charles', object: 'Seattle' }],
+    },
+  },
+  {
+    id: 'people-my-possessions-are-the-speakers',
+    category: 'third_party',
+    mode: 'text',
+    input: 'My car is a blue Civic, and my house is in Austin.',
+    tags: ['core', 'self-entity'],
+    notes:
+      'Every "my" points at the speaker. The car and the house hang off the speaker entity, not off a third party.',
+    expect: {
+      entities: [
+        USER,
+        { name: 'blue Civic' },
+        { name: 'house' },
+        { name: 'Austin', type: 'place' },
+      ],
+      relations: [
+        { subject: 'user', object: 'blue Civic' },
+        { subject: 'user', object: 'house' },
+      ],
+      forbidden_entity_names: ['my', 'me'],
     },
   },
   {

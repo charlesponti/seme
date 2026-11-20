@@ -9,6 +9,7 @@ import {
 import appCss from '../styles.css?url';
 import { ToastProvider } from '../components/ui/toast';
 import { useState, useEffect } from 'react';
+import { IdentityControl } from '../components/identity-control';
 import { getApiKey, setApiKey, API_BASE } from '../lib/api';
 
 export const Route = createRootRoute({
@@ -95,6 +96,7 @@ function RootLayout() {
               </Link>
             ))}
           </nav>
+          <IdentityControl />
         </div>
       </header>
       <main

@@ -15,10 +15,8 @@ const EMBEDDING_DIM = parseInt(
 
 const service = new MemoryService({ storageDir: STORAGE_DIR, embeddingDim: EMBEDDING_DIM });
 
-// Seed identity core on startup
-service
-  .seedIdentityCore({ name: 'User' }, 'The user. Identity core not yet configured.')
-  .catch(() => {});
+// Seed identity on first run only (never overwrite on restart) and make sure the self entity exists
+service.ensureIdentityCore().catch((err) => console.error('ensureIdentityCore failed:', err));
 
 const app = new Hono();
 
@@ -396,6 +394,34 @@ app.get('/entities/name/:name', (c) => {
   return c.json(result);
 });
 
+// Merge one entity into another: `{ from_id, into_id }`. Repoints relationships,
+// links and wiki pages, unions aliases, then deletes `from_id`. Memories keep a
+// text `subject`, so they are not rewritten. The self entity can't be merged away.
+app.post('/entities/merge', async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  if (typeof body.from_id !== 'string' || typeof body.into_id !== 'string') {
+    return c.json(
+      {
+        error: {
+          code: 'ERR_VALIDATION',
+          message: 'from_id and into_id are required',
+          operation: 'merge_entities',
+        },
+      },
+      400,
+    );
+  }
+  try {
+    return c.json(await service.mergeEntities(body.from_id, body.into_id));
+  } catch (e: any) {
+    const code = e?.code === 'ERR_NOT_FOUND' ? 'ERR_NOT_FOUND' : 'ERR_VALIDATION';
+    return c.json(
+      { error: { code, message: e.message, operation: 'merge_entities' } },
+      code === 'ERR_NOT_FOUND' ? 404 : 400,
+    );
+  }
+});
+
 app.get('/entities/:id', (c) => {
   const id = c.req.param('id');
   const result = service.getEntity(id);
@@ -617,7 +643,7 @@ app.post('/graph/search', async (c) => {
   }
 });
 
-// Quick answer: one DeepSeek call over the memories the dashboard already retrieved
+// Quick answer: one OpenRouter call over the memories the dashboard already retrieved
 app.post('/search/answer', async (c) => {
   const body = await c.req.json().catch(() => ({}));
   try {

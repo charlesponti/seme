@@ -282,6 +282,16 @@ export function gradeCase(c: Case, pred: PredOutput): CaseGrade {
     });
   }
 
+  if (e.forbidden_entity_names) {
+    // Raw names, no alias mapping: catches a stray `user` entity next to the named speaker.
+    const raw = pred.entities.map((p) => normName(p.name));
+    const bad = e.forbidden_entity_names.filter((f) => raw.includes(normName(f)));
+    checks.push({
+      name: 'forbidden_entity_names',
+      pass: bad.length === 0,
+      detail: bad.length === 0 ? 'none present' : `present: ${bad.join(', ')}`,
+    });
+  }
   if (e.forbidden_entities) {
     const bad = e.forbidden_entities.filter((f) => predEntityKeys.includes(normName(f)));
     checks.push({

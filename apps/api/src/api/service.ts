@@ -8,6 +8,8 @@ import { Resolver } from '../resolver/resolver.js';
 import { ProfileCompiler } from '../profile/profile-compiler.js';
 import { RetrievalEngine } from '../retrieval/retrieval.js';
 import { IdentityCoreManager } from '../identity/identity-core.js';
+import { syncSelfEntity } from '../identity/self-entity.js';
+import { mergeEntities } from '../graph/merge-entities.js';
 import { ExtractionPipeline } from '../extraction/pipeline.js';
 import { Extractor } from '../extraction/extractor.js';
 import { SleepJob } from '../sleep/sleep-job.js';
@@ -27,6 +29,7 @@ import { ProcedureStore } from '../procedures/procedure-store.js';
 import { DataImport } from '../import/data-import.js';
 import { IntegrationStore } from '../integrations/integration-store.js';
 import { uuid, nowUtc } from '../types/common.js';
+import type { CreatedItems } from '../extraction/pipeline.js';
 import { createEmbeddingProvider } from '../embeddings/embedding-provider.js';
 import { getDecayClass } from '../confidence/confidence.js';
 
@@ -41,6 +44,8 @@ export interface IngestProgress {
   memories_created?: number;
   entities_created?: number;
   relationships_created?: number;
+  /** The rows this run added, for the sheet's results list. */
+  created?: CreatedItems;
   error?: string;
   updated_at: string;
 }
@@ -418,10 +423,22 @@ export class MemoryService {
   // Identity core
   async seedIdentityCore(contentJson: Record<string, unknown>, renderedText: string) {
     const existing = this.identityCore.get();
-    if (existing) {
-      return this.identityCore.update(contentJson, renderedText);
+    const result = existing
+      ? await this.identityCore.update(contentJson, renderedText)
+      : await this.identityCore.seed(contentJson, renderedText);
+    await syncSelfEntity(this.storage, result.content_json);
+    return result;
+  }
+
+  // Startup path: seed a placeholder identity only when none exists, so a restart
+  // never overwrites a name the user set. Always makes sure the self entity exists.
+  async ensureIdentityCore() {
+    const existing = this.identityCore.get();
+    if (!existing) {
+      await this.seedIdentityCore({ name: 'User' }, 'The user. Identity core not yet configured.');
+      return;
     }
-    return this.identityCore.seed(contentJson, renderedText);
+    await syncSelfEntity(this.storage, existing.content_json);
   }
 
   getIdentityCore() {
@@ -827,6 +844,11 @@ export class MemoryService {
   updateEntity(id: string, updates: any) {
     return this.graphStore.updateEntity(id, updates);
   }
+  // Fold `fromId` into `intoId`. Memories keep a text `subject`, so they are not rewritten.
+  mergeEntities(fromId: string, intoId: string) {
+    return mergeEntities(this.storage, fromId, intoId);
+  }
+
   deleteEntity(id: string) {
     return this.graphStore.deleteEntity(id);
   }
@@ -1020,6 +1042,7 @@ export class MemoryService {
           memories_created: r.memories_created,
           entities_created: r.entities_created,
           relationships_created: r.relationships_created,
+          created: r.created,
         });
         console.log(
           `Extraction complete for ${episodeId}: ${r.memories_created} memories, ${r.entities_created} entities, ${r.relationships_created} relationships`,

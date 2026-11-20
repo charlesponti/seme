@@ -69,6 +69,12 @@ export const semeApi = {
   wiki: (params?: Record<string, string>) => apiFetch('/wiki' + qs(params)),
   tasks: (params?: Record<string, string>) => apiFetch('/tasks' + qs(params)),
   profile: () => apiFetch('/profile'),
+  identity: () => apiFetch('/identity'),
+  setIdentity: (contentJson: Record<string, unknown>, renderedText: string) =>
+    apiFetch('/identity', {
+      method: 'PUT',
+      body: JSON.stringify({ content_json: contentJson, rendered_text: renderedText }),
+    }),
 
   // Retrieval
   search: (query: string, opts?: any) =>

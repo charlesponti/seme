@@ -97,14 +97,10 @@ check: typecheck lint fmt-check test
 test:
     cd {{api_dir}} && pnpm test
 
-# Run the extraction eval suite, e.g. `just eval --suite people --repeats 2`.
-# Runs against temp stores. Pass --judge explicitly to spend on the LLM judge.
-eval *args:
-    cd {{api_dir}} && pnpm run build && pnpm run eval {{args}}
+# Run the Promptfoo extraction eval suite, e.g. `just eval`.
+eval:
+    cd {{api_dir}} && pnpm run eval
 
-# Routing eval for the skills router (no LLM calls, Ollama only)
-eval-routing:
-    cd {{api_dir}} && pnpm run build && node dist/evals/suite/run.js --routing
 
 # Benchmark script from apps/api
 bench:
